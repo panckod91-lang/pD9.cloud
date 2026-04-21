@@ -745,7 +745,14 @@ function generateMessageText(payload = null) {
   if (!source.cliente || !source.carrito.length) return "Seleccioná cliente y productos.";
   const lines = [
     "Pedido:",
-    `Cliente: ${source.cliente.nombre_real || source.cliente.nombre}`,
+   `Cliente: ${
+  [
+    payload?.cliente?.nombre_real || payload?.cliente?.nombre || "",
+    payload?.cliente?.telefono || "",
+    payload?.cliente?.direccion || "",
+    payload?.cliente?.ciudad || ""
+  ].filter(Boolean).join(" | ")
+}`,
     source.vendedor?.nombre ? `Usuario: ${source.vendedor.nombre}` : "",
     ""
   ].filter(Boolean);
