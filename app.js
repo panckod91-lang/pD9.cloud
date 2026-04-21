@@ -803,10 +803,18 @@ function validateOrder() {
 }
 
 function buildWebhookPayload(payload) {
+  const cliente = payload?.cliente || {};
+  const clienteTexto = [
+    cliente.nombre_real || cliente.nombre || "",
+    cliente.telefono || "",
+    cliente.direccion || "",
+    cliente.ciudad || ""
+  ].filter(Boolean).join(" | ");
+
   return {
     vendedor_id: payload?.vendedor?.id || "",
     vendedor: payload?.vendedor?.nombre || "",
-    cliente: payload?.cliente?.nombre_real || payload?.cliente?.nombre || "",
+    cliente: clienteTexto,
     items: (payload?.carrito || []).map(item => ({
       nombre: item.nombre,
       cantidad: Number(item.cantidad || 0),
