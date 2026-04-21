@@ -96,27 +96,8 @@ function pulseSuccess(btn, label = "Listo", sublabel = "") {
 function openWhatsApp(phone, message) {
   const digits = onlyDigits(phone);
   if (!digits) return false;
-  const encoded = encodeURIComponent(message);
-  const directUrl = `whatsapp://send?phone=${digits}&text=${encoded}`;
-  const fallbackUrl = `https://api.whatsapp.com/send?phone=${digits}&text=${encoded}&type=phone_number&app_absent=0`;
-
-  const startedAt = Date.now();
-  let hidden = false;
-  const onHide = () => { hidden = true; };
-  document.addEventListener("visibilitychange", onHide, { once: true });
-
-  const a = document.createElement("a");
-  a.href = directUrl;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  setTimeout(() => {
-    if (!hidden && Date.now() - startedAt < 2200) {
-      window.open(fallbackUrl, "_blank", "noopener,noreferrer");
-    }
-  }, 900);
+  const waUrl = `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+  window.open(waUrl, "_blank");
   return true;
 }
 
@@ -742,25 +723,26 @@ function generateMessageText(payload = null) {
     vendedor: state.seller,
     total: cartTotal()
   };
-  if (!source.cliente || !source.carrito.length) return "Seleccioná cliente y productos.";
-  const clienteTexto = [
-  source.cliente?.nombre_real || source.cliente?.nombre || "",
-  source.cliente?.telefono || "",
-  source.cliente?.direccion || (source.cliente?.ciudad || "")
-].filter(Boolean).join(" | ");
 
-const lines = [
-  "Pedido:",
-  `Cliente: ${clienteTexto}`,
-  source.vendedor?.nombre ? `Usuario: ${source.vendedor.nombre}` : "",
-  ""
-].filter(Boolean);
+  if (!source.cliente || !source.carrito.length) return "Seleccioná cliente y productos.";
+
+  const clienteTexto = [
+    source.cliente?.nombre_real || source.cliente?.nombre || "",
+    source.cliente?.telefono || "",
+    source.cliente?.direccion || (source.cliente?.ciudad || "")
+  ].filter(Boolean).join(" | ");
+
+  const lines = [
+    "Pedido:",
+    `Cliente: ${clienteTexto}`,
     source.vendedor?.nombre ? `Usuario: ${source.vendedor.nombre}` : "",
     ""
   ].filter(Boolean);
+
   source.carrito.forEach(item => {
     lines.push(`- ${item.nombre} x${item.cantidad} = ${money(item.precio * item.cantidad)}`);
   });
+
   lines.push("", `Total: ${money(source.total)}`);
   return lines.join("\n");
 }
@@ -918,53 +900,46 @@ async function sendOrder() {
 
   try {
     const payload = buildOrderPayload();
-    const waPhone = state.seller?.rol === "vendedor" ? (state.seller.wasap_report || state.config.telefono_wa || "") : (state.config.telefono_wa || "");
+    const waPhone = state.seller?.rol === "vendedor"
+      ? (state.seller.wasap_report || state.config.telefono_wa || "")
+      : (state.config.telefono_wa || "");
     const waText = generateMessageText(payload);
 
     if (!navigator.onLine) {
       savePendingPayload(payload);
       saveHistory(payload, "pendiente", "Sin conexión");
+      renderPendingBadge();
       toast("Sin internet. Pedido guardado pendiente.");
       if (pendingBtn) pulseSuccess(pendingBtn, "Pendiente guardado", "Se enviará al recuperar conexión");
       return;
     }
 
-   // 👉 armar URL de WhatsApp (SIEMPRE wa.me)
-const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`;
-
-// 👉 abrir WhatsApp (sin romper la app)
-window.open(waUrl, "_blank");
-
-// 👉 ayudar al regreso a la app (suave)
-setTimeout(() => {
-  window.focus();
-}, 500);
-
-// 👉 guardar en segundo plano (NO bloquea al usuario)
-trySendToWebhook(payload)
-  .then(res => {
-    if (!res || !res.ok) {
-      savePendingPayload(payload);
-      saveHistory(payload, "pendiente", res?.error || "No pude confirmar el envío");
-      console.warn("Pedido pendiente:", res?.error);
-    } else {
-      saveHistory(payload, "ok", "Enviado correctamente");
-      console.log("Pedido guardado OK");
-    }
-  })
-  .catch(err => {
-    savePendingPayload(payload);
-    saveHistory(payload, "pendiente", String(err));
-    console.error("Error total, guardado local:", err);
-  });
-
-    saveHistory(payload, "enviado", "");
-    renderPendingBadge();
-    pulseSuccess(sendBtn, "Enviado");
-
     if (!openWhatsApp(waPhone, waText)) {
       toast("Falta telefono_wa en confi.");
+      return;
     }
+
+    trySendToWebhook(payload)
+      .then(res => {
+        if (!res || !res.ok) {
+          savePendingPayload(payload);
+          saveHistory(payload, "pendiente", res?.error || "No pude confirmar el envío");
+          renderPendingBadge();
+          console.warn("Pedido pendiente:", res?.error);
+        } else {
+          saveHistory(payload, "ok", "Enviado correctamente");
+          renderPendingBadge();
+          console.log("Pedido guardado OK");
+        }
+      })
+      .catch(err => {
+        savePendingPayload(payload);
+        saveHistory(payload, "pendiente", String(err));
+        renderPendingBadge();
+        console.error("Error total, guardado local:", err);
+      });
+
+    pulseSuccess(sendBtn, "Enviado");
   } finally {
     if (state.seller?.rol === "cliente") {
       applyUserContext();
@@ -973,6 +948,7 @@ trySendToWebhook(payload)
     } else {
       state.selectedClient = null;
     }
+
     clearCart();
     renderSelectedClient();
     renderClients();
