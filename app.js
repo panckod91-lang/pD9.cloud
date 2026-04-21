@@ -1,7 +1,7 @@
 const SHEET_ID = "1wHdgm_V0mloLaIsVPIIqbmTYBomx8DIUmXEplClCMz8";
 const WEBHOOK_ENDPOINTS = [
   "https://wild-pond-6b36.pancko-d9.workers.dev",
-  "/.netlify/functions/order"
+  // "/.netlify/functions/order" // ✋ backup Netlify (desactivado)
 ];
 const OPEN_SHEET = (sheet) => `https://opensheet.elk.sh/${SHEET_ID}/${encodeURIComponent(sheet)}`;
 const STORAGE_KEYS = {
