@@ -743,15 +743,18 @@ function generateMessageText(payload = null) {
     total: cartTotal()
   };
   if (!source.cliente || !source.carrito.length) return "Seleccioná cliente y productos.";
-  const lines = [
-    "Pedido:",
-   [
+  const clienteTexto = [
   source.cliente?.nombre_real || source.cliente?.nombre || "",
   source.cliente?.telefono || "",
-  source.cliente?.direccion || (
-    source.cliente?.ciudad || ""
-  )
-].filter(Boolean).join(" | ")
+  source.cliente?.direccion || (source.cliente?.ciudad || "")
+].filter(Boolean).join(" | ");
+
+const lines = [
+  "Pedido:",
+  `Cliente: ${clienteTexto}`,
+  source.vendedor?.nombre ? `Usuario: ${source.vendedor.nombre}` : "",
+  ""
+].filter(Boolean);
     source.vendedor?.nombre ? `Usuario: ${source.vendedor.nombre}` : "",
     ""
   ].filter(Boolean);
