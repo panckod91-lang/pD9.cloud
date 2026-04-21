@@ -913,15 +913,24 @@ async function sendOrder() {
       return;
     }
 
-    const webhookResult = await trySendToWebhook(payload).catch(error => ({ ok: false, error: String(error) }));
+    // 👉 abrir WhatsApp primero
+const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`;
+window.location.href = waUrl;
 
-    if (!webhookResult.ok) {
+// 👉 guardar en segundo plano
+trySendToWebhook(payload)
+  .then(res => {
+    if (!res.ok) {
       savePendingPayload(payload);
-      saveHistory(payload, "pendiente", webhookResult.error || "No pude confirmar el envío");
-      toast("No pude confirmar el envío. Quedó pendiente.");
-      if (pendingBtn) pulseSuccess(pendingBtn, "Quedó pendiente", "Reintentar registros pendientes");
-      return;
+      saveHistory(payload, "pendiente", res.error || "No pude confirmar el envío");
+    } else {
+      saveHistory(payload, "ok", "Enviado correctamente");
     }
+  })
+  .catch(error => {
+    savePendingPayload(payload);
+    saveHistory(payload, "pendiente", String(error));
+  });
 
     saveHistory(payload, "enviado", "");
     renderPendingBadge();
