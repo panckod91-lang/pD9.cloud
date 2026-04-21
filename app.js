@@ -915,7 +915,10 @@ async function sendOrder() {
 
     // 👉 abrir WhatsApp primero
 const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`;
-window.location.replace(waUrl);
+window.open(waUrl, "_blank");
+    setTimeout(() => {
+  window.focus();
+}, 500);
 
 // 👉 guardar en segundo plano
 trySendToWebhook(payload)
