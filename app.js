@@ -811,11 +811,10 @@ function validateOrder() {
 function buildWebhookPayload(payload) {
   const cliente = payload?.cliente || {};
   const clienteTexto = [
-    cliente.nombre_real || cliente.nombre || "",
-    cliente.telefono || "",
-    cliente.direccion || "",
-    cliente.ciudad || ""
-  ].filter(Boolean).join(" | ");
+  cliente.nombre_real || cliente.nombre || "",
+  cliente.telefono || "",
+  cliente.direccion || (cliente.ciudad || "")
+].filter(Boolean).join(" | ");
 
   return {
     vendedor_id: payload?.vendedor?.id || "",
