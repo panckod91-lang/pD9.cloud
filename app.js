@@ -913,26 +913,33 @@ async function sendOrder() {
       return;
     }
 
-    // 👉 abrir WhatsApp primero
+   // 👉 armar URL de WhatsApp (SIEMPRE wa.me)
 const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waText)}`;
+
+// 👉 abrir WhatsApp (sin romper la app)
 window.open(waUrl, "_blank");
-    setTimeout(() => {
+
+// 👉 ayudar al regreso a la app (suave)
+setTimeout(() => {
   window.focus();
 }, 500);
 
-// 👉 guardar en segundo plano
+// 👉 guardar en segundo plano (NO bloquea al usuario)
 trySendToWebhook(payload)
   .then(res => {
-    if (!res.ok) {
+    if (!res || !res.ok) {
       savePendingPayload(payload);
-      saveHistory(payload, "pendiente", res.error || "No pude confirmar el envío");
+      saveHistory(payload, "pendiente", res?.error || "No pude confirmar el envío");
+      console.warn("Pedido pendiente:", res?.error);
     } else {
       saveHistory(payload, "ok", "Enviado correctamente");
+      console.log("Pedido guardado OK");
     }
   })
-  .catch(error => {
+  .catch(err => {
     savePendingPayload(payload);
-    saveHistory(payload, "pendiente", String(error));
+    saveHistory(payload, "pendiente", String(err));
+    console.error("Error total, guardado local:", err);
   });
 
     saveHistory(payload, "enviado", "");
