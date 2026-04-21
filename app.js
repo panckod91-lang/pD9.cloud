@@ -747,10 +747,10 @@ function generateMessageText(payload = null) {
     "Pedido:",
    `Cliente: ${
   [
-    payload?.cliente?.nombre_real || payload?.cliente?.nombre || "",
-    payload?.cliente?.telefono || "",
-    payload?.cliente?.direccion || "",
-    payload?.cliente?.ciudad || ""
+    source.cliente?.nombre_real || source.cliente?.nombre || "",
+    source.cliente?.telefono || "",
+    source.cliente?.direccion || "",
+    source.cliente?.ciudad || ""
   ].filter(Boolean).join(" | ")
 }`,
     source.vendedor?.nombre ? `Usuario: ${source.vendedor.nombre}` : "",
