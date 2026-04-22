@@ -297,7 +297,7 @@ function renderTop() {
   }
 
   if (chipEl) {
-    chipEl.textContent = state.support["chip info"] || "M.J.S.";
+    chipEl.textContent = state.support["chip_info"] || state.support["chip info"] || "M.J.S.";
   }
 }
 
