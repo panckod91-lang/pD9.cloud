@@ -319,8 +319,8 @@ function syncSessionUI() {
   const btn = $("#btnChangeSeller");
   if (!btn) return;
   if (state.seller) {
-    renderDualButton(btn, "Cambiar usuario", "Sesión actual y acceso");
-    btn.dataset.title = "Cambiar usuario";
+    renderDualButton(btn, "Usuario", "Sesión actual y acceso");
+    btn.dataset.title = "Usuario";
     btn.dataset.sub = "Sesión actual y acceso";
   } else {
     renderDualButton(btn, "Ingresar", "Acceder con usuario y clave");

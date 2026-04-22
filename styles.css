@@ -423,3 +423,183 @@ body{padding:10px 12px 16px;}
   .title-group-vnext small{font-size:.75rem;}
   .pending-count-vnext{right:38px;top:11px;}
 }
+
+
+/* ===== Polish v4: top bar + grid only ===== */
+.hero-header-vnext{
+  padding:11px 14px;
+  border-radius:22px;
+  margin-bottom:10px;
+}
+.logo-badge-vnext{
+  width:60px;height:60px;border-radius:18px;
+}
+.logo-badge-vnext img{width:45px;height:45px}
+.brand-copy-vnext h1{font-size:clamp(1.42rem, 2.8vw, 1.82rem)}
+.brand-copy-vnext p{font-size:.91rem;margin-top:5px}
+
+.status-row-vnext{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:10px;
+  margin:0 2px 12px;
+  align-items:center;
+}
+.status-pill-vnext{
+  min-height:46px;
+  padding:8px 12px;
+  font-size:.96rem;
+  gap:8px;
+  justify-content:center;
+  border-radius:999px;
+}
+#networkStatus, #sellerBadge, #btnPancko{
+  width:100%;
+}
+#networkStatus{justify-self:start}
+#sellerBadge{justify-self:center}
+#btnPancko{justify-self:end}
+.pancko-pill-vnext{
+  position:relative;
+  padding-left:14px;
+}
+.pancko-pill-vnext::before{
+  content:"ⓘ";
+  font-size:1.05rem;
+  line-height:1;
+  font-weight:700;
+  opacity:.9;
+}
+.pendingBadge, #pendingBadge{display:none !important}
+
+.cta-main-vnext{
+  min-height:104px;
+  padding:14px 16px;
+  border-radius:24px;
+  margin-bottom:12px;
+}
+.cta-icon-vnext{width:50px;height:50px;font-size:1.5rem}
+.cta-copy-vnext strong{font-size:clamp(1.45rem, 4vw, 1.95rem)}
+.cta-copy-vnext small{font-size:.92rem}
+
+.promo-card-vnext{
+  min-height:188px;
+  border-radius:26px;
+  margin-bottom:12px;
+}
+.banner-copy-vnext{padding:16px 18px}
+.banner-title-vnext{font-size:1.02rem}
+.banner-kicker-vnext{font-size:.75rem}
+.banner-thumb-vnext{width:128px;height:128px;border-radius:24px}
+
+.home-grid-vnext{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-bottom:14px;
+}
+.action-card-vnext{
+  position:relative;
+  border:none;
+  border-radius:24px;
+  min-height:124px;
+  padding:18px 44px 18px 16px;
+  background:linear-gradient(180deg,#ffffff 0%, #f7f9fc 100%);
+  box-shadow:0 8px 22px rgba(8,37,84,.08);
+  overflow:hidden;
+}
+.action-card-vnext:active{
+  transform:scale(.985);
+}
+.action-head-vnext{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+.icon-wrap-vnext{
+  width:58px;
+  height:58px;
+  border-radius:18px;
+  font-size:1.45rem;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55);
+}
+.icon-wrap-vnext.blue{background:#e3f0ff}
+.icon-wrap-vnext.cyan{background:#def7ff}
+.icon-wrap-vnext.soft{background:#f0e8ff}
+.icon-wrap-vnext.warm{background:#fff1df}
+.title-group-vnext{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  flex:1;
+  min-width:0;
+}
+.title-group-vnext strong{
+  display:block;
+  font-size:1.02rem;
+  line-height:1.06;
+  font-weight:900;
+  color:#102a4f;
+  margin:0;
+}
+.title-group-vnext small{
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  margin-top:7px;
+  font-size:.82rem;
+  line-height:1.22;
+  color:#70839b;
+  max-width:100%;
+}
+.go-vnext{
+  right:16px;
+  top:50%;
+  transform:translateY(-50%);
+  font-size:2rem;
+  color:#72859d;
+}
+.pending-count-vnext{
+  position:absolute;
+  top:12px;
+  right:15px;
+  min-width:34px;
+  height:34px;
+  padding:0 10px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  background:#ff1320;
+  color:#fff;
+  font-weight:900;
+  font-size:.98rem;
+  box-shadow:0 10px 20px rgba(255,19,32,.22);
+}
+.pending-count-vnext.hidden{display:none}
+
+#btnChangeSeller .title-group-vnext strong,
+#btnSyncPending .title-group-vnext strong{
+  font-size:1rem;
+}
+#btnSyncPending .title-group-vnext small,
+#btnChangeSeller .title-group-vnext small{
+  max-width:95%;
+}
+
+.led-info-vnext{
+  border-radius:22px;
+}
+.led-row-vnext{padding:10px 14px}
+.led-live-vnext{font-size:.96rem}
+.led-marquee-vnext{font-size:.93rem}
+
+@media (max-width:420px){
+  .status-row-vnext{gap:8px}
+  .status-pill-vnext{font-size:.9rem;padding:8px 10px;min-height:44px}
+  .action-card-vnext{min-height:118px;padding:16px 40px 16px 14px}
+  .icon-wrap-vnext{width:54px;height:54px}
+  .title-group-vnext strong{font-size:.98rem}
+  .title-group-vnext small{font-size:.8rem}
+}
