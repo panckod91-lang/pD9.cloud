@@ -78,6 +78,30 @@ const isTrue = (v) => String(v).trim().toLowerCase() === "true";
 function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
 
 
+function cfgRow(key) {
+  const row = state.config?.[key];
+  return row && typeof row === "object" ? row : { text1: "", text2: "", text3: "" };
+}
+function cfgTexts(key) {
+  const row = cfgRow(key);
+  return [row.text1 || "", row.text2 || "", row.text3 || ""].filter(Boolean);
+}
+function cfgFirst(key, fallback = "") {
+  return cfgTexts(key)[0] || fallback;
+}
+function cfgColors(key) {
+  const row = cfgRow(key);
+  return [row.text1 || "", row.text2 || "", row.text3 || ""];
+}
+function renderRichPieces(texts, colors) {
+  return texts.map((txt, i) => {
+    const color = colors[i] || "";
+    const style = color ? ` style="color:${esc(color)}"` : "";
+    return `<span${style}>${esc(txt)}</span>`;
+  }).join("");
+}
+
+
 function renderDualButton(btn, title, sub = "") {
   if (!btn) return;
   const titleEl = btn.querySelector(".title-group-vnext strong, .home-btn-title");
@@ -161,7 +185,14 @@ async function loadAllData() {
     fetchSheet("soporte")
   ]);
 
-  state.config = Object.fromEntries(confi.map(r => [String(r.clave || "").trim(), String(r.valor || "").trim()]));
+  state.config = Object.fromEntries(confi.map(r => {
+    const key = String(r.clave || "").trim();
+    return [key, {
+      text1: String(r.text1 || r.valor || "").trim(),
+      text2: String(r.text2 || "").trim(),
+      text3: String(r.text3 || "").trim()
+    }];
+  }));
   state.users = sellers.filter(r => isTrue(r.activo)).map(r => ({
     id: String(r.id || "").trim(),
     usuario: String(r.usuario || "").trim().toLowerCase(),
@@ -229,10 +260,27 @@ function closeModal(name) {
 }
 
 function renderTop() {
-  const titleEl = $("#appTitle");
-  const companyEl = $("#empresaLabel");
-  if (titleEl) titleEl.textContent = state.config.nombre_app || "D9 Pedidos";
-  if (companyEl) companyEl.textContent = state.config.empresa || "Empresa";
+  const titleEl = $("#appTitleRich");
+  const subEl = $("#appSubtitleRich");
+  const titleTexts = cfgTexts("titulo");
+  const titleColors = cfgColors("titulo_color");
+  const subTexts = cfgTexts("subtitulo");
+  const subColors = cfgColors("subtitulo_color");
+
+  if (titleEl) {
+    titleEl.innerHTML = titleTexts.length
+      ? renderRichPieces(titleTexts, titleColors)
+      : "Distribuidora 9";
+  }
+
+  if (subEl) {
+    subEl.innerHTML = subTexts.length
+      ? renderRichPieces(subTexts, subColors)
+      : "Gestor de pedidos";
+  }
+
+  const docTitle = titleTexts.join(" ").trim();
+  if (docTitle) document.title = docTitle;
 }
 
 function renderNetwork() {
@@ -240,10 +288,10 @@ function renderNetwork() {
   if (!el) return;
   el.classList.remove("online", "offline", "muted");
   if (navigator.onLine) {
-    el.textContent = "Online";
+    el.textContent = cfgFirst("estado_label_online", "Online");
     el.classList.add("online");
   } else {
-    el.textContent = "Offline";
+    el.textContent = cfgFirst("estado_label_offline", "Offline");
     el.classList.add("offline");
   }
 }
@@ -264,6 +312,9 @@ function renderPendingBadge() {
   const pending = readJSON(STORAGE_KEYS.pending, []);
   const el = $("#pendingBadge");
   const cardCount = document.querySelector(".pending-count-vnext");
+  const titleEl = document.querySelector("#btnSyncPending .title-group-vnext strong");
+  const subEl = document.querySelector("#btnSyncPending .title-group-vnext small");
+
   if (cardCount) {
     if (!pending.length) {
       cardCount.classList.add("hidden");
@@ -272,6 +323,10 @@ function renderPendingBadge() {
       cardCount.textContent = String(pending.length);
     }
   }
+
+  if (titleEl) titleEl.textContent = pending.length ? `Pendientes: ${pending.length}` : "Sin pendientes";
+  if (subEl) subEl.textContent = pending.length ? "Se enviarán con conexión" : "Todo sincronizado";
+
   if (!el) return;
   if (!pending.length) {
     el.classList.add("hidden");
@@ -306,8 +361,28 @@ function renderBanner() {
     </a>`;
 }
 
+function renderTicker() {
+  const el = $("#tickerMarquee");
+  if (!el) return;
+  const texts = cfgTexts("ticker_texto");
+  const colors = cfgColors("ticker_color");
+  if (!texts.length) return;
+
+  const parts = [];
+  texts.forEach((txt, i) => {
+    if (!txt) return;
+    const color = colors[i] || "";
+    const style = color ? ` style="color:${esc(color)}"` : "";
+    parts.push(`<span${style}>${esc(txt)}</span>`);
+    if (i < texts.length - 1) parts.push('<span>•</span>');
+  });
+  el.innerHTML = parts.join("");
+}
+
 function renderSupport() {
   const s = state.support;
+  const chip = $("#chipInfoLabel");
+  if (chip) chip.textContent = s["chip info"] || "M.J.S.";
   $("#supportBox").innerHTML = `
     <strong>${esc(s.nombre || "Sin dato")}</strong>
     <div class="mini-text">WhatsApp: ${s.whatsapp ? `<a href="https://wa.me/${onlyDigits(s.whatsapp)}" target="_blank">${esc(s.whatsapp)}</a>` : "-"}</div>
@@ -328,8 +403,7 @@ function syncSessionUI() {
     btn.dataset.sub = "Acceder con usuario y clave";
   }
 
-  const supportBtn = $("#btnPancko");
-  if (supportBtn) supportBtn.textContent = "M.J.S.";
+
 }
 
 function applyUserContext() {
@@ -973,8 +1047,8 @@ async function sendOrder() {
   try {
     const payload = buildOrderPayload();
     const waPhone = state.seller?.rol === "vendedor"
-      ? (state.seller.wasap_report || state.config.telefono_wa || "")
-      : (state.config.telefono_wa || "");
+      ? (state.seller.wasap_report || cfgFirst("telefono_wa", ""))
+      : cfgFirst("telefono_wa", "");
     const waText = generateMessageText(payload);
 
     if (!navigator.onLine) {
@@ -1320,6 +1394,7 @@ function renderAll() {
   renderSellerBadge();
   renderPendingBadge();
   renderBanner();
+  renderTicker();
   renderSupport();
   syncSessionUI();
   applyUserContext();
