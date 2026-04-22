@@ -18,8 +18,8 @@
           <img src="icons/logo_d9.png" onerror="this.onerror=null;this.src='icons/icon.svg';" alt="Logo D9" />
         </div>
         <div class="brand-copy-vnext">
-          <h1 id="appTitleRich">Distribuidora 9</h1>
-          <p id="appSubtitleRich">Gestor de pedidos</p>
+          <h1 id="appTitle">Distribuidora 9</h1>
+          <p id="empresaLabel">Gestor de pedidos</p>
         </div>
       </div>
     </header>
@@ -27,7 +27,7 @@
     <section class="status-row-vnext">
       <div id="networkStatus" class="status-pill-vnext muted">Verificando…</div>
       <div id="sellerBadge" class="status-pill-vnext muted">Sin usuario</div>
-      <button id="btnPancko" class="status-pill-vnext pancko-pill-vnext" type="button"><span class="chip-info-icon-vnext">ⓘ</span><span id="chipInfoLabel">M.J.S.</span></button>
+      <button id="btnPancko" class="status-pill-vnext pancko-pill-vnext" type="button">M.J.S.</button>
       <div id="pendingBadge" class="status-pill-vnext alert hidden">0 pendientes</div>
     </section>
 
@@ -78,7 +78,7 @@
             <span class="go-vnext">›</span>
           </button>
 
-          <div id="btnSyncPending" class="action-card-vnext pending-card-vnext pending-info-vnext" data-title="Pendientes" data-sub="Se enviarán con conexión" role="status" aria-live="polite">
+          <button id="btnSyncPending" class="action-card-vnext pending-card-vnext" data-title="Pendientes" data-sub="Reintentar registros pendientes" type="button">
             <span class="action-head-vnext">
               <span class="icon-wrap-vnext warm">📋</span>
               <span class="title-group-vnext">
@@ -88,7 +88,7 @@
             </span>
             <span class="pending-count-vnext hidden">0</span>
             <span class="go-vnext">›</span>
-          </div>
+          </button>
         </section>
 
         <section class="led-info-vnext">
@@ -96,7 +96,7 @@
             <div class="led-live-vnext"><span class="live-dot-vnext"></span>EN VIVO</div>
             <div class="led-divider-vnext"></div>
             <div class="led-marquee-wrap-vnext">
-              <div id="tickerMarquee" class="led-marquee-vnext">
+              <div id="ledTicker" class="led-marquee-vnext">
                 <span>🚚 Repartos hasta las 18hs</span>
                 <span>•</span>
                 <span>🏷 Promos activas</span>

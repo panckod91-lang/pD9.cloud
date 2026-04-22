@@ -77,29 +77,52 @@ const onlyDigits = (v) => String(v || "").replace(/\D+/g, "");
 const isTrue = (v) => String(v).trim().toLowerCase() === "true";
 function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
 
+function parseRowsByKey(rows) {
+  const out = {};
+  (rows || []).forEach((r) => {
+    const key = String(r.clave || "").trim();
+    if (!key) return;
+    out[key] = {
+      valor: String(r.valor ?? "").trim(),
+      tex1: String(r.tex1 ?? "").trim(),
+      tex2: String(r.tex2 ?? "").trim(),
+      tex3: String(r.tex3 ?? "").trim()
+    };
+  });
+  return out;
+}
 
-function cfgRow(key) {
+function confText(key, fallback = "") {
   const row = state.config?.[key];
-  return row && typeof row === "object" ? row : { text1: "", text2: "", text3: "" };
+  if (!row) return fallback;
+  if (typeof row === "string") return row || fallback;
+  return row.valor || row.tex1 || fallback;
 }
-function cfgTexts(key) {
-  const row = cfgRow(key);
-  return [row.text1 || "", row.text2 || "", row.text3 || ""].filter(Boolean);
+
+function confParts(key) {
+  const row = state.config?.[key];
+  if (!row) return [];
+  if (typeof row === "string") return row ? [row] : [];
+  return [row.tex1, row.tex2, row.tex3].map(v => String(v || "").trim()).filter(Boolean);
 }
-function cfgFirst(key, fallback = "") {
-  return cfgTexts(key)[0] || fallback;
+
+function confColors(key) {
+  const row = state.config?.[key];
+  if (!row) return [];
+  if (typeof row === "string") return row ? [row] : [];
+  return [row.tex1, row.tex2, row.tex3].map(v => String(v || "").trim());
 }
-function cfgColors(key) {
-  const row = cfgRow(key);
-  return [row.text1 || "", row.text2 || "", row.text3 || ""];
-}
-function renderRichPieces(texts, colors) {
-  return texts.map((txt, i) => {
-    const color = colors[i] || "";
+
+function buildColoredInline(parts, colors, fallback = "") {
+  const cleanParts = (parts || []).filter(Boolean);
+  if (!cleanParts.length) return esc(fallback);
+  return cleanParts.map((part, i) => {
+    const color = String(colors?.[i] || "").trim();
     const style = color ? ` style="color:${esc(color)}"` : "";
-    return `<span${style}>${esc(txt)}</span>`;
-  }).join("");
+    return `<span${style}>${esc(part)}</span>`;
+  }).join(" ");
 }
+
 
 
 function renderDualButton(btn, title, sub = "") {
@@ -185,14 +208,7 @@ async function loadAllData() {
     fetchSheet("soporte")
   ]);
 
-  state.config = Object.fromEntries(confi.map(r => {
-    const key = String(r.clave || "").trim();
-    return [key, {
-      text1: String(r.text1 || r.valor || "").trim(),
-      text2: String(r.text2 || "").trim(),
-      text3: String(r.text3 || "").trim()
-    }];
-  }));
+  state.config = parseRowsByKey(confi);
   state.users = sellers.filter(r => isTrue(r.activo)).map(r => ({
     id: String(r.id || "").trim(),
     usuario: String(r.usuario || "").trim().toLowerCase(),
@@ -260,27 +276,29 @@ function closeModal(name) {
 }
 
 function renderTop() {
-  const titleEl = $("#appTitleRich");
-  const subEl = $("#appSubtitleRich");
-  const titleTexts = cfgTexts("titulo");
-  const titleColors = cfgColors("titulo_color");
-  const subTexts = cfgTexts("subtitulo");
-  const subColors = cfgColors("subtitulo_color");
+  const titleEl = $("#appTitle");
+  const companyEl = $("#empresaLabel");
+  const chipEl = $("#btnPancko");
 
   if (titleEl) {
-    titleEl.innerHTML = titleTexts.length
-      ? renderRichPieces(titleTexts, titleColors)
-      : "Distribuidora 9";
+    titleEl.innerHTML = buildColoredInline(
+      confParts("titulo"),
+      confColors("titulo_color"),
+      "Distribuidora 9"
+    );
   }
 
-  if (subEl) {
-    subEl.innerHTML = subTexts.length
-      ? renderRichPieces(subTexts, subColors)
-      : "Gestor de pedidos";
+  if (companyEl) {
+    companyEl.innerHTML = buildColoredInline(
+      confParts("subtitulo"),
+      confColors("subtitulo_color"),
+      "Gestor de pedidos"
+    );
   }
 
-  const docTitle = titleTexts.join(" ").trim();
-  if (docTitle) document.title = docTitle;
+  if (chipEl) {
+    chipEl.textContent = state.support["chip info"] || "M.J.S.";
+  }
 }
 
 function renderNetwork() {
@@ -288,10 +306,10 @@ function renderNetwork() {
   if (!el) return;
   el.classList.remove("online", "offline", "muted");
   if (navigator.onLine) {
-    el.textContent = cfgFirst("estado_label_online", "Online");
+    el.textContent = confText("estado_label_online", "Online");
     el.classList.add("online");
   } else {
-    el.textContent = cfgFirst("estado_label_offline", "Offline");
+    el.textContent = confText("estado_label_offline", "Offline");
     el.classList.add("offline");
   }
 }
@@ -312,9 +330,6 @@ function renderPendingBadge() {
   const pending = readJSON(STORAGE_KEYS.pending, []);
   const el = $("#pendingBadge");
   const cardCount = document.querySelector(".pending-count-vnext");
-  const titleEl = document.querySelector("#btnSyncPending .title-group-vnext strong");
-  const subEl = document.querySelector("#btnSyncPending .title-group-vnext small");
-
   if (cardCount) {
     if (!pending.length) {
       cardCount.classList.add("hidden");
@@ -323,10 +338,6 @@ function renderPendingBadge() {
       cardCount.textContent = String(pending.length);
     }
   }
-
-  if (titleEl) titleEl.textContent = pending.length ? `Pendientes: ${pending.length}` : "Sin pendientes";
-  if (subEl) subEl.textContent = pending.length ? "Se enviarán con conexión" : "Todo sincronizado";
-
   if (!el) return;
   if (!pending.length) {
     el.classList.add("hidden");
@@ -361,28 +372,29 @@ function renderBanner() {
     </a>`;
 }
 
-function renderTicker() {
-  const el = $("#tickerMarquee");
-  if (!el) return;
-  const texts = cfgTexts("ticker_texto");
-  const colors = cfgColors("ticker_color");
-  if (!texts.length) return;
 
-  const parts = [];
-  texts.forEach((txt, i) => {
-    if (!txt) return;
-    const color = colors[i] || "";
-    const style = color ? ` style="color:${esc(color)}"` : "";
-    parts.push(`<span${style}>${esc(txt)}</span>`);
-    if (i < texts.length - 1) parts.push('<span>•</span>');
+function renderTicker() {
+  const el = $("#ledTicker");
+  if (!el) return;
+  const texts = confParts("ticker_texto");
+  const colors = confColors("ticker_color");
+  const fallback = [
+    { t: "Repartos hasta las 18hs", c: "#4dabf7" },
+    { t: "Promos activas", c: "#51cf66" },
+    { t: "Zona sur sin envío hoy", c: "#ff6b6b" }
+  ];
+  const parts = texts.length ? texts.map((t, i) => ({ t, c: colors[i] || "" })) : fallback;
+  const html = [];
+  parts.forEach((item, i) => {
+    html.push(`<span${item.c ? ` style="color:${esc(item.c)}"` : ""}>${esc(item.t)}</span>`);
+    if (i < parts.length - 1) html.push('<span>•</span>');
   });
-  el.innerHTML = parts.join("");
+  el.innerHTML = html.join("");
 }
+
 
 function renderSupport() {
   const s = state.support;
-  const chip = $("#chipInfoLabel");
-  if (chip) chip.textContent = s["chip info"] || "M.J.S.";
   $("#supportBox").innerHTML = `
     <strong>${esc(s.nombre || "Sin dato")}</strong>
     <div class="mini-text">WhatsApp: ${s.whatsapp ? `<a href="https://wa.me/${onlyDigits(s.whatsapp)}" target="_blank">${esc(s.whatsapp)}</a>` : "-"}</div>
@@ -403,7 +415,8 @@ function syncSessionUI() {
     btn.dataset.sub = "Acceder con usuario y clave";
   }
 
-
+  const supportBtn = $("#btnPancko");
+  if (supportBtn) supportBtn.textContent = "M.J.S.";
 }
 
 function applyUserContext() {
@@ -1047,8 +1060,8 @@ async function sendOrder() {
   try {
     const payload = buildOrderPayload();
     const waPhone = state.seller?.rol === "vendedor"
-      ? (state.seller.wasap_report || cfgFirst("telefono_wa", ""))
-      : cfgFirst("telefono_wa", "");
+      ? (state.seller.wasap_report || confText("telefono_wa") || "")
+      : (confText("telefono_wa") || "");
     const waText = generateMessageText(payload);
 
     if (!navigator.onLine) {

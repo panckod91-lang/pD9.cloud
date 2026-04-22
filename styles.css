@@ -603,8 +603,3 @@ body{padding:10px 12px 16px;}
   .title-group-vnext strong{font-size:.98rem}
   .title-group-vnext small{font-size:.8rem}
 }
-
-.brand-copy-vnext h1 span,.brand-copy-vnext p span{display:inline-block;}
-.chip-info-icon-vnext{margin-right:6px;opacity:.8}
-.pending-info-vnext{cursor:default;}
-.pending-info-vnext .go-vnext{display:none;}
