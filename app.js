@@ -10,9 +10,14 @@ const STORAGE_KEYS = {
   pending: "d9_pendientes",
   guestClient: "d9_invitado_cliente"
 };
-
-const APP_CACHE = {
-  data: "d9_cache_data_v1"
+const CACHE_KEYS = {
+  config: "d9_cache_config",
+  users: "d9_cache_users",
+  clients: "d9_cache_clients",
+  products: "d9_cache_products",
+  ads: "d9_cache_ads",
+  support: "d9_cache_support",
+  lastSync: "d9_cache_last_sync"
 };
 
 const state = {
@@ -41,37 +46,34 @@ const $ = (s) => document.querySelector(s);
 const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Number(v) || 0);
 const readJSON = (k, f) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
 const saveJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const saveCache = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const readCache = (k, f = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
+function hydrateCacheState() {
+  state.config = readCache(CACHE_KEYS.config, state.config || {});
+  state.users = readCache(CACHE_KEYS.users, state.users || []);
+  state.clients = readCache(CACHE_KEYS.clients, state.clients || []);
+  state.products = readCache(CACHE_KEYS.products, state.products || []);
+  state.ads = readCache(CACHE_KEYS.ads, state.ads || []);
+  state.support = readCache(CACHE_KEYS.support, state.support || {});
+}
+function persistCacheState() {
+  saveCache(CACHE_KEYS.config, state.config || {});
+  saveCache(CACHE_KEYS.users, state.users || []);
+  saveCache(CACHE_KEYS.clients, state.clients || []);
+  saveCache(CACHE_KEYS.products, state.products || []);
+  saveCache(CACHE_KEYS.ads, state.ads || []);
+  saveCache(CACHE_KEYS.support, state.support || {});
+  localStorage.setItem(CACHE_KEYS.lastSync, String(Date.now()));
+}
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    await navigator.serviceWorker.register("./sw.js");
+  } catch (error) {
+    console.warn("[D9] No pude registrar sw.js:", error);
+  }
+}
 const onlyDigits = (v) => String(v || "").replace(/\D+/g, "");
-
-function buildCacheSnapshot() {
-  return {
-    config: state.config,
-    users: state.users,
-    clients: state.clients,
-    products: state.products,
-    ads: state.ads,
-    support: state.support,
-    savedAt: Date.now()
-  };
-}
-
-function applyCacheSnapshot(snapshot) {
-  if (!snapshot) return false;
-  state.config = snapshot.config || {};
-  state.users = Array.isArray(snapshot.users) ? snapshot.users : [];
-  state.clients = Array.isArray(snapshot.clients) ? snapshot.clients : [];
-  state.products = Array.isArray(snapshot.products) ? snapshot.products : [];
-  state.ads = Array.isArray(snapshot.ads) ? snapshot.ads : [];
-  state.support = snapshot.support || {};
-  return !!(state.products.length || state.clients.length || state.ads.length || state.users.length);
-}
-
-function registerServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('./sw.js').catch(err => {
-    console.warn('[D9] No pude registrar sw.js:', err);
-  });
-}
 const isTrue = (v) => String(v).trim().toLowerCase() === "true";
 function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
 
@@ -220,16 +222,23 @@ function closeModal(name) {
 }
 
 function renderTop() {
-  $("#appTitle").textContent = state.config.nombre_app || "D9 Pedidos";
-  $("#empresaLabel").textContent = state.config.empresa || "Empresa";
+  const titleEl = $("#appTitle");
+  const companyEl = $("#empresaLabel");
+  if (titleEl) titleEl.textContent = state.config.nombre_app || "D9 Pedidos";
+  if (companyEl) companyEl.textContent = state.config.empresa || "Empresa";
 }
 
 function renderNetwork() {
   const el = $("#networkStatus");
   if (!el) return;
-  el.textContent = navigator.onLine ? "Online" : "Offline";
-  el.classList.remove("online", "offline");
-  el.classList.add(navigator.onLine ? "online" : "offline");
+  el.classList.remove("online", "offline", "muted");
+  if (navigator.onLine) {
+    el.textContent = "Online";
+    el.classList.add("online");
+  } else {
+    el.textContent = "Offline";
+    el.classList.add("offline");
+  }
 }
 
 function renderSellerBadge() {
@@ -237,14 +246,17 @@ function renderSellerBadge() {
   if (!el) return;
   if (!state.seller) {
     el.textContent = "Sin usuario";
+    el.classList.add("muted");
     return;
   }
   el.textContent = state.seller.nombre || "Usuario";
+  el.classList.remove("muted");
 }
 
 function renderPendingBadge() {
   const pending = readJSON(STORAGE_KEYS.pending, []);
   const el = $("#pendingBadge");
+  if (!el) return;
   if (!pending.length) {
     el.classList.add("hidden");
     return;
@@ -255,24 +267,25 @@ function renderPendingBadge() {
 
 function renderBanner() {
   const box = $("#bannerWrap");
-  const first = state.ads[0];
+  if (!box) return;
+  const first = Array.isArray(state.ads) ? state.ads[0] : null;
   if (!first) {
     box.classList.add("hidden");
     box.innerHTML = "";
     return;
   }
-  const text = first.texto || "Publicidad";
-  const img = first.imagen_url || "";
-  const link = first.link_url || "#";
+  const text = first.texto || first.titulo || "Publicidad";
+  const img = first.imagen_url || first.imagen || first.link_imagen || "";
+  const link = first.link_url || first.link || "#";
   box.classList.remove("hidden");
   box.innerHTML = `
-    <a class="banner-link" href="${esc(link)}" ${link && link !== "#" ? 'target="_blank" rel="noopener noreferrer"' : ""}>
-      <div class="banner-content">
-        <div class="banner-copy">
-          <div class="banner-kicker">Publicidad</div>
-          <div class="banner-title">${esc(text)}</div>
-        </div>
-        ${img ? `<img class="banner-thumb" src="${esc(img)}" alt="Publicidad">` : `<div class="banner-thumb"></div>`}
+    <a class="banner-link-vnext" href="${esc(link)}" ${link && link !== "#" ? 'target="_blank" rel="noopener noreferrer"' : ""}>
+      <div class="banner-copy-vnext">
+        <div class="banner-kicker-vnext">PUBLICIDAD</div>
+        <div class="banner-title-vnext">${esc(text)}</div>
+      </div>
+      <div class="banner-art-vnext">
+        ${img ? `<img class="banner-thumb-vnext" src="${esc(img)}" alt="Publicidad">` : `<div class="banner-thumb-vnext empty"></div>`}
       </div>
     </a>`;
 }
@@ -290,9 +303,9 @@ function syncSessionUI() {
   const btn = $("#btnChangeSeller");
   if (!btn) return;
   if (state.seller) {
-    renderDualButton(btn, "Cambiar usuario", `${state.seller.nombre}`);
+    renderDualButton(btn, "Cambiar usuario", "Sesión actual y acceso");
     btn.dataset.title = "Cambiar usuario";
-    btn.dataset.sub = state.seller.nombre;
+    btn.dataset.sub = "Sesión actual y acceso";
   } else {
     renderDualButton(btn, "Ingresar", "Acceder con usuario y clave");
     btn.dataset.title = "Ingresar";
@@ -1260,8 +1273,8 @@ function bind() {
     }
   });
 
-  window.addEventListener("online", () => { renderNetwork(); syncPending(); });
-  window.addEventListener("offline", renderNetwork);
+  window.addEventListener("online", async () => { renderNetwork(); try { await loadAllData(); persistCacheState(); renderAll(); } catch (e) { console.warn(e); } syncPending(); });
+  window.addEventListener("offline", () => { renderNetwork(); renderAll(); });
   window.addEventListener("pageshow", () => { resetTransientUI(); renderQuickLabels(); renderCart(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) resetTransientUI(); });
 }
@@ -1322,36 +1335,32 @@ async function disableServiceWorkerAndCaches() {
 }
 
 async function init() {
-  // disableServiceWorkerAndCaches(); // usar solo para debug de cache/SW
-  registerServiceWorker();
   bind();
-
-  const cached = readJSON(APP_CACHE.data, null);
-  const hadCache = applyCacheSnapshot(cached);
-
-  if (hadCache) {
-    hydrateGuestClient();
-    hydrateSeller();
-    renderAll();
-  } else {
-    renderNetwork();
-  }
+  hydrateCacheState();
+  hydrateGuestClient();
+  hydrateSeller();
+  renderAll();
+  renderNetwork();
+  await registerServiceWorker();
 
   if (!navigator.onLine) {
-    if (!hadCache) toast("Sin conexión y sin datos guardados.");
     return;
   }
 
   try {
     await loadAllData();
-    saveJSON(APP_CACHE.data, buildCacheSnapshot());
+    persistCacheState();
     hydrateGuestClient();
     hydrateSeller();
     renderAll();
+    renderNetwork();
     syncPending();
   } catch (error) {
     console.error(error);
-    if (!hadCache) toast("No pude cargar los datos de la sheet.");
+    if (!state.products.length && !state.clients.length) {
+      toast("No pude cargar los datos de la sheet.");
+    }
+    renderNetwork();
   }
 }
 
