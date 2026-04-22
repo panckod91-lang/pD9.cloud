@@ -358,3 +358,68 @@ main{width:100%}
   .icon-wrap-vnext{width:52px;height:52px}
   .view-head h2{font-size:clamp(1.7rem,7vw,2.2rem)}
 }
+
+
+/* ==== compact polish v4 ==== */
+body{padding:10px 12px 16px;}
+.hero-header-vnext{padding:12px 14px;border-radius:24px;margin-bottom:8px;}
+.brand-left-vnext{gap:14px;}
+.logo-badge-vnext{width:64px;height:64px;border-radius:20px;}
+.logo-badge-vnext img{width:48px;height:48px;}
+.brand-copy-vnext h1{font-size:clamp(1.55rem,4.2vw,2.05rem);}
+.brand-copy-vnext p{font-size:.96rem;margin-top:5px;}
+.status-row-vnext{gap:8px;margin:0 2px 10px;}
+.status-pill-vnext{padding:10px 15px;font-size:.98rem;min-height:48px;gap:9px;}
+.status-pill-vnext::before{width:10px;height:10px;box-shadow:0 0 0 4px rgba(148,163,184,.14);}
+.status-pill-vnext.online::before{box-shadow:0 0 0 4px rgba(23,184,87,.16);}
+.status-pill-vnext.offline::before{box-shadow:0 0 0 4px rgba(239,68,68,.16);}
+#sellerBadge::before{font-size:1.05rem;}
+#btnPancko::before{content:"ⓘ";width:auto;height:auto;background:none;box-shadow:none;font-size:1.02rem;font-weight:700;}
+.pancko-pill-vnext{padding-right:16px;font-size:.94rem;}
+.cta-main-vnext{padding:16px 18px;border-radius:24px;gap:14px;margin:0 0 12px;}
+.cta-icon-vnext{width:56px;height:56px;font-size:1.7rem;}
+.cta-copy-vnext strong{font-size:clamp(1.4rem,4.6vw,1.78rem);}
+.cta-copy-vnext small{font-size:.95rem;margin-top:4px;}
+.cta-arrow-vnext{font-size:2.5rem;}
+.promo-card-vnext{min-height:178px;border-radius:26px;margin-bottom:12px;}
+.banner-link-vnext{grid-template-columns:1fr 132px;gap:12px;min-height:178px;padding:18px 18px 16px;}
+.banner-kicker-vnext{padding:7px 12px;font-size:.78rem;border-radius:13px;}
+.banner-title-vnext{margin-top:14px;font-size:clamp(1.05rem,4vw,1.65rem);}
+.banner-thumb-vnext{width:122px;height:122px;border-radius:24px;}
+.home-grid-vnext{gap:10px;margin-bottom:12px;}
+.action-card-vnext{display:flex;align-items:center;min-height:124px;padding:14px 40px 14px 14px;border-radius:22px;}
+.action-head-vnext{align-items:center;gap:12px;width:100%;}
+.icon-wrap-vnext{width:48px;height:48px;border-radius:16px;font-size:1.25rem;}
+.title-group-vnext{justify-content:center;min-width:0;}
+.title-group-vnext strong{font-size:.96rem;line-height:1.06;-webkit-line-clamp:2;}
+.title-group-vnext small{margin-top:5px;font-size:.78rem;line-height:1.18;-webkit-line-clamp:2;}
+.go-vnext{right:12px;font-size:1.8rem;}
+.pending-card-vnext::after{display:none;}
+.pending-count-vnext{position:absolute;right:42px;top:12px;min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:#ff1520;color:#fff;display:grid;place-items:center;font-size:.84rem;font-weight:900;box-shadow:0 8px 18px rgba(255,21,32,.24);}
+.led-info-vnext{margin-bottom:10px;border-radius:22px;}
+.led-row-vnext{padding:11px 14px;gap:12px;}
+.led-live-vnext{font-size:.94rem;gap:9px;}
+.live-dot-vnext{width:11px;height:11px;box-shadow:0 0 0 5px rgba(54,180,255,.13);}
+.led-marquee-vnext{font-size:.89rem;gap:14px;}
+.led-end-vnext{font-size:1rem;}
+@media (max-width:420px){
+  body{padding:8px 10px 14px;}
+  .hero-header-vnext{padding:11px 12px;}
+  .logo-badge-vnext{width:58px;height:58px;}
+  .logo-badge-vnext img{width:44px;height:44px;}
+  .brand-copy-vnext h1{font-size:1.78rem;}
+  .brand-copy-vnext p{font-size:.9rem;}
+  .status-pill-vnext{padding:9px 13px;font-size:.93rem;min-height:44px;}
+  .cta-main-vnext{padding:15px 16px;}
+  .cta-icon-vnext{width:52px;height:52px;font-size:1.55rem;}
+  .cta-copy-vnext strong{font-size:1.58rem;}
+  .cta-copy-vnext small{font-size:.9rem;}
+  .promo-card-vnext{min-height:166px;}
+  .banner-link-vnext{grid-template-columns:1fr 118px;min-height:166px;padding:16px 16px 14px;}
+  .banner-thumb-vnext{width:112px;height:112px;border-radius:22px;}
+  .action-card-vnext{min-height:116px;padding:13px 38px 13px 13px;}
+  .icon-wrap-vnext{width:44px;height:44px;}
+  .title-group-vnext strong{font-size:.92rem;}
+  .title-group-vnext small{font-size:.75rem;}
+  .pending-count-vnext{right:38px;top:11px;}
+}

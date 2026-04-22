@@ -80,6 +80,13 @@ function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","
 
 function renderDualButton(btn, title, sub = "") {
   if (!btn) return;
+  const titleEl = btn.querySelector(".title-group-vnext strong, .home-btn-title");
+  const subEl = btn.querySelector(".title-group-vnext small, .home-btn-sub");
+  if (titleEl || subEl) {
+    if (titleEl) titleEl.textContent = title;
+    if (subEl) subEl.textContent = sub;
+    return;
+  }
   btn.innerHTML = `<span class="home-btn-title">${esc(title)}</span><span class="home-btn-sub">${esc(sub)}</span>`;
 }
 
@@ -256,6 +263,15 @@ function renderSellerBadge() {
 function renderPendingBadge() {
   const pending = readJSON(STORAGE_KEYS.pending, []);
   const el = $("#pendingBadge");
+  const cardCount = document.querySelector(".pending-count-vnext");
+  if (cardCount) {
+    if (!pending.length) {
+      cardCount.classList.add("hidden");
+    } else {
+      cardCount.classList.remove("hidden");
+      cardCount.textContent = String(pending.length);
+    }
+  }
   if (!el) return;
   if (!pending.length) {
     el.classList.add("hidden");
@@ -311,6 +327,9 @@ function syncSessionUI() {
     btn.dataset.title = "Ingresar";
     btn.dataset.sub = "Acceder con usuario y clave";
   }
+
+  const supportBtn = $("#btnPancko");
+  if (supportBtn) supportBtn.textContent = "M.J.S.";
 }
 
 function applyUserContext() {
