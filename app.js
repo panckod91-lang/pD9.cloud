@@ -11,16 +11,9 @@ const STORAGE_KEYS = {
   guestClient: "d9_invitado_cliente"
 };
 
-const SHEET_CACHE_KEYS = {
-  confi: "d9_cache_confi",
-  usuarios: "d9_cache_usuarios",
-  clientes: "d9_cache_clientes",
-  productos: "d9_cache_productos",
-  publicidad: "d9_cache_publicidad",
-  soporte: "d9_cache_soporte",
-  lastUpdate: "d9_cache_last_update"
+const APP_CACHE = {
+  data: "d9_cache_data_v1"
 };
-
 
 const state = {
   config: {},
@@ -49,6 +42,36 @@ const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currenc
 const readJSON = (k, f) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
 const saveJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 const onlyDigits = (v) => String(v || "").replace(/\D+/g, "");
+
+function buildCacheSnapshot() {
+  return {
+    config: state.config,
+    users: state.users,
+    clients: state.clients,
+    products: state.products,
+    ads: state.ads,
+    support: state.support,
+    savedAt: Date.now()
+  };
+}
+
+function applyCacheSnapshot(snapshot) {
+  if (!snapshot) return false;
+  state.config = snapshot.config || {};
+  state.users = Array.isArray(snapshot.users) ? snapshot.users : [];
+  state.clients = Array.isArray(snapshot.clients) ? snapshot.clients : [];
+  state.products = Array.isArray(snapshot.products) ? snapshot.products : [];
+  state.ads = Array.isArray(snapshot.ads) ? snapshot.ads : [];
+  state.support = snapshot.support || {};
+  return !!(state.products.length || state.clients.length || state.ads.length || state.users.length);
+}
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('./sw.js').catch(err => {
+    console.warn('[D9] No pude registrar sw.js:', err);
+  });
+}
 const isTrue = (v) => String(v).trim().toLowerCase() === "true";
 function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
 
@@ -113,85 +136,6 @@ function openWhatsApp(phone, message) {
 }
 
 
-
-function cacheSheet(name, data) {
-  const key = SHEET_CACHE_KEYS[name];
-  if (!key) return;
-  saveJSON(key, data);
-}
-
-function readCachedSheet(name) {
-  const key = SHEET_CACHE_KEYS[name];
-  if (!key) return null;
-  return readJSON(key, null);
-}
-
-function applySheetData({ confi = [], usuarios = [], clientes = [], productos = [], publicidad = [], soporte = [] } = {}) {
-  if (Array.isArray(confi) && confi.length) {
-    state.config = Object.fromEntries(confi.map(r => [String(r.clave || "").trim(), String(r.valor || "").trim()]));
-  }
-  if (Array.isArray(usuarios) && usuarios.length) {
-    state.users = usuarios.filter(r => isTrue(r.activo)).map(r => ({
-      id: String(r.id || "").trim(),
-      usuario: String(r.usuario || "").trim().toLowerCase(),
-      nombre: String(r.nombre || "").trim(),
-      clave: String(r.clave || "").trim(),
-      rol: String(r.rol || "cliente").trim().toLowerCase(),
-      lista_precio: String(r.lista_precio || "").trim().toLowerCase(),
-      cliente_id: String(r.cliente_id || "").trim(),
-      wasap_report: String(r.wasap_report || "").trim()
-    }));
-  }
-  if (Array.isArray(clientes) && clientes.length) {
-    state.clients = clientes.filter(r => isTrue(r.activo)).map(r => ({
-      id: String(r.id || "").trim(),
-      nombre: String(r.nombre || "").trim(),
-      telefono: String(r.telefono || "").trim(),
-      direccion: String(r.direccion || "").trim(),
-      ciudad: String(r.ciudad || r.localidad || "").trim(),
-      lista_precio: String(r.lista_precio || "").trim().toLowerCase()
-    }));
-  }
-  if (Array.isArray(productos) && productos.length) {
-    state.products = productos.filter(r => isTrue(r.activo)).map(r => ({
-      id: String(r.id || "").trim(),
-      nombre: String(r.nombre || "").trim(),
-      categoria: String(r.categoria || "Sin categoría").trim() || "Sin categoría",
-      precios: {
-        lista_1: Number(r.lista_1 || r.precio || 0),
-        lista_2: Number(r.lista_2 || r.precio || 0),
-        lista_3: Number(r.lista_3 || r.precio || 0)
-      }
-    }));
-  }
-  if (Array.isArray(publicidad)) {
-    state.ads = publicidad.filter(r => isTrue(r.activo));
-  }
-  if (Array.isArray(soporte) && soporte.length) {
-    state.support = Object.fromEntries(soporte.map(r => [String(r.clave || "").trim(), String(r.valor || "").trim()]));
-  }
-}
-
-function hydrateCachedData() {
-  const cached = {
-    confi: readCachedSheet("confi") || [],
-    usuarios: readCachedSheet("usuarios") || [],
-    clientes: readCachedSheet("clientes") || [],
-    productos: readCachedSheet("productos") || [],
-    publicidad: readCachedSheet("publicidad") || [],
-    soporte: readCachedSheet("soporte") || []
-  };
-
-  const hasUsefulCache =
-    cached.confi.length || cached.usuarios.length || cached.clientes.length ||
-    cached.productos.length || cached.publicidad.length || cached.soporte.length;
-
-  if (!hasUsefulCache) return false;
-
-  applySheetData(cached);
-  return true;
-}
-
 async function fetchSheet(name) {
   const r = await fetch(OPEN_SHEET(name), { cache: "no-store" });
   if (!r.ok) throw new Error(`No pude leer ${name}`);
@@ -208,22 +152,37 @@ async function loadAllData() {
     fetchSheet("soporte")
   ]);
 
-  cacheSheet("confi", confi);
-  cacheSheet("usuarios", sellers);
-  cacheSheet("clientes", clients);
-  cacheSheet("productos", products);
-  cacheSheet("publicidad", ads);
-  cacheSheet("soporte", support);
-  localStorage.setItem(SHEET_CACHE_KEYS.lastUpdate, String(Date.now()));
-
-  applySheetData({
-    confi,
-    usuarios: sellers,
-    clientes: clients,
-    productos: products,
-    publicidad: ads,
-    soporte: support
-  });
+  state.config = Object.fromEntries(confi.map(r => [String(r.clave || "").trim(), String(r.valor || "").trim()]));
+  state.users = sellers.filter(r => isTrue(r.activo)).map(r => ({
+    id: String(r.id || "").trim(),
+    usuario: String(r.usuario || "").trim().toLowerCase(),
+    nombre: String(r.nombre || "").trim(),
+    clave: String(r.clave || "").trim(),
+    rol: String(r.rol || "cliente").trim().toLowerCase(),
+    lista_precio: String(r.lista_precio || "").trim().toLowerCase(),
+    cliente_id: String(r.cliente_id || "").trim(),
+    wasap_report: String(r.wasap_report || "").trim()
+  }));
+  state.clients = clients.filter(r => isTrue(r.activo)).map(r => ({
+    id: String(r.id || "").trim(),
+    nombre: String(r.nombre || "").trim(),
+    telefono: String(r.telefono || "").trim(),
+    direccion: String(r.direccion || "").trim(),
+    ciudad: String(r.ciudad || r.localidad || "").trim(),
+    lista_precio: String(r.lista_precio || "").trim().toLowerCase()
+  }));
+  state.products = products.filter(r => isTrue(r.activo)).map(r => ({
+    id: String(r.id || "").trim(),
+    nombre: String(r.nombre || "").trim(),
+    categoria: String(r.categoria || "Sin categoría").trim() || "Sin categoría",
+    precios: {
+      lista_1: Number(r.lista_1 || r.precio || 0),
+      lista_2: Number(r.lista_2 || r.precio || 0),
+      lista_3: Number(r.lista_3 || r.precio || 0)
+    }
+  }));
+  state.ads = ads.filter(r => isTrue(r.activo));
+  state.support = Object.fromEntries(support.map(r => [String(r.clave || "").trim(), String(r.valor || "").trim()]));
 }
 
 function showView(name) {
@@ -266,15 +225,21 @@ function renderTop() {
 }
 
 function renderNetwork() {
-  $("#networkStatus").textContent = navigator.onLine ? "Online" : "Offline";
+  const el = $("#networkStatus");
+  if (!el) return;
+  el.textContent = navigator.onLine ? "Online" : "Offline";
+  el.classList.remove("online", "offline");
+  el.classList.add(navigator.onLine ? "online" : "offline");
 }
 
 function renderSellerBadge() {
+  const el = $("#sellerBadge");
+  if (!el) return;
   if (!state.seller) {
-    $("#sellerBadge").textContent = "Modo invitado";
+    el.textContent = "Sin usuario";
     return;
   }
-  $("#sellerBadge").textContent = `Usuario: ${state.seller.nombre}`;
+  el.textContent = state.seller.nombre || "Usuario";
 }
 
 function renderPendingBadge() {
@@ -1358,36 +1323,35 @@ async function disableServiceWorkerAndCaches() {
 
 async function init() {
   // disableServiceWorkerAndCaches(); // usar solo para debug de cache/SW
+  registerServiceWorker();
   bind();
 
-  const hadCache = hydrateCachedData();
+  const cached = readJSON(APP_CACHE.data, null);
+  const hadCache = applyCacheSnapshot(cached);
+
   if (hadCache) {
     hydrateGuestClient();
     hydrateSeller();
     renderAll();
+  } else {
+    renderNetwork();
   }
 
-  if (!navigator.onLine && hadCache) {
-    renderNetwork();
-    toast("Modo offline: usando datos guardados.");
+  if (!navigator.onLine) {
+    if (!hadCache) toast("Sin conexión y sin datos guardados.");
     return;
   }
 
   try {
     await loadAllData();
+    saveJSON(APP_CACHE.data, buildCacheSnapshot());
     hydrateGuestClient();
     hydrateSeller();
     renderAll();
-
-    if (navigator.onLine) syncPending();
+    syncPending();
   } catch (error) {
     console.error(error);
-    if (!hadCache) {
-      toast("No pude cargar los datos de la sheet.");
-    } else {
-      renderNetwork();
-      toast("No pude actualizar. Se muestran datos guardados.");
-    }
+    if (!hadCache) toast("No pude cargar los datos de la sheet.");
   }
 }
 
