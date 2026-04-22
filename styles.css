@@ -249,19 +249,22 @@ body{
 .brand-copy-vnext h1{margin:0;font-size:clamp(1.48rem,2.6vw,1.9rem);line-height:.92;letter-spacing:-.045em;font-weight:900;color:#0d2a58}
 .brand-copy-vnext p{margin:6px 0 0;font-size:.95rem;color:#4d6b88;font-weight:700}
 
-.status-row-vnext{display:flex;gap:8px;margin:0 2px 10px;flex-wrap:wrap}
+.status-row-vnext{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 2px 10px}
 .status-pill-vnext{
   border:none;background:rgba(255,255,255,.94);border-radius:999px;padding:8px 12px;display:inline-flex;align-items:center;gap:8px;
-  font-size:.95rem;font-weight:800;color:#082554;box-shadow:var(--shadow);
+  font-size:.9rem;font-weight:800;color:#082554;box-shadow:var(--shadow);justify-content:center;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .status-pill-vnext.online::before{
   content:"";width:9px;height:9px;border-radius:50%;background:#19bf57;box-shadow:0 0 0 4px rgba(25,191,87,.18);display:inline-block;
 }
 .status-pill-vnext.muted::before{content:"👥";font-size:1rem;line-height:1}
-.pancko-pill-vnext::before{content:"🎧";font-size:1rem;line-height:1}
+.pancko-pill-vnext::before{content:"🎧";font-size:1rem;line-height:1;flex:0 0 auto}
 .status-pill-vnext.alert{display:none !important}
 
-.view-home-vnext{display:block}
+
+.status-pill-vnext.is-offline{opacity:.82}
+
+.view-home-vnext.active{display:block}
 .cta-main-vnext{
   width:100%;border:none;border-radius:24px;padding:15px 16px;background:linear-gradient(180deg,#ff0615 0%, #ff0d16 32%, #d90012 100%);
   color:#fff;display:flex;align-items:center;gap:14px;box-shadow:0 12px 22px rgba(255,6,21,.22);margin:0 0 10px;text-align:left;
@@ -283,11 +286,13 @@ body{
 #bannerWrap .banner-content{height:100%;padding:16px;display:grid;grid-template-columns:1.12fr .88fr;gap:12px;align-items:center}
 #bannerWrap .banner-copy{display:flex;flex-direction:column;justify-content:center;min-width:0}
 #bannerWrap .banner-kicker{display:inline-flex;width:max-content;background:#ff1a22;color:#fff;font-weight:900;border-radius:13px;padding:7px 12px;font-size:.74rem;letter-spacing:.02em;margin-bottom:12px}
-#bannerWrap .banner-title{font-size:clamp(1.35rem,4vw,1.95rem);line-height:.95;font-weight:900;color:#fff;max-width:9ch}
+#bannerWrap .banner-title{font-size:clamp(1.35rem,4vw,1.95rem);line-height:.95;font-weight:900;color:#fff;max-width:11ch}
 #bannerWrap .banner-title::first-line{color:#45c5ff}
 #bannerWrap .banner-thumb{justify-self:end;width:120px;height:120px;border-radius:24px;object-fit:cover;background:#fff;box-shadow:0 16px 28px rgba(0,0,0,.24)}
 @media (max-width:420px){
   #bannerWrap .banner-thumb{width:104px;height:104px}
+  .status-row-vnext{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .status-pill-vnext{padding:8px 10px;font-size:.86rem}
 }
 
 .home-grid-vnext{margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:9px}

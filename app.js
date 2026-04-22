@@ -186,27 +186,41 @@ function closeModal(name) {
 }
 
 function renderTop() {
-  $("#appTitle").textContent = state.config.nombre_app || "D9 Pedidos";
-  $("#empresaLabel").textContent = state.config.empresa || "Empresa";
+  const appTitle = $("#appTitle");
+  const empresaLabel = $("#empresaLabel");
+  if (appTitle) appTitle.textContent = state.config.nombre_app || "D9 Pedidos";
+  if (empresaLabel) empresaLabel.textContent = state.config.empresa || "Empresa";
 }
 
 function renderNetwork() {
-  $("#networkStatus").textContent = navigator.onLine ? "Online" : "Offline";
+  const el = $("#networkStatus");
+  if (!el) return;
+  el.textContent = navigator.onLine ? "Online" : "Offline";
+  el.classList.toggle("is-offline", !navigator.onLine);
 }
 
 function renderSellerBadge() {
+  const el = $("#sellerBadge");
+  if (!el) return;
   if (!state.seller) {
-    $("#sellerBadge").textContent = "Modo invitado";
+    el.textContent = "Modo invitado";
     return;
   }
-  $("#sellerBadge").textContent = `Usuario: ${state.seller.nombre}`;
+  el.textContent = state.seller.nombre || "Usuario";
 }
 
 function renderPendingBadge() {
   const pending = readJSON(STORAGE_KEYS.pending, []);
   const el = $("#pendingBadge");
+  const cardBtn = $("#btnSyncPending");
+  if (cardBtn) {
+    cardBtn.dataset.count = pending.length ? String(pending.length) : "";
+    cardBtn.classList.toggle("has-count", !!pending.length);
+  }
+  if (!el) return;
   if (!pending.length) {
     el.classList.add("hidden");
+    el.textContent = "0 pendientes";
     return;
   }
   el.classList.remove("hidden");
@@ -250,9 +264,9 @@ function syncSessionUI() {
   const btn = $("#btnChangeSeller");
   if (!btn) return;
   if (state.seller) {
-    renderDualButton(btn, "Cambiar usuario", `${state.seller.nombre}`);
+    renderDualButton(btn, "Cambiar usuario", "Sesión actual y acceso");
     btn.dataset.title = "Cambiar usuario";
-    btn.dataset.sub = state.seller.nombre;
+    btn.dataset.sub = "Sesión actual y acceso";
   } else {
     renderDualButton(btn, "Ingresar", "Acceder con usuario y clave");
     btn.dataset.title = "Ingresar";
