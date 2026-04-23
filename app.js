@@ -315,25 +315,25 @@ function renderNetwork() {
 }
 
 function renderSellerBadge() {
-  const el = $("#sellerBadge");
-  if (!el) return;
+  const badge = $("#sellerBadge");
+  if (!badge) return;
 
-  let textEl = el.querySelector(".seller-name");
-  if (!textEl) {
-    textEl = document.createElement("span");
-    textEl.className = "seller-name";
-    el.innerHTML = "";
-    el.appendChild(textEl);
+  let nameEl = badge.querySelector(".seller-name");
+  if (!nameEl) {
+    badge.textContent = "";
+    nameEl = document.createElement("span");
+    nameEl.className = "seller-name";
+    badge.appendChild(nameEl);
   }
 
-  if (!state.seller || !state.seller.nombre || !state.seller.nombre.trim()) {
-    textEl.textContent = "Sin usuario";
-    el.classList.add("muted");
+  if (!state.seller) {
+    nameEl.textContent = "Sin usuario";
+    badge.classList.add("muted");
     return;
   }
 
-  textEl.textContent = state.seller.nombre.trim();
-  el.classList.remove("muted");
+  nameEl.textContent = state.seller.nombre || "Usuario";
+  badge.classList.remove("muted");
 }
 
 function renderPendingBadge() {
