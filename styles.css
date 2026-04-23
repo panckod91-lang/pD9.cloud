@@ -622,8 +622,6 @@ body{padding:10px 12px 16px;}
   padding:8px 14px;
   min-height:46px;
   font-size:.9rem;
-  transform:scale(0.92);
-  opacity:0.85;
 }
 
 .status-pill-user-vnext{
@@ -867,4 +865,55 @@ body{padding:10px 12px 16px;}
   .status-row-vnext{margin-bottom:14px}
   .status-pill-small-vnext{padding:0 9px;font-size:.7rem}
   .status-pill-user-vnext{max-width:46vw;font-size:.86rem}
+}
+
+
+/* ===== STATUS ROW FIX ===== */
+
+/* 1. Igualar altura de los tres pills al mismo valor fijo */
+.status-pill-small-vnext,
+.status-pill-user-vnext {
+  min-height: 48px;
+  height: 48px;
+  padding: 0 15px;
+  font-size: .92rem;
+  font-weight: 800;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+/* 2. El pill central no crece más que los laterales */
+.status-pill-user-vnext {
+  min-height: 48px;
+  height: 48px;
+}
+
+/* 3. Gap entre botones: se garantiza que no se toquen */
+.status-row-vnext {
+  gap: 8px !important;
+  align-items: center;
+}
+
+/* 4. Sombra interior en ángulo inferior derecho */
+.status-pill-vnext {
+  box-shadow:
+    0 6px 14px rgba(0,0,0,.08),
+    inset -5px -5px 10px rgba(8,37,84,.05);
+}
+
+/* 5. Quitar ícono ⓘ del botón de soporte */
+#btnPancko::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Responsive: mantener altura uniforme en mobile chico */
+@media (max-width: 420px) {
+  .status-pill-small-vnext,
+  .status-pill-user-vnext {
+    min-height: 44px;
+    height: 44px;
+    padding: 0 12px;
+    font-size: .86rem;
+  }
 }
