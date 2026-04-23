@@ -406,7 +406,7 @@ function renderTicker(){
     if(!block || !track) return;
 
     const distance = block.scrollWidth + 40;
-    const duration = Math.max(10, Math.round(distance / 40));
+    const duration = Math.max(10, Math.round(distance / 30));
 
     track.style.setProperty("--move", distance + "px");
     track.style.setProperty("--time", duration + "s");
