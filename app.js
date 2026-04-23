@@ -373,23 +373,44 @@ function renderBanner() {
 }
 
 
-function renderTicker() {
-  const el = $("#ledTicker");
-  if (!el) return;
+function renderTicker(){
+  const el = document.getElementById("ledTicker");
+  if(!el) return;
+
   const texts = confParts("ticker_texto");
   const colors = confColors("ticker_color");
-  const fallback = [
-    { t: "Repartos hasta las 18hs", c: "#4dabf7" },
-    { t: "Promos activas", c: "#51cf66" },
-    { t: "Zona sur sin envío hoy", c: "#ff6b6b" }
-  ];
-  const parts = texts.length ? texts.map((t, i) => ({ t, c: colors[i] || "" })) : fallback;
-  const html = [];
-  parts.forEach((item, i) => {
-    html.push(`<span${item.c ? ` style="color:${esc(item.c)}"` : ""}>${esc(item.t)}</span>`);
-    if (i < parts.length - 1) html.push('<span>•</span>');
+
+  const parts = texts.map((t,i)=>({
+    t,
+    c: colors[i] || "#4dabf7"
+  })).filter(p => p.t);
+
+  if(!parts.length) return;
+
+  const one = parts.map((p,i)=>
+    `<span style="color:${p.c}">${p.t}</span>` +
+    (i < parts.length - 1 ? `<span class="ticker-sep"> • </span>` : "")
+  ).join("");
+
+  el.innerHTML = `
+    <div class="ticker-track" id="tickerTrack">
+      <div class="ticker-block" id="tickerBlock">${one}</div>
+      <div class="ticker-gap"></div>
+      <div class="ticker-block">${one}</div>
+    </div>
+  `;
+
+  requestAnimationFrame(() => {
+    const block = document.getElementById("tickerBlock");
+    const track = document.getElementById("tickerTrack");
+    if(!block || !track) return;
+
+    const distance = block.scrollWidth + 40;
+    const duration = Math.max(10, Math.round(distance / 60));
+
+    track.style.setProperty("--move", distance + "px");
+    track.style.setProperty("--time", duration + "s");
   });
-  el.innerHTML = html.join("");
 }
 
 
