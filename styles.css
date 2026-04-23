@@ -72,11 +72,11 @@ main{width:100%}
 
 /* status row */
 .status-row-vnext{
-  display:grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items:center;
-  gap:10px;
-  margin:0 2px 14px;
+  display:grid !important;
+  grid-template-columns:max-content minmax(0,1fr) max-content !important;
+  align-items:center !important;
+  column-gap:16px !important;
+  margin:0 6px 14px !important;
 }
 
 .status-slot-vnext{
@@ -91,6 +91,8 @@ main{width:100%}
 
 .status-slot-center-vnext{
   justify-content:center;
+  min-width:0;
+  padding:0 2px;
 }
 
 .status-slot-right-vnext{
@@ -101,17 +103,52 @@ main{width:100%}
   border:none;
   background:rgba(255,255,255,.94);
   border-radius:999px;
-  padding:12px 18px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:10px;
-  font-size:1.02rem;
-  font-weight:800;
   color:var(--navy);
-  box-shadow:var(--shadow-soft);
-  min-height:54px;
   white-space:nowrap;
+  box-shadow:
+    0 6px 14px rgba(0,0,0,.08),
+    inset -5px -5px 10px rgba(8,37,84,.05);
+}
+
+.status-pill-small-vnext,
+.status-pill-user-vnext{
+  height:48px;
+  min-height:48px;
+  padding:0 16px;
+  font-size:.92rem;
+  font-weight:800;
+  transform:none;
+  opacity:1;
+}
+
+.status-pill-small-vnext{
+  flex:0 0 auto;
+}
+
+.status-pill-user-vnext{
+  width:auto;
+  min-width:0;
+  max-width:100%;
+  padding:0 20px;
+  font-weight:900;
+}
+
+#networkStatus{
+  width:auto !important;
+}
+
+#sellerBadge{
+  width:auto !important;
+  min-width:0 !important;
+  max-width:100% !important;
+}
+
+#btnPancko{
+  width:auto !important;
 }
 
 .status-pill-vnext::before{
@@ -122,6 +159,7 @@ main{width:100%}
   background:#cbd5e1;
   flex:0 0 auto;
   box-shadow:0 0 0 5px rgba(148,163,184,.14);
+  transform:translateY(1px);
 }
 
 .status-pill-vnext.online::before{
@@ -143,68 +181,47 @@ main{width:100%}
   display:none;
 }
 
-.status-pill-small-vnext{
-  padding:8px 14px;
-  min-height:46px;
-  font-size:.92rem;
-  font-weight:800;
-}
-
-.status-pill-user-vnext{
-  padding:12px 24px;
-  min-height:58px;
-  font-size:1.04rem;
-  font-weight:900;
-}
-
-#sellerBadge{
-  min-width:min(58vw, 320px);
-}
-
 #sellerBadge::before{
   content:"👥";
   width:auto;
   height:auto;
   background:none;
   box-shadow:none;
-  font-size:1.15rem;
+  font-size:1.05rem;
 }
 
 #btnPancko::before{
-  content:"ⓘ";
-  width:auto;
-  height:auto;
-  background:none;
-  box-shadow:none;
-  font-size:1.15rem;
+  content:none !important;
+  display:none !important;
 }
 
-#pendingBadge{
-  background:#fff4f5;
-  color:#b91c1c;
-}
-
-#pendingBadge::before{
-  content:"";
-  display:none;
+#pendingBadge,
+.pendingBadge{
+  display:none !important;
 }
 
 .pancko-pill-vnext{
   padding-right:16px;
 }
-.status-pill-vnext::before{
-  content:"";width:12px;height:12px;border-radius:50%;background:#cbd5e1;flex:0 0 auto;
-  box-shadow:0 0 0 5px rgba(148,163,184,.14)
+
+@media (max-width:420px){
+  .status-row-vnext{
+    column-gap:12px !important;
+    margin:0 4px 14px !important;
+  }
+
+  .status-pill-small-vnext,
+  .status-pill-user-vnext{
+    height:44px;
+    min-height:44px;
+    padding:0 12px;
+    font-size:.86rem;
+  }
+
+  .status-slot-center-vnext{
+    padding:0 1px;
+  }
 }
-.status-pill-vnext.online::before{background:var(--green);box-shadow:0 0 0 5px rgba(23,184,87,.16)}
-.status-pill-vnext.offline::before{background:var(--danger);box-shadow:0 0 0 5px rgba(239,68,68,.16)}
-.status-pill-vnext.muted::before{background:#94a3b8;box-shadow:0 0 0 5px rgba(148,163,184,.12)}
-.status-pill-vnext.alert::before{display:none}
-#sellerBadge::before{content:"👥";width:auto;height:auto;background:none;box-shadow:none;font-size:1.15rem}
-#btnPancko::before{content:"🎧";width:auto;height:auto;background:none;box-shadow:none;font-size:1.15rem}
-#pendingBadge{background:#fff4f5;color:#b91c1c}
-#pendingBadge::before{content:"";display:none}
-.pancko-pill-vnext{padding-right:20px}
 
 /* home CTA */
 .cta-main-vnext{
@@ -574,124 +591,6 @@ body{padding:10px 12px 16px;}
   align-items:center;
 }
 
-/* ===== STATUS BAR FINAL ===== */
-
-.status-row-vnext{
-  display:grid;
-  grid-template-columns:auto 1fr auto;
-  align-items:center;
-  gap:14px;
-  margin:0 6px 14px;
-}
-
-/* estructura */
-.status-slot-vnext{
-  display:flex;
-  align-items:center;
-}
-
-.status-slot-left-vnext{
-  justify-content:flex-start;
-}
-
-.status-slot-center-vnext{
-  justify-content:center;
-}
-
-.status-slot-right-vnext{
-  justify-content:flex-end;
-}
-
-/* base pastillas */
-.status-pill-vnext{
-  border:none;
-  background:rgba(255,255,255,.94);
-  border-radius:999px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-  font-weight:800;
-  color:var(--navy);
-  box-shadow:0 6px 14px rgba(0,0,0,0.08);
-  white-space:nowrap;
-}
-
-/* tamaños */
-.status-pill-small-vnext{
-  padding:8px 14px;
-  min-height:46px;
-  font-size:.9rem;
-}
-
-.status-pill-user-vnext{
-  padding:10px 20px;
-  min-height:56px;
-  font-size:1.02rem;
-  font-weight:900;
-}
-
-/* control ancho centro */
-#sellerBadge{
-  width:min(100%, 420px);
-}
-
-/* estados online/offline */
-.status-pill-vnext::before{
-  content:"";
-  width:12px;
-  height:12px;
-  border-radius:50%;
-  background:#cbd5e1;
-  box-shadow:0 0 0 5px rgba(148,163,184,.14);
-  transform:translateY(1px);
-}
-
-.status-pill-vnext.online::before{
-  background:var(--green);
-  box-shadow:0 0 0 5px rgba(23,184,87,.16);
-}
-
-.status-pill-vnext.offline::before{
-  background:var(--danger);
-  box-shadow:0 0 0 5px rgba(239,68,68,.16);
-}
-
-/* iconos especiales */
-#sellerBadge::before{
-  content:"👥";
-  background:none;
-  box-shadow:none;
-  font-size:1.1rem;
-}
-
-#btnPancko::before{
-  content:"ⓘ";
-  background:none;
-  box-shadow:none;
-  font-size:1.1rem;
-}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 420px){
-
-  .status-row-vnext{
-    gap:10px;
-    margin:0 4px 14px;
-  }
-
-  .status-pill-small-vnext{
-    padding:6px 10px;
-    font-size:.75rem;
-  }
-
-  .status-pill-user-vnext{
-    width:min(100%, 52vw);
-    font-size:.9rem;
-  }
-
-}
-.pendingBadge, #pendingBadge{display:none !important}
 
 .cta-main-vnext{
   min-height:104px;
@@ -868,52 +767,159 @@ body{padding:10px 12px 16px;}
 }
 
 
-/* ===== STATUS ROW FIX ===== */
 
-/* 1. Igualar altura de los tres pills al mismo valor fijo */
-.status-pill-small-vnext,
-.status-pill-user-vnext {
-  min-height: 48px;
-  height: 48px;
-  padding: 0 15px;
-  font-size: .92rem;
-  font-weight: 800;
-  transform: none !important;
-  opacity: 1 !important;
+
+/* ===== FINAL STATUS OVERRIDE ===== */
+/* status row */
+.status-row-vnext{
+  display:grid !important;
+  grid-template-columns:max-content minmax(0,1fr) max-content !important;
+  align-items:center !important;
+  column-gap:16px !important;
+  margin:0 6px 14px !important;
 }
 
-/* 2. El pill central no crece más que los laterales */
-.status-pill-user-vnext {
-  min-height: 48px;
-  height: 48px;
+.status-slot-vnext{
+  min-width:0;
+  display:flex;
+  align-items:center;
 }
 
-/* 3. Gap entre botones: se garantiza que no se toquen */
-.status-row-vnext {
-  gap: 8px !important;
-  align-items: center;
+.status-slot-left-vnext{
+  justify-content:flex-start;
 }
 
-/* 4. Sombra interior en ángulo inferior derecho */
-.status-pill-vnext {
+.status-slot-center-vnext{
+  justify-content:center;
+  min-width:0;
+  padding:0 2px;
+}
+
+.status-slot-right-vnext{
+  justify-content:flex-end;
+}
+
+.status-pill-vnext{
+  border:none;
+  background:rgba(255,255,255,.94);
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  color:var(--navy);
+  white-space:nowrap;
   box-shadow:
     0 6px 14px rgba(0,0,0,.08),
     inset -5px -5px 10px rgba(8,37,84,.05);
 }
 
-/* 5. Quitar ícono ⓘ del botón de soporte */
-#btnPancko::before {
-  content: none !important;
-  display: none !important;
+.status-pill-small-vnext,
+.status-pill-user-vnext{
+  height:48px;
+  min-height:48px;
+  padding:0 16px;
+  font-size:.92rem;
+  font-weight:800;
+  transform:none;
+  opacity:1;
 }
 
-/* Responsive: mantener altura uniforme en mobile chico */
-@media (max-width: 420px) {
+.status-pill-small-vnext{
+  flex:0 0 auto;
+}
+
+.status-pill-user-vnext{
+  width:auto;
+  min-width:0;
+  max-width:100%;
+  padding:0 20px;
+  font-weight:900;
+}
+
+#networkStatus{
+  width:auto !important;
+}
+
+#sellerBadge{
+  width:auto !important;
+  min-width:0 !important;
+  max-width:100% !important;
+}
+
+#btnPancko{
+  width:auto !important;
+}
+
+.status-pill-vnext::before{
+  content:"";
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#cbd5e1;
+  flex:0 0 auto;
+  box-shadow:0 0 0 5px rgba(148,163,184,.14);
+  transform:translateY(1px);
+}
+
+.status-pill-vnext.online::before{
+  background:var(--green);
+  box-shadow:0 0 0 5px rgba(23,184,87,.16);
+}
+
+.status-pill-vnext.offline::before{
+  background:var(--danger);
+  box-shadow:0 0 0 5px rgba(239,68,68,.16);
+}
+
+.status-pill-vnext.muted::before{
+  background:#94a3b8;
+  box-shadow:0 0 0 5px rgba(148,163,184,.12);
+}
+
+.status-pill-vnext.alert::before{
+  display:none;
+}
+
+#sellerBadge::before{
+  content:"👥";
+  width:auto;
+  height:auto;
+  background:none;
+  box-shadow:none;
+  font-size:1.05rem;
+}
+
+#btnPancko::before{
+  content:none !important;
+  display:none !important;
+}
+
+#pendingBadge,
+.pendingBadge{
+  display:none !important;
+}
+
+.pancko-pill-vnext{
+  padding-right:16px;
+}
+
+@media (max-width:420px){
+  .status-row-vnext{
+    column-gap:12px !important;
+    margin:0 4px 14px !important;
+  }
+
   .status-pill-small-vnext,
-  .status-pill-user-vnext {
-    min-height: 44px;
-    height: 44px;
-    padding: 0 12px;
-    font-size: .86rem;
+  .status-pill-user-vnext{
+    height:44px;
+    min-height:44px;
+    padding:0 12px;
+    font-size:.86rem;
+  }
+
+  .status-slot-center-vnext{
+    padding:0 1px;
   }
 }
+
