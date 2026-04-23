@@ -604,3 +604,29 @@ body{padding:10px 12px 16px;}
   .title-group-vnext strong{font-size:.98rem}
   .title-group-vnext small{font-size:.8rem}
 }
+.ticker-track{
+  display:flex;
+  align-items:center;
+  white-space:nowrap;
+  animation:tickerMove var(--time) linear infinite;
+}
+
+.ticker-block{
+  display:flex;
+  gap:16px;
+  font-weight:700;
+}
+
+.ticker-gap{
+  width:40px;
+  flex:0 0 40px;
+}
+
+.ticker-sep{
+  opacity:0.6;
+}
+
+@keyframes tickerMove{
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(-1 * var(--move))); }
+}
