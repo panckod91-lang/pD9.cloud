@@ -574,40 +574,124 @@ body{padding:10px 12px 16px;}
   align-items:center;
 }
 
-.status-pill-vnext{
-  min-height:46px;
-  padding:8px 12px;
-  font-size:.96rem;
-  gap:8px;
+/* ===== STATUS BAR FINAL ===== */
+
+.status-row-vnext{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:14px;
+  margin:0 6px 14px;
+}
+
+/* estructura */
+.status-slot-vnext{
+  display:flex;
+  align-items:center;
+}
+
+.status-slot-left-vnext{
+  justify-content:flex-start;
+}
+
+.status-slot-center-vnext{
   justify-content:center;
+}
+
+.status-slot-right-vnext{
+  justify-content:flex-end;
+}
+
+/* base pastillas */
+.status-pill-vnext{
+  border:none;
+  background:rgba(255,255,255,.94);
   border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  font-weight:800;
+  color:var(--navy);
+  box-shadow:0 6px 14px rgba(0,0,0,0.08);
+  white-space:nowrap;
 }
 
-#networkStatus{
-  justify-self:start;
-  width:auto;
+/* tamaños */
+.status-pill-small-vnext{
+  padding:8px 14px;
+  min-height:46px;
+  font-size:.9rem;
+  transform:scale(0.92);
+  opacity:0.85;
 }
 
+.status-pill-user-vnext{
+  padding:10px 20px;
+  min-height:56px;
+  font-size:1.02rem;
+  font-weight:900;
+}
+
+/* control ancho centro */
 #sellerBadge{
-  justify-self:center;
   width:min(100%, 420px);
 }
 
-#btnPancko{
-  justify-self:end;
-  width:auto;
+/* estados online/offline */
+.status-pill-vnext::before{
+  content:"";
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#cbd5e1;
+  box-shadow:0 0 0 5px rgba(148,163,184,.14);
+  transform:translateY(1px);
 }
 
-.pancko-pill-vnext{
-  position:relative;
-  padding-left:14px;
+.status-pill-vnext.online::before{
+  background:var(--green);
+  box-shadow:0 0 0 5px rgba(23,184,87,.16);
 }
-.pancko-pill-vnext::before{
+
+.status-pill-vnext.offline::before{
+  background:var(--danger);
+  box-shadow:0 0 0 5px rgba(239,68,68,.16);
+}
+
+/* iconos especiales */
+#sellerBadge::before{
+  content:"👥";
+  background:none;
+  box-shadow:none;
+  font-size:1.1rem;
+}
+
+#btnPancko::before{
   content:"ⓘ";
-  font-size:1.05rem;
-  line-height:1;
-  font-weight:700;
-  opacity:.9;
+  background:none;
+  box-shadow:none;
+  font-size:1.1rem;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 420px){
+
+  .status-row-vnext{
+    gap:10px;
+    margin:0 4px 14px;
+  }
+
+  .status-pill-small-vnext{
+    padding:6px 10px;
+    font-size:.75rem;
+  }
+
+  .status-pill-user-vnext{
+    width:min(100%, 52vw);
+    font-size:.9rem;
+  }
+
 }
 .pendingBadge, #pendingBadge{display:none !important}
 
