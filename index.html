@@ -25,9 +25,15 @@
     </header>
 
     <section class="status-row-vnext">
-      <div id="networkStatus" class="status-pill-vnext muted">Verificando…</div>
-      <div id="sellerBadge" class="status-pill-vnext muted">Sin usuario</div>
-      <button id="btnPancko" class="status-pill-vnext pancko-pill-vnext" type="button">M.J.S.</button>
+      <div class="status-slot-vnext status-slot-left-vnext">
+        <div id="networkStatus" class="status-pill-vnext status-pill-small-vnext muted">Verificando…</div>
+      </div>
+      <div class="status-slot-vnext status-slot-center-vnext">
+        <div id="sellerBadge" class="status-pill-vnext status-pill-user-vnext muted">Sin usuario</div>
+      </div>
+      <div class="status-slot-vnext status-slot-right-vnext">
+        <button id="btnPancko" class="status-pill-vnext status-pill-small-vnext pancko-pill-vnext" type="button">M.J.S.</button>
+      </div>
       <div id="pendingBadge" class="status-pill-vnext alert hidden">0 pendientes</div>
     </section>
 
@@ -78,12 +84,12 @@
             <span class="go-vnext">›</span>
           </button>
 
-          <div id="btnSyncPending" class="action-card-vnext pending-card-vnext pending-info-card-vnext" aria-live="polite">
+          <div id="btnSyncPending" class="action-card-vnext pending-card-vnext pending-info-card-vnext" data-title="Pendientes" data-sub="Registros pendientes de envío">
             <span class="action-head-vnext">
               <span class="icon-wrap-vnext warm">📋</span>
               <span class="title-group-vnext">
-                <strong id="pendingCardTitle">Sin pendientes</strong>
-                <small id="pendingCardSub">Pedidos sincronizados</small>
+                <strong id="pendingInfoTitle">Sin pendientes</strong>
+                <small id="pendingInfoText">Pedidos sincronizados</small>
               </span>
             </span>
             <span class="pending-count-vnext hidden">0</span>

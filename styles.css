@@ -175,8 +175,21 @@ main{width:100%}
   font-size:2rem;color:#5f748f;line-height:1
 }
 .pending-card-vnext{overflow:visible}
-.pending-card-vnext::after{
-  content:"";position:absolute;right:54px;top:18px;width:14px;height:14px;border-radius:50%;
+.pending-info-card-vnext{
+  cursor:default;
+  padding-right:16px;
+}
+.pending-info-card-vnext .action-head-vnext{align-items:center}
+.pending-info-card-vnext .title-group-vnext strong{font-size:1.02rem}
+.pending-info-card-vnext .title-group-vnext small{-webkit-line-clamp:2}
+.pending-info-card-vnext .pending-count-vnext{
+  position:absolute;right:14px;top:14px;min-width:30px;height:30px;padding:0 8px;
+  border-radius:999px;display:flex;align-items:center;justify-content:center;
+  background:#ffe8ea;color:#c51623;font-size:.85rem;font-weight:900;
+  box-shadow:0 8px 18px rgba(255,21,32,.10)
+}
+.pending-info-card-vnext.has-pending::after{
+  content:"";position:absolute;right:54px;top:22px;width:12px;height:12px;border-radius:50%;
   background:#ff1520;box-shadow:0 8px 18px rgba(255,21,32,.18)
 }
 
@@ -629,4 +642,11 @@ body{padding:10px 12px 16px;}
 @keyframes tickerMove{
   from { transform: translateX(0); }
   to   { transform: translateX(calc(-1 * var(--move))); }
+}
+
+
+@media (max-width: 420px){
+  .status-row-vnext{margin-bottom:14px}
+  .status-pill-small-vnext{padding:0 9px;font-size:.7rem}
+  .status-pill-user-vnext{max-width:46vw;font-size:.86rem}
 }
