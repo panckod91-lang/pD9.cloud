@@ -328,23 +328,37 @@ function renderSellerBadge() {
 
 function renderPendingBadge() {
   const pending = readJSON(STORAGE_KEYS.pending, []);
+  const count = pending.length;
   const el = $("#pendingBadge");
+  const card = $("#btnSyncPending");
   const cardCount = document.querySelector(".pending-count-vnext");
+  const cardTitle = $("#pendingCardTitle");
+  const cardSub = $("#pendingCardSub");
+
+  if (card) {
+    card.classList.toggle("has-pending", count > 0);
+    card.classList.remove("syncing");
+  }
+
   if (cardCount) {
-    if (!pending.length) {
+    if (!count) {
       cardCount.classList.add("hidden");
     } else {
       cardCount.classList.remove("hidden");
-      cardCount.textContent = String(pending.length);
+      cardCount.textContent = String(count);
     }
   }
+
+  if (cardTitle) cardTitle.textContent = count ? `${count} pendiente${count === 1 ? "" : "s"}` : "Sin pendientes";
+  if (cardSub) cardSub.textContent = count ? "Se enviarán con conexión" : "Pedidos sincronizados";
+
   if (!el) return;
-  if (!pending.length) {
+  if (!count) {
     el.classList.add("hidden");
     return;
   }
   el.classList.remove("hidden");
-  el.textContent = `${pending.length} pendientes`;
+  el.textContent = `${count} pendiente${count === 1 ? "" : "s"}`;
 }
 
 function renderBanner() {
@@ -1169,7 +1183,12 @@ async function syncPending() {
 
   state.isSyncing = true;
   const syncBtn = $("#btnSyncPending");
-  setButtonBusy(syncBtn, true, "Sincronizando...", syncBtn?.textContent?.trim() || "Pendientes", "Revisando y enviando pendientes");
+  const syncBtnIsButton = syncBtn?.tagName === "BUTTON";
+  if (syncBtnIsButton) {
+    setButtonBusy(syncBtn, true, "Sincronizando...", syncBtn?.textContent?.trim() || "Pendientes", "Revisando y enviando pendientes");
+  } else if (syncBtn) {
+    syncBtn.classList.add("syncing");
+  }
 
   try {
     const remaining = [];
@@ -1193,7 +1212,7 @@ async function syncPending() {
 
     if (sentCount && !remaining.length) {
       toast("Pendientes sincronizados.");
-      pulseSuccess(syncBtn, "Sin pendientes", "Todo sincronizado");
+      if (syncBtnIsButton) pulseSuccess(syncBtn, "Sin pendientes", "Todo sincronizado");
       return;
     }
 
@@ -1207,7 +1226,11 @@ async function syncPending() {
     }
   } finally {
     state.isSyncing = false;
-    setButtonBusy(syncBtn, false, "Sincronizando...", syncBtn?.dataset?.idleLabel || "Pendientes");
+    if (syncBtnIsButton) {
+      setButtonBusy(syncBtn, false, "Sincronizando...", syncBtn?.dataset?.idleLabel || "Pendientes");
+    } else if (syncBtn) {
+      syncBtn.classList.remove("syncing");
+    }
   }
 }
 
@@ -1287,7 +1310,8 @@ function resetTransientUI() {
   const sendBtn = $("#btnSend");
   const syncBtn = $("#btnSyncPending");
   if (sendBtn) setButtonBusy(sendBtn, false, "Enviando...", "Enviar pedido");
-  if (syncBtn) setButtonBusy(syncBtn, false, "Sincronizando...", syncBtn?.dataset?.idleLabel || "Pendientes");
+  if (syncBtn?.tagName === "BUTTON") setButtonBusy(syncBtn, false, "Sincronizando...", syncBtn?.dataset?.idleLabel || "Pendientes");
+  else if (syncBtn) syncBtn.classList.remove("syncing");
 }
 
 function toast(msg) {
@@ -1304,7 +1328,8 @@ function bind() {
   $("#btnGoHistory").addEventListener("click", () => { renderHistory(); showView("history"); });
   $("#btnPancko").addEventListener("click", () => { renderSupport(); showView("support"); });
   $("#btnChangeSeller").addEventListener("click", () => openLogin(false));
-  $("#btnSyncPending").addEventListener("click", syncPending);
+  const syncPendingEl = $("#btnSyncPending");
+  if (syncPendingEl?.tagName === "BUTTON") syncPendingEl.addEventListener("click", syncPending);
   $("#btnLogin").addEventListener("click", loginSeller);
   $("#btnLogout").addEventListener("click", logoutSeller);
   $("#btnSaveOccasionalClient").addEventListener("click", saveOccasionalClient);

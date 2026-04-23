@@ -78,17 +78,16 @@
             <span class="go-vnext">›</span>
           </button>
 
-          <button id="btnSyncPending" class="action-card-vnext pending-card-vnext" data-title="Pendientes" data-sub="Reintentar registros pendientes" type="button">
+          <div id="btnSyncPending" class="action-card-vnext pending-card-vnext pending-info-card-vnext" aria-live="polite">
             <span class="action-head-vnext">
               <span class="icon-wrap-vnext warm">📋</span>
               <span class="title-group-vnext">
-                <strong>Pendientes</strong>
-                <small>Reintentar registros</small>
+                <strong id="pendingCardTitle">Sin pendientes</strong>
+                <small id="pendingCardSub">Pedidos sincronizados</small>
               </span>
             </span>
             <span class="pending-count-vnext hidden">0</span>
-            <span class="go-vnext">›</span>
-          </button>
+          </div>
         </section>
 
         <section class="led-info-vnext">
