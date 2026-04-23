@@ -394,7 +394,9 @@ function renderTicker() {
 
 
 function renderSupport() {
-  const s = state.support;
+  const s = state.support || {};
+  const chipEl = $("#btnPancko");
+  if (chipEl) chipEl.textContent = s["chip_info"] || s["chip info"] || "M.J.S.";
   $("#supportBox").innerHTML = `
     <strong>${esc(s.nombre || "Sin dato")}</strong>
     <div class="mini-text">WhatsApp: ${s.whatsapp ? `<a href="https://wa.me/${onlyDigits(s.whatsapp)}" target="_blank">${esc(s.whatsapp)}</a>` : "-"}</div>
@@ -416,7 +418,7 @@ function syncSessionUI() {
   }
 
   const supportBtn = $("#btnPancko");
-  if (supportBtn) supportBtn.textContent = "M.J.S.";
+  if (supportBtn) supportBtn.textContent = (state.support && (state.support["chip_info"] || state.support["chip info"])) || "M.J.S.";
 }
 
 function applyUserContext() {
