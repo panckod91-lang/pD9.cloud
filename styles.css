@@ -568,11 +568,12 @@ body{padding:10px 12px 16px;}
 
 .status-row-vnext{
   display:grid;
-  grid-template-columns:1fr 1fr 1fr;
+  grid-template-columns:auto 1fr auto;
   gap:10px;
   margin:0 2px 12px;
   align-items:center;
 }
+
 .status-pill-vnext{
   min-height:46px;
   padding:8px 12px;
@@ -581,12 +582,22 @@ body{padding:10px 12px 16px;}
   justify-content:center;
   border-radius:999px;
 }
-#networkStatus, #sellerBadge, #btnPancko{
-  width:100%;
+
+#networkStatus{
+  justify-self:start;
+  width:auto;
 }
-#networkStatus{justify-self:start}
-#sellerBadge{justify-self:center}
-#btnPancko{justify-self:end}
+
+#sellerBadge{
+  justify-self:center;
+  width:min(100%, 420px);
+}
+
+#btnPancko{
+  justify-self:end;
+  width:auto;
+}
+
 .pancko-pill-vnext{
   position:relative;
   padding-left:14px;
@@ -723,13 +734,22 @@ body{padding:10px 12px 16px;}
 .led-live-vnext{font-size:.96rem}
 .led-marquee-vnext{font-size:.93rem}
 
-@media (max-width:420px){
-  .status-row-vnext{gap:8px}
-  .status-pill-vnext{font-size:.9rem;padding:8px 10px;min-height:44px}
-  .action-card-vnext{min-height:118px;padding:16px 40px 16px 14px}
-  .icon-wrap-vnext{width:54px;height:54px}
-  .title-group-vnext strong{font-size:.98rem}
-  .title-group-vnext small{font-size:.8rem}
+@media (max-width: 420px){
+  .status-row-vnext{
+    margin-bottom:14px;
+    grid-template-columns:auto 1fr auto;
+    gap:8px;
+  }
+
+  .status-pill-small-vnext{
+    padding:6px 10px;
+    font-size:.72rem;
+  }
+
+  .status-pill-user-vnext{
+    width:min(100%, 52vw);
+    font-size:.86rem;
+  }
 }
 .ticker-track{
   display:flex;
