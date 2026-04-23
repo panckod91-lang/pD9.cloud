@@ -317,12 +317,22 @@ function renderNetwork() {
 function renderSellerBadge() {
   const el = $("#sellerBadge");
   if (!el) return;
-  if (!state.seller) {
-    el.textContent = "Sin usuario";
+
+  let textEl = el.querySelector(".seller-name");
+  if (!textEl) {
+    textEl = document.createElement("span");
+    textEl.className = "seller-name";
+    el.innerHTML = "";
+    el.appendChild(textEl);
+  }
+
+  if (!state.seller || !state.seller.nombre || !state.seller.nombre.trim()) {
+    textEl.textContent = "Sin usuario";
     el.classList.add("muted");
     return;
   }
-  el.textContent = state.seller.nombre || "Usuario";
+
+  textEl.textContent = state.seller.nombre.trim();
   el.classList.remove("muted");
 }
 
