@@ -71,12 +71,126 @@ main{width:100%}
 .brand-copy-vnext p{margin:7px 0 0;font-size:1.02rem;color:#4e6b88;font-weight:700}
 
 /* status row */
-.status-row-vnext{display:flex;gap:10px;flex-wrap:wrap;margin:0 2px 14px}
+.status-row-vnext{
+  display:grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items:center;
+  gap:10px;
+  margin:0 2px 14px;
+}
+
+.status-slot-vnext{
+  min-width:0;
+  display:flex;
+  align-items:center;
+}
+
+.status-slot-left-vnext{
+  justify-content:flex-start;
+}
+
+.status-slot-center-vnext{
+  justify-content:center;
+}
+
+.status-slot-right-vnext{
+  justify-content:flex-end;
+}
+
 .status-pill-vnext{
-  border:none;background:rgba(255,255,255,.94);border-radius:999px;
-  padding:12px 18px;display:inline-flex;align-items:center;gap:10px;
-  font-size:1.02rem;font-weight:800;color:var(--navy);
-  box-shadow:var(--shadow-soft);min-height:54px;
+  border:none;
+  background:rgba(255,255,255,.94);
+  border-radius:999px;
+  padding:12px 18px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  font-size:1.02rem;
+  font-weight:800;
+  color:var(--navy);
+  box-shadow:var(--shadow-soft);
+  min-height:54px;
+  white-space:nowrap;
+}
+
+.status-pill-vnext::before{
+  content:"";
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  background:#cbd5e1;
+  flex:0 0 auto;
+  box-shadow:0 0 0 5px rgba(148,163,184,.14);
+}
+
+.status-pill-vnext.online::before{
+  background:var(--green);
+  box-shadow:0 0 0 5px rgba(23,184,87,.16);
+}
+
+.status-pill-vnext.offline::before{
+  background:var(--danger);
+  box-shadow:0 0 0 5px rgba(239,68,68,.16);
+}
+
+.status-pill-vnext.muted::before{
+  background:#94a3b8;
+  box-shadow:0 0 0 5px rgba(148,163,184,.12);
+}
+
+.status-pill-vnext.alert::before{
+  display:none;
+}
+
+.status-pill-small-vnext{
+  padding:8px 14px;
+  min-height:46px;
+  font-size:.92rem;
+  font-weight:800;
+}
+
+.status-pill-user-vnext{
+  padding:12px 24px;
+  min-height:58px;
+  font-size:1.04rem;
+  font-weight:900;
+}
+
+#sellerBadge{
+  min-width:min(58vw, 320px);
+}
+
+#sellerBadge::before{
+  content:"👥";
+  width:auto;
+  height:auto;
+  background:none;
+  box-shadow:none;
+  font-size:1.15rem;
+}
+
+#btnPancko::before{
+  content:"ⓘ";
+  width:auto;
+  height:auto;
+  background:none;
+  box-shadow:none;
+  font-size:1.15rem;
+}
+
+#pendingBadge{
+  background:#fff4f5;
+  color:#b91c1c;
+}
+
+#pendingBadge::before{
+  content:"";
+  display:none;
+}
+
+.pancko-pill-vnext{
+  padding-right:16px;
 }
 .status-pill-vnext::before{
   content:"";width:12px;height:12px;border-radius:50%;background:#cbd5e1;flex:0 0 auto;
