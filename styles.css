@@ -1159,3 +1159,6 @@ select {
   .history-title-d9 h2{font-size:1.85rem;}
   .history-title-d9 .subhead{font-size:.94rem;}
 }
+body{
+  outline: 8px solid red !important;
+}
