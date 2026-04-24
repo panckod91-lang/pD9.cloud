@@ -1530,13 +1530,3 @@ async function init() {
 }
 
 init();
-// FIX botón confirmar productos (aunque sea dinámico)
-setInterval(() => {
-  const btn = document.querySelector('button[data-close-modal="product"], .sticky-action, .primary-btn');
-
-  if (btn && !btn.dataset.fixed) {
-    btn.textContent = "Aceptar selección";
-    btn.classList.add("product-done-btn");
-    btn.dataset.fixed = "true";
-  }
-}, 500);
