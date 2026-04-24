@@ -918,40 +918,12 @@ body{padding:10px 12px 16px;}
   }
 }
 
-/* ===== FIX FINAL: barra de estado + usuario 2 líneas + no selección + botón productos ===== */
-
-/* Evitar selección/búsqueda accidental en mobile */
-body,
-button,
-.action-card-vnext,
-.status-pill-vnext,
-.cta-main-vnext,
-.promo-card-vnext,
-.led-info-vnext,
-.view-head,
-.card,
-.price-row,
-.product-item,
-.option-item,
-.history-item {
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-input,
-textarea {
-  -webkit-user-select: text;
-  user-select: text;
-}
-
-/* Barra de estado estable */
+/* ===== FIX FINAL BARRA ESTADO - NO SOLAPAR ===== */
 .status-row-vnext{
   display:grid !important;
   grid-template-columns:max-content minmax(0,1fr) max-content !important;
   align-items:center !important;
-  column-gap:14px !important;
+  column-gap:16px !important;
   margin:0 6px 14px !important;
 }
 
@@ -960,51 +932,66 @@ textarea {
   display:flex !important;
   align-items:center !important;
 }
+
 .status-slot-left-vnext{justify-content:flex-start !important;}
-.status-slot-center-vnext{justify-content:center !important; min-width:0 !important; padding:0 2px;}
+.status-slot-center-vnext{
+  justify-content:center !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+}
 .status-slot-right-vnext{justify-content:flex-end !important;}
 
 .status-pill-vnext{
-  border:none;
-  background:rgba(255,255,255,.94);
-  border-radius:999px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-  color:var(--navy);
-  white-space:nowrap;
-  box-shadow:
-    0 6px 14px rgba(0,0,0,.08),
-    inset -5px -5px 10px rgba(8,37,84,.05);
-}
-
-.status-pill-small-vnext,
-.status-pill-user-vnext{
+  box-sizing:border-box !important;
   height:48px !important;
   min-height:48px !important;
-  padding:0 16px !important;
-  font-size:.92rem !important;
-  font-weight:800 !important;
-  transform:none !important;
-  opacity:1 !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border:none !important;
+  border-radius:999px !important;
+  background:rgba(255,255,255,.94) !important;
+  color:var(--navy) !important;
+  box-shadow:
+    0 6px 14px rgba(0,0,0,.08),
+    inset -5px -5px 10px rgba(8,37,84,.05) !important;
 }
 
-.status-pill-user-vnext{
-  max-width:min(100%, 330px) !important;
-  min-width:0 !important;
-  padding:6px 18px !important;
-  font-weight:900 !important;
-}
-
-#sellerBadge{
+.status-pill-small-vnext{
+  flex:0 0 auto !important;
   width:auto !important;
+  padding:0 14px !important;
+  font-size:.88rem !important;
+  font-weight:800 !important;
+  white-space:nowrap !important;
+}
+
+#sellerBadge.status-pill-user-vnext,
+#sellerBadge{
+  flex:1 1 auto !important;
+  width:100% !important;
+  max-width:310px !important;
   min-width:0 !important;
-  max-width:min(100%, 330px) !important;
-  overflow:hidden;
+  padding:0 12px !important;
+  gap:8px !important;
+  font-size:.86rem !important;
+  font-weight:900 !important;
+  white-space:normal !important;
+  overflow:hidden !important;
+}
+
+#sellerBadge::before{
+  content:"👥" !important;
+  flex:0 0 auto !important;
+  width:auto !important;
+  height:auto !important;
+  background:none !important;
+  box-shadow:none !important;
+  font-size:1.05rem !important;
 }
 
 #sellerBadge .seller-name{
+  min-width:0 !important;
   display:-webkit-box !important;
   -webkit-line-clamp:2 !important;
   -webkit-box-orient:vertical !important;
@@ -1013,54 +1000,25 @@ textarea {
   white-space:normal !important;
   line-height:1.08 !important;
   max-height:2.16em !important;
-  text-align:center !important;
+  text-align:left !important;
 }
 
-.status-pill-vnext::before{
-  content:"";
-  width:12px;
-  height:12px;
-  border-radius:50%;
-  background:#cbd5e1;
-  flex:0 0 auto;
-  box-shadow:0 0 0 5px rgba(148,163,184,.14);
-  transform:translateY(1px);
-}
-.status-pill-vnext.online::before{background:var(--green);box-shadow:0 0 0 5px rgba(23,184,87,.16);}
-.status-pill-vnext.offline::before{background:var(--danger);box-shadow:0 0 0 5px rgba(239,68,68,.16);}
-.status-pill-vnext.muted::before{background:#94a3b8;box-shadow:0 0 0 5px rgba(148,163,184,.12);}
-
-#sellerBadge::before{
-  content:"👥";
-  width:auto;
-  height:auto;
-  background:none;
-  box-shadow:none;
-  font-size:1.05rem;
+#btnPancko{
+  flex:0 0 auto !important;
+  white-space:nowrap !important;
 }
 
-#pendingBadge,
-.pendingBadge{display:none !important;}
-
-/* Botón visible para cerrar/aceptar productos */
-#productModal .sticky-action,
-#productModal button[data-close-modal="product"]{
-  position:sticky !important;
-  bottom:0 !important;
-  z-index:30 !important;
-  width:100% !important;
-  margin-top:12px !important;
-  padding:16px !important;
-  border-radius:18px !important;
-  font-size:1.05rem !important;
-  font-weight:900 !important;
-  color:#fff !important;
-  background:linear-gradient(135deg,#3fb9ed 0%, #59c8f4 100%) !important;
-  box-shadow:0 -6px 16px rgba(0,0,0,.10) !important;
+#btnPancko::before{
+  content:none !important;
+  display:none !important;
 }
 
-#productModal .product-list{
-  padding-bottom:76px;
+#networkStatus::before{
+  content:"" !important;
+  width:12px !important;
+  height:12px !important;
+  border-radius:50% !important;
+  flex:0 0 auto !important;
 }
 
 @media (max-width:420px){
@@ -1068,16 +1026,26 @@ textarea {
     column-gap:12px !important;
     margin:0 4px 14px !important;
   }
-  .status-pill-small-vnext,
-  .status-pill-user-vnext{
+
+  .status-pill-vnext{
     height:44px !important;
     min-height:44px !important;
-    font-size:.86rem !important;
-    padding:0 12px !important;
   }
-  .status-pill-user-vnext{
-    padding:5px 14px !important;
-    max-width:min(100%, 330px) !important;
+
+  .status-pill-small-vnext{
+    padding:0 10px !important;
+    font-size:.78rem !important;
   }
-  .status-slot-center-vnext{padding:0 1px;}
+
+  #sellerBadge.status-pill-user-vnext,
+  #sellerBadge{
+    max-width:100% !important;
+    padding:0 10px !important;
+    font-size:.76rem !important;
+    gap:6px !important;
+  }
+
+  #sellerBadge::before{
+    font-size:.95rem !important;
+  }
 }
