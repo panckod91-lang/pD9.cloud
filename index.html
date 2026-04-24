@@ -210,13 +210,17 @@
       </section>
 
       <section id="view-history" class="view">
-        <div class="view-head">
-          <button class="back-btn" data-back="home" type="button">←</button>
-          <div>
+        <div class="view-head history-head-d9">
+          <button class="back-btn history-home-d9" data-back="home" type="button" aria-label="Volver al inicio">🏠</button>
+          <div class="history-title-d9">
             <h2>Historial</h2>
             <p class="subhead">Movimientos guardados en este usuario.</p>
           </div>
-          <button id="btnExportHistory" class="link-btn" type="button">Exportar</button>
+          <div class="history-actions-d9">
+            <button id="btnExportHistory" class="link-btn" type="button">Exportar</button>
+            <button id="btnRestoreHistory" class="link-btn" type="button">Restaurar</button>
+            <input id="restoreHistoryFile" class="hidden" type="file" accept="application/json,.json" />
+          </div>
         </div>
 
         <div class="card">

@@ -1315,6 +1315,34 @@ function exportHistory() {
   URL.revokeObjectURL(url);
 }
 
+function openRestoreHistory() {
+  const input = $("#restoreHistoryFile");
+  if (!input) return toast("No encontré el importador.");
+  input.value = "";
+  input.click();
+}
+
+function restoreHistoryFromFile(ev) {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data)) return toast("El archivo no parece un historial válido.");
+      saveJSON(STORAGE_KEYS.history, data.slice(0, 300));
+      state.historyOpenId = null;
+      renderHistory();
+      toast("Historial restaurado.");
+    } catch (err) {
+      console.warn(err);
+      toast("No pude leer ese archivo.");
+    }
+  };
+  reader.readAsText(file);
+}
+
 
 function resetTransientUI() {
   state.isSending = false;
@@ -1368,6 +1396,8 @@ function bind() {
   $("#btnSend").addEventListener("click", sendOrder);
   $("#btnSavePending").addEventListener("click", savePendingNow);
   $("#btnExportHistory").addEventListener("click", exportHistory);
+  $("#btnRestoreHistory")?.addEventListener("click", openRestoreHistory);
+  $("#restoreHistoryFile")?.addEventListener("change", restoreHistoryFromFile);
   $("#btnOpenClients").addEventListener("click", () => {
     if (state.seller?.rol === "cliente") return;
     if (!state.seller) {

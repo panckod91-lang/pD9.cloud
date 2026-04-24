@@ -1113,3 +1113,49 @@ select {
   -webkit-user-select: text;
   user-select: text;
 }
+
+
+/* ===== Historial: header scoped D9 ===== */
+.history-head-d9{
+  align-items:center;
+  gap:12px;
+  margin:8px 2px 12px;
+}
+.history-home-d9{
+  font-size:1.2rem;
+}
+.history-title-d9{
+  flex:1;
+  min-width:0;
+}
+.history-title-d9 h2{
+  margin:0;
+  font-size:clamp(1.7rem, 6vw, 2.25rem);
+  line-height:.95;
+  letter-spacing:-.04em;
+  color:#15315a;
+}
+.history-title-d9 .subhead{
+  margin:6px 0 0;
+  line-height:1.18;
+}
+.history-actions-d9{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  justify-content:center;
+  gap:6px;
+  flex:0 0 auto;
+}
+.history-actions-d9 .link-btn{
+  padding:0;
+  line-height:1.1;
+  font-weight:900;
+  color:#21466c;
+}
+@media (max-width:420px){
+  .history-head-d9{gap:10px;margin-top:6px;}
+  .history-actions-d9 .link-btn{font-size:.88rem;}
+  .history-title-d9 h2{font-size:1.85rem;}
+  .history-title-d9 .subhead{font-size:.94rem;}
+}
