@@ -241,6 +241,7 @@ async function loadAllData() {
 
 function showView(name) {
   state.currentView = name;
+  document.body.dataset.view = name;
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   const target = document.getElementById(`view-${name}`);
   if (target) target.classList.add("active");
@@ -1368,6 +1369,8 @@ function bind() {
   $("#btnSend").addEventListener("click", sendOrder);
   $("#btnSavePending").addEventListener("click", savePendingNow);
   $("#btnExportHistory").addEventListener("click", exportHistory);
+  $("#btnImportHistory")?.addEventListener("click", openHistoryImport);
+  $("#historyImportFile")?.addEventListener("change", importHistoryFile);
   $("#btnOpenClients").addEventListener("click", () => {
     if (state.seller?.rol === "cliente") return;
     if (!state.seller) {
@@ -1507,6 +1510,7 @@ function renderSellerName(el, nombre){
 }
 
 async function init() {
+  document.body.dataset.view = state.currentView || "home";
   bind();
   hydrateCacheState();
   hydrateGuestClient();

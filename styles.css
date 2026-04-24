@@ -1113,3 +1113,83 @@ select {
   -webkit-user-select: text;
   user-select: text;
 }
+
+
+/* ===== Pantallas internas: header propio y sin barra de estado ===== */
+body:not([data-view="home"]) .status-row-vnext{
+  display:none !important;
+}
+
+body:not([data-view="home"]) .hero-header-vnext{
+  margin-bottom:14px;
+}
+
+.view-head{
+  display:flex !important;
+  align-items:center !important;
+  gap:12px !important;
+  margin:4px 2px 14px !important;
+}
+
+.view-head > div{
+  flex:1;
+  min-width:0;
+}
+
+.view-head h2{
+  margin:0 !important;
+  font-size:clamp(1.85rem, 7vw, 2.35rem) !important;
+  line-height:.95 !important;
+  letter-spacing:-.045em !important;
+}
+
+.view-head .subhead{
+  margin:6px 0 0 !important;
+  line-height:1.15 !important;
+}
+
+.back-btn.home-back-btn{
+  width:52px !important;
+  height:52px !important;
+  border-radius:18px !important;
+  font-size:1.15rem !important;
+  background:rgba(255,255,255,.78) !important;
+  box-shadow:0 8px 18px rgba(8,37,84,.08) !important;
+}
+
+.view-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  flex:0 0 auto;
+}
+
+.view-actions .link-btn{
+  padding:8px 0;
+  font-size:.92rem;
+}
+
+@media (max-width:420px){
+  .view-head{
+    gap:10px !important;
+    margin:2px 2px 12px !important;
+  }
+
+  .back-btn.home-back-btn{
+    width:48px !important;
+    height:48px !important;
+  }
+
+  .view-head h2{
+    font-size:clamp(1.65rem, 7.3vw, 2.1rem) !important;
+  }
+
+  .view-actions{
+    gap:8px;
+  }
+
+  .view-actions .link-btn{
+    font-size:.82rem;
+  }
+}
