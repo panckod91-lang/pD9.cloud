@@ -240,15 +240,17 @@ async function loadAllData() {
 }
 
 function showView(name) {
-  state.currentView = name;
-  document.body.classList.toggle("is-home", name === "home");
-  document.body.classList.toggle("is-internal", name !== "home");
-  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-  const target = document.getElementById(`view-`);
-  if (target) target.classList.add("active");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
 
+  const target = document.getElementById(`view-${name}`);
+  if (target) {
+    target.classList.add('active');
+  } else {
+    document.getElementById('view-home')?.classList.add('active');
+  }
+}
+showView("home");
 function openModal(name) {
   const modal = document.getElementById(`${name}Modal`);
   if (!modal) return;
