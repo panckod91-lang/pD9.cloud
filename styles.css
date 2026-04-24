@@ -1159,6 +1159,37 @@ select {
   .history-title-d9 h2{font-size:1.85rem;}
   .history-title-d9 .subhead{font-size:.94rem;}
 }
-body{
-  outline: 8px solid red !important;
+.history-head-d9{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.history-title-d9{
+  flex:1;
+}
+
+.history-title-d9 h2{
+  margin:0;
+  font-size:22px;
+}
+
+.history-title-d9 .subhead{
+  margin:2px 0 0;
+  font-size:13px;
+  opacity:.7;
+}
+
+.title-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.history-actions-d9{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  font-size:13px;
 }
