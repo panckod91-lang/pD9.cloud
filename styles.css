@@ -323,10 +323,9 @@ main{width:100%}
 }
 .led-divider-vnext{width:1px;align-self:stretch;background:rgba(255,255,255,.14)}
 .led-marquee-wrap-vnext{min-width:0;flex:1;overflow:hidden;white-space:nowrap}
-.led-marquee-vnext{--ticker-distance-vnext:50%;--ticker-duration-vnext:12s;display:inline-flex;align-items:center;gap:16px;white-space:nowrap;padding-left:100%;color:#e9f6ff;font-size:.95rem;font-weight:700;animation:ledTickerMove var(--ticker-duration-vnext) linear infinite;will-change:transform}.ticker-gap-vnext{display:inline-block;width:48px}.ticker-sep-vnext{opacity:.72}
+.led-marquee-vnext{position:relative;display:block;min-width:0;color:#e9f6ff;font-size:.95rem;font-weight:700;overflow:hidden;white-space:nowrap}
 .led-end-vnext{color:#ffcf61;font-size:1.1rem}
-@keyframes ledTickerMove{0%{transform:translateX(0)}100%{transform:translateX(calc(-1 * var(--ticker-distance-vnext)))}}
-
+@keyframes
 /* view pages */
 .view-head{
   display:flex;align-items:flex-start;gap:14px;margin:8px 2px 16px;
@@ -1090,7 +1089,7 @@ button,
 
 /* ===== RESTAURAR BOTÓN ACEPTAR SELECCIÓN ===== */
 
-.product-done-btn,
+#btnProductDone,
 button[data-close-modal="product"].sticky-action{
   display:block !important;
   position:sticky !important;
@@ -1105,4 +1104,12 @@ button[data-close-modal="product"].sticky-action{
   color:#fff !important;
   background:linear-gradient(135deg,#3fb9ed 0%, #59c8f4 100%) !important;
   box-shadow:0 -6px 16px rgba(0,0,0,.10) !important;
+}
+
+/* Permitir seleccionar/escribir solo en campos editables */
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  user-select: text;
 }

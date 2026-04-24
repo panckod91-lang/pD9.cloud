@@ -44,25 +44,23 @@ const state = {
 
 const $ = (s) => document.querySelector(s);
 const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Number(v) || 0);
-const readJSON = (k, f) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
+const readJSON = (k, f = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
 const saveJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-const saveCache = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-const readCache = (k, f = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
 function hydrateCacheState() {
-  state.config = readCache(CACHE_KEYS.config, state.config || {});
-  state.users = readCache(CACHE_KEYS.users, state.users || []);
-  state.clients = readCache(CACHE_KEYS.clients, state.clients || []);
-  state.products = readCache(CACHE_KEYS.products, state.products || []);
-  state.ads = readCache(CACHE_KEYS.ads, state.ads || []);
-  state.support = readCache(CACHE_KEYS.support, state.support || {});
+  state.config = readJSON(CACHE_KEYS.config, state.config || {});
+  state.users = readJSON(CACHE_KEYS.users, state.users || []);
+  state.clients = readJSON(CACHE_KEYS.clients, state.clients || []);
+  state.products = readJSON(CACHE_KEYS.products, state.products || []);
+  state.ads = readJSON(CACHE_KEYS.ads, state.ads || []);
+  state.support = readJSON(CACHE_KEYS.support, state.support || {});
 }
 function persistCacheState() {
-  saveCache(CACHE_KEYS.config, state.config || {});
-  saveCache(CACHE_KEYS.users, state.users || []);
-  saveCache(CACHE_KEYS.clients, state.clients || []);
-  saveCache(CACHE_KEYS.products, state.products || []);
-  saveCache(CACHE_KEYS.ads, state.ads || []);
-  saveCache(CACHE_KEYS.support, state.support || {});
+  saveJSON(CACHE_KEYS.config, state.config || {});
+  saveJSON(CACHE_KEYS.users, state.users || []);
+  saveJSON(CACHE_KEYS.clients, state.clients || []);
+  saveJSON(CACHE_KEYS.products, state.products || []);
+  saveJSON(CACHE_KEYS.ads, state.ads || []);
+  saveJSON(CACHE_KEYS.support, state.support || {});
   localStorage.setItem(CACHE_KEYS.lastSync, String(Date.now()));
 }
 async function registerServiceWorker() {
@@ -275,10 +273,18 @@ function closeModal(name) {
   }
 }
 
+function updateSupportChip() {
+  const chipEl = $("#btnPancko");
+  if (!chipEl) return;
+  chipEl.textContent =
+    state.support?.["chip_info"] ||
+    state.support?.["chip info"] ||
+    "M.J.S.";
+}
+
 function renderTop() {
   const titleEl = $("#appTitle");
   const companyEl = $("#empresaLabel");
-  const chipEl = $("#btnPancko");
 
   if (titleEl) {
     titleEl.innerHTML = buildColoredInline(
@@ -296,9 +302,7 @@ function renderTop() {
     );
   }
 
-  if (chipEl) {
-    chipEl.textContent = state.support["chip_info"] || state.support["chip info"] || "M.J.S.";
-  }
+  updateSupportChip();
 }
 
 function renderNetwork() {
@@ -332,7 +336,7 @@ function renderSellerBadge() {
     return;
   }
 
-  nameEl.innerHTML = formatSellerName(state.seller.nombre || "Usuario");
+  renderSellerName(nameEl, state.seller.nombre || "Usuario");
   badge.classList.remove("muted");
 }
 
@@ -342,8 +346,8 @@ function renderPendingBadge() {
   const el = $("#pendingBadge");
   const card = $("#btnSyncPending");
   const cardCount = document.querySelector(".pending-count-vnext");
-  const cardTitle = $("#pendingCardTitle");
-  const cardSub = $("#pendingCardSub");
+  const cardTitle = $("#pendingInfoTitle");
+  const cardSub = $("#pendingInfoText");
 
   if (card) {
     card.classList.toggle("has-pending", count > 0);
@@ -440,8 +444,7 @@ function renderTicker(){
 
 function renderSupport() {
   const s = state.support || {};
-  const chipEl = $("#btnPancko");
-  if (chipEl) chipEl.textContent = s["chip_info"] || s["chip info"] || "M.J.S.";
+  updateSupportChip();
   $("#supportBox").innerHTML = `
     <strong>${esc(s.nombre || "Sin dato")}</strong>
     <div class="mini-text">WhatsApp: ${s.whatsapp ? `<a href="https://wa.me/${onlyDigits(s.whatsapp)}" target="_blank">${esc(s.whatsapp)}</a>` : "-"}</div>
@@ -462,8 +465,7 @@ function syncSessionUI() {
     btn.dataset.sub = "Acceder con usuario y clave";
   }
 
-  const supportBtn = $("#btnPancko");
-  if (supportBtn) supportBtn.textContent = (state.support && (state.support["chip_info"] || state.support["chip info"])) || "M.J.S.";
+  updateSupportChip();
 }
 
 function applyUserContext() {
@@ -1481,22 +1483,27 @@ function renderAll() {
 }
 
 
-async function disableServiceWorkerAndCaches() {
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const reg of regs) {
-        await reg.unregister();
-      }
-    }
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
-    console.info('[D9] Service workers y caches limpiados para esta etapa de pruebas.');
-  } catch (error) {
-    console.warn('[D9] No pude limpiar service workers/caches:', error);
+function formatSellerNameLines(nombre){
+  const clean = String(nombre || "").trim();
+  if (!clean) return ["Sin usuario"];
+  if (clean.length <= 18) return [clean];
+
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length >= 3) {
+    return [words.slice(0, 2).join(" "), words.slice(2).join(" ")];
   }
+
+  const mid = Math.ceil(words.length / 2);
+  return [words.slice(0, mid).join(" "), words.slice(mid).join(" ")].filter(Boolean);
+}
+
+function renderSellerName(el, nombre){
+  const lines = formatSellerNameLines(nombre);
+  el.replaceChildren();
+  lines.forEach((line, index) => {
+    if (index) el.appendChild(document.createElement("br"));
+    el.appendChild(document.createTextNode(line));
+  });
 }
 
 async function init() {
@@ -1530,27 +1537,3 @@ async function init() {
 }
 
 init();
-function formatSellerName(nombre){
-  const clean = (nombre || "").trim();
-
-  if (!clean) return "Sin usuario";
-
-  // si es corto, no lo tocamos
-  if (clean.length <= 18) return clean;
-
-  const words = clean.split(/\s+/);
-
-  // caso típico: nombre + apellido + negocio
-  if (words.length >= 3){
-    const line1 = words.slice(0, 2).join(" ");
-    const line2 = words.slice(2).join(" ");
-    return `${line1}<br>${line2}`;
-  }
-
-  // fallback genérico
-  const mid = Math.ceil(words.length / 2);
-  const line1 = words.slice(0, mid).join(" ");
-  const line2 = words.slice(mid).join(" ");
-
-  return `${line1}<br>${line2}`;
-}
