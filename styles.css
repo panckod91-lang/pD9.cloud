@@ -1062,3 +1062,47 @@ button,
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
+/* ===== FIX FINAL BARRA USUARIO CENTRADO ===== */
+
+#sellerBadge{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  width:auto !important;
+  max-width:310px !important;
+  min-width:210px !important;
+  padding:0 18px !important;
+}
+
+#sellerBadge .seller-name{
+  display:-webkit-box !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
+  overflow:hidden !important;
+  white-space:normal !important;
+  text-overflow:ellipsis !important;
+  text-align:center !important;
+  line-height:1.08 !important;
+  max-height:2.2em !important;
+  margin:0 auto !important;
+}
+
+/* ===== RESTAURAR BOTÓN ACEPTAR SELECCIÓN ===== */
+
+.product-done-btn,
+button[data-close-modal="product"].sticky-action{
+  display:block !important;
+  position:sticky !important;
+  bottom:0 !important;
+  z-index:50 !important;
+  width:100% !important;
+  margin-top:12px !important;
+  padding:16px !important;
+  border-radius:18px !important;
+  font-size:1.05rem !important;
+  font-weight:900 !important;
+  color:#fff !important;
+  background:linear-gradient(135deg,#3fb9ed 0%, #59c8f4 100%) !important;
+  box-shadow:0 -6px 16px rgba(0,0,0,.10) !important;
+}
