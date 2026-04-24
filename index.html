@@ -209,15 +209,19 @@
         </div>
       </section>
 
-      <section id="view-history" class="view">
-        <div class="view-head">
-          <button class="back-btn" data-back="home" type="button">←</button>
-          <div>
-            <h2>Historial</h2>
-            <p class="subhead">Movimientos guardados en este usuario.</p>
-          </div>
-          <button id="btnExportHistory" class="link-btn" type="button">Exportar</button>
-        </div>
+      <div class="screen-header">
+  <button class="nav-btn">🏠</button>
+
+  <div class="header-center">
+    <div class="title">Historial</div>
+    <div class="subtitle">Movimientos guardados en este usuario.</div>
+  </div>
+
+  <div class="header-actions">
+    <button id="btnExportar">Exportar</button>
+    <button id="btnRestaurar">Restaurar</button>
+  </div>
+</div>
 
         <div class="card">
           <div id="historyList" class="history-list empty-state">Sin movimientos todavía.</div>
