@@ -332,7 +332,7 @@ function renderSellerBadge() {
     return;
   }
 
-  nameEl.textContent = state.seller.nombre || "Usuario";
+  nameEl.innerHTML = formatSellerName(state.seller.nombre || "Usuario");
   badge.classList.remove("muted");
 }
 
@@ -1530,3 +1530,27 @@ async function init() {
 }
 
 init();
+function formatSellerName(nombre){
+  const clean = (nombre || "").trim();
+
+  if (!clean) return "Sin usuario";
+
+  // si es corto, no lo tocamos
+  if (clean.length <= 18) return clean;
+
+  const words = clean.split(/\s+/);
+
+  // caso típico: nombre + apellido + negocio
+  if (words.length >= 3){
+    const line1 = words.slice(0, 2).join(" ");
+    const line2 = words.slice(2).join(" ");
+    return `${line1}<br>${line2}`;
+  }
+
+  // fallback genérico
+  const mid = Math.ceil(words.length / 2);
+  const line1 = words.slice(0, mid).join(" ");
+  const line2 = words.slice(mid).join(" ");
+
+  return `${line1}<br>${line2}`;
+}
