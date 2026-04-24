@@ -986,3 +986,16 @@ button,
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
+.product-done-btn{
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(135deg,#3fb9ed 0%, #59c8f4 100%);
+  box-shadow: 0 -6px 16px rgba(0,0,0,.10);
+}
