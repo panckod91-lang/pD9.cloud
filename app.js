@@ -241,8 +241,10 @@ async function loadAllData() {
 
 function showView(name) {
   state.currentView = name;
+  document.body.classList.toggle("is-home", name === "home");
+  document.body.classList.toggle("is-internal", name !== "home");
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-  const target = document.getElementById(`view-${name}`);
+  const target = document.getElementById(`view-`);
   if (target) target.classList.add("active");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -1315,6 +1317,37 @@ function exportHistory() {
   URL.revokeObjectURL(url);
 }
 
+function importHistoryFromFile(file) {
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || "[]"));
+      if (!Array.isArray(parsed)) {
+        toast("El archivo no parece un historial válido.");
+        return;
+      }
+
+      const current = readJSON(STORAGE_KEYS.history, []);
+      if (current.length && !confirm("Esto reemplaza el historial guardado en este celular. ¿Continuar?")) {
+        return;
+      }
+
+      saveJSON(STORAGE_KEYS.history, parsed.slice(0, 300));
+      state.historyOpenId = null;
+      renderHistory();
+      toast(`Historial restaurado (${parsed.length}).`);
+    } catch {
+      toast("No pude leer ese archivo JSON.");
+    } finally {
+      const input = $("#historyImportFile");
+      if (input) input.value = "";
+    }
+  };
+  reader.readAsText(file);
+}
+
 
 function resetTransientUI() {
   state.isSending = false;
@@ -1368,6 +1401,12 @@ function bind() {
   $("#btnSend").addEventListener("click", sendOrder);
   $("#btnSavePending").addEventListener("click", savePendingNow);
   $("#btnExportHistory").addEventListener("click", exportHistory);
+  const importHistoryBtn = $("#btnImportHistory");
+  const importHistoryFile = $("#historyImportFile");
+  if (importHistoryBtn && importHistoryFile) {
+    importHistoryBtn.addEventListener("click", () => importHistoryFile.click());
+    importHistoryFile.addEventListener("change", (e) => importHistoryFromFile(e.target.files?.[0]));
+  }
   $("#btnOpenClients").addEventListener("click", () => {
     if (state.seller?.rol === "cliente") return;
     if (!state.seller) {
@@ -1508,6 +1547,7 @@ function renderSellerName(el, nombre){
 
 async function init() {
   bind();
+  showView(state.currentView || "home");
   hydrateCacheState();
   hydrateGuestClient();
   hydrateSeller();
