@@ -1225,3 +1225,26 @@ select {
   font-weight: 900 !important;
   padding: 0 !important;
 }
+.history-head-d9{
+  background:rgba(255,255,255,.72) !important;
+  border-radius:24px !important;
+  padding:12px 14px !important;
+  box-shadow:0 6px 16px rgba(8,37,84,.06) !important;
+  margin:10px 2px 14px !important;
+}
+
+.history-actions-d9 .link-btn{
+  background:#eef7fd !important;
+  border-radius:999px !important;
+  padding:6px 12px !important;
+  min-width:92px !important;
+  text-align:center !important;
+}
+
+.history-title-d9 h2{
+  font-size:1.65rem !important;
+}
+
+.history-title-d9 .subhead{
+  font-size:.88rem !important;
+}
