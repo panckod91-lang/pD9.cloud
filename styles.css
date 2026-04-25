@@ -1276,3 +1276,41 @@ select {
 .view:not(#view-home) .status-bar{
   display:none !important;
 }
+/* Ocultar barra de estado en pantallas internas */
+body:has(#view-history.active) .status-row-vnext,
+body:has(#view-order.active) .status-row-vnext,
+body:has(#view-prices.active) .status-row-vnext{
+  display:none !important;
+}
+/* Compactar etiqueta historial */
+.history-head-d9{
+  padding:6px 10px !important;
+  margin:8px 2px 12px !important;
+  min-height:0 !important;
+  align-items:center !important;
+}
+
+.history-home-d9{
+  width:44px !important;
+  height:44px !important;
+  min-height:44px !important;
+  font-size:1.15rem !important;
+}
+
+.history-title-d9 h2{
+  font-size:1.32rem !important;
+  line-height:1 !important;
+  margin:0 !important;
+}
+
+.history-title-d9 .subhead{
+  font-size:.82rem !important;
+  line-height:1.05 !important;
+  margin:2px 0 0 !important;
+}
+
+.history-actions-d9 .link-btn{
+  padding:4px 10px !important;
+  font-size:.82rem !important;
+  min-width:82px !important;
+}
