@@ -378,28 +378,60 @@ function renderPendingBadge() {
 function renderBanner() {
   const box = $("#bannerWrap");
   if (!box) return;
-  const first = Array.isArray(state.ads) ? state.ads[0] : null;
+
+  const activeAds = Array.isArray(state.ads)
+    ? state.ads
+        .filter(r => isTrue(r.activo))
+        .sort((a, b) => Number(a.id || a.orden || 0) - Number(b.id || b.orden || 0))
+    : [];
+
+  const first = activeAds[0];
   if (!first) {
     box.classList.add("hidden");
     box.innerHTML = "";
     return;
   }
-  const text = first.texto || first.titulo || "Publicidad";
-  const img = first.imagen_url || first.imagen || first.link_imagen || "";
-  const link = first.link_url || first.link || "#";
+
+  const orden = first.id || first.orden || "";
+  const tag = String(first.texto || "").trim();
+  const titulo = String(first.titulo || tag || "Publicidad").trim();
+  const linea1 = String(first.texto_1 || "").trim();
+  const linea2 = String(first.texto_2 || "").trim();
+  const imgProducto = String(first.imagen_url || first.imagen || first.link_imagen || "").trim();
+  const imgFull = String(first.imagen_url_full || "").trim();
+  const link = String(first.link_url || first.link || "#").trim() || "#";
+  const hasLink = link && link !== "#";
+  const isFull = !!imgFull;
+
+  console.log("[D9] publicidad item:", { orden, tag, titulo, linea1, linea2, imgProducto, imgFull, link, tipo: isFull ? "full" : "producto" });
+
   box.classList.remove("hidden");
+
+  if (isFull) {
+    box.innerHTML = `
+      <a class="banner-link-vnext banner-full-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
+        <img class="banner-full-img-d9" src="${esc(imgFull)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">
+      </a>`;
+    return;
+  }
+
+  const textHtml = [
+    tag ? `<div class="banner-kicker-vnext">${esc(tag)}</div>` : "",
+    titulo ? `<div class="banner-title-vnext">${esc(titulo)}</div>` : "",
+    linea1 ? `<div class="banner-line-vnext">${esc(linea1)}</div>` : "",
+    linea2 ? `<div class="banner-line-vnext">${esc(linea2)}</div>` : ""
+  ].filter(Boolean).join("");
+
   box.innerHTML = `
-    <a class="banner-link-vnext" href="${esc(link)}" ${link && link !== "#" ? 'target="_blank" rel="noopener noreferrer"' : ""}>
+    <a class="banner-link-vnext banner-product-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
       <div class="banner-copy-vnext">
-        <div class="banner-kicker-vnext">PUBLICIDAD</div>
-        <div class="banner-title-vnext">${esc(text)}</div>
+        ${textHtml || `<div class="banner-title-vnext">Publicidad</div>`}
       </div>
       <div class="banner-art-vnext">
-        ${img ? `<img class="banner-thumb-vnext" src="${esc(img)}" alt="Publicidad">` : `<div class="banner-thumb-vnext empty"></div>`}
+        ${imgProducto ? `<img class="banner-thumb-vnext" src="${esc(imgProducto)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">` : `<div class="banner-thumb-vnext empty"></div>`}
       </div>
     </a>`;
 }
-
 
 function renderTicker(){
   const el = document.getElementById("ledTicker");
