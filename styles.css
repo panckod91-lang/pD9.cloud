@@ -1253,30 +1253,23 @@ select {
   align-items:center !important;
 }
 
-.history-home-d9{
-  width:52px !important;
-  height:52px !important;
-  display:flex !important;
+.history-head-d9{
+  padding:8px 10px !important;
+  min-height:70px !important;
   align-items:center !important;
-  justify-content:center !important;
 }
 
-.history-title-d9{
-  display:flex !important;
-  flex-direction:column !important;
-  justify-content:center !important;
+.history-home-d9{
+  width:48px !important;
+  height:48px !important;
 }
 
 .history-title-d9 h2{
-  font-size:1.5rem !important;
-  line-height:1.05 !important;
+  font-size:1.4rem !important;
+  margin:0 !important;
 }
 
 .history-title-d9 .subhead{
-  margin-top:2px !important;
-  line-height:1.1 !important;
-}
-
-.history-actions-d9{
-  justify-content:center !important;
+  font-size:0.9rem !important;
+  margin:0 !important;
 }
