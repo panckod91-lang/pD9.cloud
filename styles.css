@@ -1271,3 +1271,58 @@ body:has(#view-history.active) .status-row-vnext{
   height:100%;
   object-fit:cover;
 }
+/* ===== BANNER / CARRUSEL VISUAL V1 ===== */
+
+.promo-card-vnext{
+  position:relative !important;
+  min-height:190px !important;
+  border-radius:28px !important;
+  overflow:hidden !important;
+}
+
+.banner-link-vnext{
+  position:relative !important;
+  display:block !important;
+  min-height:190px !important;
+  padding:24px 18px !important;
+  overflow:hidden !important;
+}
+
+.banner-copy-vnext{
+  position:relative !important;
+  z-index:3 !important;
+  width:38% !important;
+}
+
+.banner-kicker-vnext{
+  font-size:.78rem !important;
+  padding:7px 12px !important;
+  border-radius:999px !important;
+}
+
+.banner-title-vnext{
+  margin-top:16px !important;
+  font-size:1.35rem !important;
+  line-height:1 !important;
+}
+
+.banner-art-vnext{
+  position:absolute !important;
+  z-index:2 !important;
+  right:18px !important;
+  top:24px !important;
+  bottom:24px !important;
+  width:58% !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+}
+
+.banner-thumb-vnext{
+  width:100% !important;
+  height:100% !important;
+  max-width:none !important;
+  border-radius:26px !important;
+  object-fit:cover !important;
+  margin:0 !important;
+}
