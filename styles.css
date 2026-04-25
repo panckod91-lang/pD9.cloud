@@ -1273,3 +1273,6 @@ select {
   font-size:0.9rem !important;
   margin:0 !important;
 }
+.view:not(#view-home) .status-bar{
+  display:none !important;
+}
