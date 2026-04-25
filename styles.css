@@ -1248,3 +1248,35 @@ select {
 .history-title-d9 .subhead{
   font-size:.88rem !important;
 }
+.history-head-d9{
+  padding:10px 12px !important;
+  align-items:center !important;
+}
+
+.history-home-d9{
+  width:52px !important;
+  height:52px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+
+.history-title-d9{
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+}
+
+.history-title-d9 h2{
+  font-size:1.5rem !important;
+  line-height:1.05 !important;
+}
+
+.history-title-d9 .subhead{
+  margin-top:2px !important;
+  line-height:1.1 !important;
+}
+
+.history-actions-d9{
+  justify-content:center !important;
+}
