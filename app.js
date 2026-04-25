@@ -75,21 +75,6 @@ const onlyDigits = (v) => String(v || "").replace(/\D+/g, "");
 const isTrue = (v) => String(v).trim().toLowerCase() === "true";
 function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
 
-function rowVal(row, ...keys) {
-  if (!row) return "";
-  const normalized = Object.fromEntries(
-    Object.entries(row).map(([k, v]) => [String(k).trim().toLowerCase(), v])
-  );
-  for (const key of keys) {
-    const k = String(key).trim().toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(normalized, k) && normalized[k] != null) {
-      return normalized[k];
-    }
-  }
-  return "";
-}
-
-
 function parseRowsByKey(rows) {
   const out = {};
   (rows || []).forEach((r) => {
@@ -394,40 +379,35 @@ function renderBanner() {
   const box = $("#bannerWrap");
   if (!box) return;
 
-  // Usamos lo que ya viene funcionando desde loadAllData().
-  // Si por algún motivo no hay nada, recién ahí ocultamos.
-  const rows = Array.isArray(state.ads) ? state.ads : [];
-  const first = rows
-    .slice()
-    .sort((a, b) => Number(rowVal(a, "id", "orden") || 0) - Number(rowVal(b, "id", "orden") || 0))[0];
+  const activeAds = Array.isArray(state.ads)
+    ? state.ads
+        .filter(r => isTrue(r.activo))
+        .sort((a, b) => Number(a.id || a.orden || 0) - Number(b.id || b.orden || 0))
+    : [];
 
-  console.log("[D9] publicidad rows:", rows);
-  console.log("[D9] publicidad first:", first);
-
+  const first = activeAds[0];
   if (!first) {
     box.classList.add("hidden");
     box.innerHTML = "";
-    console.warn("[D9] publicidad: no llegó ninguna fila activa desde Sheets/cache.");
     return;
   }
 
-  const tag = String(rowVal(first, "texto", "tag") || "").trim();
-  const titulo = String(rowVal(first, "titulo") || tag || "Publicidad").trim();
-  const linea1 = String(rowVal(first, "texto_1", "texto1", "linea1") || "").trim();
-  const linea2 = String(rowVal(first, "texto_2", "texto2", "linea2") || "").trim();
-  const imgProducto = String(rowVal(first, "imagen_url", "imagen", "link_imagen") || "").trim();
-  const imgFull = String(rowVal(first, "imagen_url_full", "imagen_full") || "").trim();
-  const link = String(rowVal(first, "link_url", "link") || "#").trim() || "#";
+  const orden = first.id || first.orden || "";
+  const tag = String(first.texto || "").trim();
+  const titulo = String(first.titulo || tag || "Publicidad").trim();
+  const linea1 = String(first.texto_1 || "").trim();
+  const linea2 = String(first.texto_2 || "").trim();
+  const imgProducto = String(first.imagen_url || first.imagen || first.link_imagen || "").trim();
+  const imgFull = String(first.imagen_url_full || "").trim();
+  const link = String(first.link_url || first.link || "#").trim() || "#";
   const hasLink = link && link !== "#";
+  const isFull = !!imgFull;
 
-  console.log("[D9] publicidad item:", {
-    tag, titulo, linea1, linea2, imgProducto, imgFull, link,
-    tipo: imgFull ? "full" : "producto"
-  });
+  console.log("[D9] publicidad item:", { orden, tag, titulo, linea1, linea2, imgProducto, imgFull, link, tipo: isFull ? "full" : "producto" });
 
   box.classList.remove("hidden");
 
-  if (imgFull) {
+  if (isFull) {
     box.innerHTML = `
       <a class="banner-link-vnext banner-full-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
         <img class="banner-full-img-d9" src="${esc(imgFull)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">
