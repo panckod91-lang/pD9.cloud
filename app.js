@@ -135,37 +135,47 @@ function renderDualButton(btn, title, sub = "") {
   btn.innerHTML = `<span class="home-btn-title">${esc(title)}</span><span class="home-btn-sub">${esc(sub)}</span>`;
 }
 
-function setButtonBusy(btn, busy, busyLabel = "Procesando...", idleLabel = "") {
+function setButtonBusy(btn, busy, busyLabel = "Procesando...", idleLabel = "", busySub = "") {
   if (!btn) return;
+  const dual = btn.classList.contains("home-btn");
 
+  if (!btn.dataset.idleTitle) btn.dataset.idleTitle = btn.dataset.title || btn.querySelector(".home-btn-title")?.textContent?.trim() || idleLabel || btn.textContent.trim();
+  if (!btn.dataset.idleSub) btn.dataset.idleSub = btn.dataset.sub || btn.querySelector(".home-btn-sub")?.textContent?.trim() || "";
   if (!btn.dataset.idleLabel) btn.dataset.idleLabel = btn.dataset.title || idleLabel || btn.textContent.trim();
 
   if (busy) {
     btn.disabled = true;
     btn.classList.add("is-busy");
     btn.setAttribute("aria-busy", "true");
-    btn.textContent = busyLabel;
+    if (dual) renderDualButton(btn, busyLabel, busySub || "Esperá un momento");
+    else btn.textContent = busyLabel;
     return;
   }
 
   btn.disabled = false;
   btn.classList.remove("is-busy");
   btn.setAttribute("aria-busy", "false");
-  btn.textContent = btn.dataset.idleLabel || idleLabel || btn.textContent;
+  if (dual) renderDualButton(btn, btn.dataset.idleTitle || idleLabel || "", btn.dataset.idleSub || "");
+  else btn.textContent = btn.dataset.idleLabel || idleLabel || btn.textContent;
 }
 
 
 
-function pulseSuccess(btn, label = "Listo") {
+function pulseSuccess(btn, label = "Listo", sublabel = "") {
   if (!btn) return;
+  const dual = btn.classList.contains("home-btn");
+  const idleTitle = btn.dataset.idleTitle || btn.dataset.title || btn.textContent.trim();
+  const idleSub = btn.dataset.idleSub || btn.dataset.sub || "";
   const idle = btn.dataset.idleLabel || btn.dataset.title || btn.textContent.trim();
 
   btn.classList.add("is-success");
-  btn.textContent = label;
+  if (dual) renderDualButton(btn, label, sublabel || idleSub || "Todo sincronizado");
+  else btn.textContent = label;
 
   setTimeout(() => {
     btn.classList.remove("is-success");
-    btn.textContent = idle;
+    if (dual) renderDualButton(btn, idleTitle, idleSub);
+    else btn.textContent = idle;
   }, 1400);
 }
 
@@ -1108,7 +1118,7 @@ async function sendOrder() {
       saveHistory(payload, "pendiente", "Sin conexión");
       renderPendingBadge();
       toast("Sin internet. Pedido guardado pendiente.");
-      if (pendingBtn) pulseSuccess(pendingBtn, "Pendiente guardado");
+      if (pendingBtn) pulseSuccess(pendingBtn, "Pendiente guardado", "Se enviará al recuperar conexión");
       return;
     }
 
@@ -1187,7 +1197,7 @@ async function syncPending() {
   const syncBtn = $("#btnSyncPending");
   const syncBtnIsButton = syncBtn?.tagName === "BUTTON";
   if (syncBtnIsButton) {
-    setButtonBusy(syncBtn, true, "Sincronizando...", syncBtn?.textContent?.trim() || "Pendientes");
+    setButtonBusy(syncBtn, true, "Sincronizando...", syncBtn?.textContent?.trim() || "Pendientes", "Revisando y enviando pendientes");
   } else if (syncBtn) {
     syncBtn.classList.add("syncing");
   }
@@ -1214,7 +1224,7 @@ async function syncPending() {
 
     if (sentCount && !remaining.length) {
       toast("Pendientes sincronizados.");
-      if (syncBtnIsButton) pulseSuccess(syncBtn, "Sin pendientes");
+      if (syncBtnIsButton) pulseSuccess(syncBtn, "Sin pendientes", "Todo sincronizado");
       return;
     }
 
