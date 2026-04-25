@@ -1326,3 +1326,19 @@ body:has(#view-prices.active) .status-row-vnext{
   padding:6px 14px;
   font-size:.85rem;
 }
+<div class="view-head history-head-d9">
+  <button class="back-btn history-home-d9" data-back="home">🏠</button>
+
+  <div class="history-title-d9">
+    <h2>Generar pedido</h2>
+    <p class="subhead">Más rápido, más limpio.</p>
+  </div>
+</div>
+<div class="view-head history-head-d9">
+  <button class="back-btn history-home-d9" data-back="home">🏠</button>
+
+  <div class="history-title-d9">
+    <h2>Lista de precios</h2>
+    <p class="subhead">Consultar productos.</p>
+  </div>
+</div>
