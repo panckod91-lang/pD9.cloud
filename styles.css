@@ -325,6 +325,7 @@ main{width:100%}
 .led-marquee-wrap-vnext{min-width:0;flex:1;overflow:hidden;white-space:nowrap}
 .led-marquee-vnext{position:relative;display:block;min-width:0;color:#e9f6ff;font-size:.95rem;font-weight:700;overflow:hidden;white-space:nowrap}
 .led-end-vnext{color:#ffcf61;font-size:1.1rem}
+@keyframes
 /* view pages */
 .view-head{
   display:flex;align-items:flex-start;gap:14px;margin:8px 2px 16px;
