@@ -75,6 +75,27 @@ const onlyDigits = (v) => String(v || "").replace(/\D+/g, "");
 const isTrue = (v) => String(v).trim().toLowerCase() === "true";
 function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
 
+function rowVal(row, ...keys) {
+  if (!row) return "";
+  const normalized = Object.fromEntries(
+    Object.entries(row).map(([k, v]) => [String(k).trim().toLowerCase(), v])
+  );
+  for (const key of keys) {
+    const k = String(key).trim().toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(normalized, k) && normalized[k] != null) {
+      return normalized[k];
+    }
+  }
+  return "";
+}
+
+function isActiveAd(row) {
+  const val = rowVal(row, "activo", "active");
+  if (val === true) return true;
+  return String(val).trim().toLowerCase() === "true";
+}
+
+
 function parseRowsByKey(rows) {
   const out = {};
   (rows || []).forEach((r) => {
@@ -235,7 +256,7 @@ async function loadAllData() {
       lista_3: Number(r.lista_3 || r.precio || 0)
     }
   }));
-  state.ads = ads.filter(r => isTrue(r.activo));
+  state.ads = ads.filter(isActiveAd);
   state.support = Object.fromEntries(support.map(r => [String(r.clave || "").trim(), String(r.valor || "").trim()]));
 }
 
@@ -378,28 +399,63 @@ function renderPendingBadge() {
 function renderBanner() {
   const box = $("#bannerWrap");
   if (!box) return;
-  const first = Array.isArray(state.ads) ? state.ads[0] : null;
+
+  const rows = Array.isArray(state.ads) ? state.ads : [];
+  const first = rows
+    .slice()
+    .sort((a, b) => Number(rowVal(a, "id", "orden") || 0) - Number(rowVal(b, "id", "orden") || 0))[0];
+
+  console.log("[D9] publicidad rows:", rows);
+  console.log("[D9] publicidad first:", first);
+
   if (!first) {
     box.classList.add("hidden");
     box.innerHTML = "";
+    console.warn("[D9] publicidad: no llegó ninguna fila activa desde Sheets/cache.");
     return;
   }
-  const text = first.texto || first.titulo || "Publicidad";
-  const img = first.imagen_url || first.imagen || first.link_imagen || "";
-  const link = first.link_url || first.link || "#";
+
+  const tag = String(rowVal(first, "texto", "tag") || "").trim();
+  const titulo = String(rowVal(first, "titulo") || tag || "Publicidad").trim();
+  const linea1 = String(rowVal(first, "texto_1", "texto1", "linea1") || "").trim();
+  const linea2 = String(rowVal(first, "texto_2", "texto2", "linea2") || "").trim();
+  const imgProducto = String(rowVal(first, "imagen_url", "imagen", "link_imagen") || "").trim();
+  const imgFull = String(rowVal(first, "imagen_url_full", "imagen_full") || "").trim();
+  const link = String(rowVal(first, "link_url", "link") || "#").trim() || "#";
+  const hasLink = link && link !== "#";
+
+  console.log("[D9] publicidad item:", {
+    tag, titulo, linea1, linea2, imgProducto, imgFull, link,
+    tipo: imgFull ? "full" : "producto"
+  });
+
   box.classList.remove("hidden");
+
+  if (imgFull) {
+    box.innerHTML = `
+      <a class="banner-link-vnext banner-full-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
+        <img class="banner-full-img-d9" src="${esc(imgFull)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">
+      </a>`;
+    return;
+  }
+
+  const textHtml = [
+    tag ? `<div class="banner-kicker-vnext">${esc(tag)}</div>` : "",
+    titulo ? `<div class="banner-title-vnext">${esc(titulo)}</div>` : "",
+    linea1 ? `<div class="banner-line-vnext">${esc(linea1)}</div>` : "",
+    linea2 ? `<div class="banner-line-vnext">${esc(linea2)}</div>` : ""
+  ].filter(Boolean).join("");
+
   box.innerHTML = `
-    <a class="banner-link-vnext" href="${esc(link)}" ${link && link !== "#" ? 'target="_blank" rel="noopener noreferrer"' : ""}>
+    <a class="banner-link-vnext banner-product-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
       <div class="banner-copy-vnext">
-        <div class="banner-kicker-vnext">PUBLICIDAD</div>
-        <div class="banner-title-vnext">${esc(text)}</div>
+        ${textHtml || `<div class="banner-title-vnext">Publicidad</div>`}
       </div>
       <div class="banner-art-vnext">
-        ${img ? `<img class="banner-thumb-vnext" src="${esc(img)}" alt="Publicidad">` : `<div class="banner-thumb-vnext empty"></div>`}
+        ${imgProducto ? `<img class="banner-thumb-vnext" src="${esc(imgProducto)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">` : `<div class="banner-thumb-vnext empty"></div>`}
       </div>
     </a>`;
 }
-
 
 function renderTicker(){
   const el = document.getElementById("ledTicker");
