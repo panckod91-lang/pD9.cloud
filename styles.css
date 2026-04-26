@@ -1256,3 +1256,47 @@ body:has(#view-history.active) .status-row-vnext{
 .banner-link-vnext.is-full .banner-copy-vnext{
   display:none !important;
 }
+.banner-product-d9{
+  position:relative;
+  display:block;
+  height:140px;
+}
+
+.banner-copy-vnext{
+  position:absolute;
+  left:16px;
+  top:50%;
+  transform:translateY(-50%);
+  width:28%;
+}
+
+.banner-art-vnext{
+  position:absolute;
+  right:16px;
+  top:12px;
+  bottom:12px;
+  width:68%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.banner-thumb-vnext{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  border-radius:16px;
+}
+.banner-full-d9{
+  display:block;
+  height:140px;
+  position:relative;
+  overflow:hidden;
+}
+
+.banner-full-img-d9{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:20px;
+}
