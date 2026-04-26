@@ -1346,3 +1346,31 @@ body:has(#view-history.active) .status-row-vnext{
     font-size:.8rem !important;
   }
 }
+/* Ajuste fino banner D9 */
+
+/* Producto: puntas un poco más suaves */
+#bannerWrap.banner-mode-product,
+#bannerWrap.banner-mode-product .banner-product-d9{
+  border-radius:30px !important;
+}
+
+#bannerWrap.banner-mode-product .banner-art-d9,
+#bannerWrap.banner-mode-product .banner-thumb-d9{
+  border-radius:22px !important;
+}
+
+/* Full: fondo transparente + esquinas suaves */
+#bannerWrap.banner-mode-full{
+  background:transparent !important;
+  box-shadow:none !important;
+  border-radius:28px !important;
+  overflow:hidden !important;
+}
+
+#bannerWrap.banner-mode-full .banner-full-d9{
+  background:transparent !important;
+  border-radius:28px !important;
+  overflow:hidden !important;
+}
+
+#
