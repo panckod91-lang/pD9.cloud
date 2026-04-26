@@ -1492,3 +1492,76 @@ body:has(#view-history.active) .status-row-vnext{
   object-position:center !important;
   display:block !important;
 }
+/* FIX DEFINITIVO BANNER ACTUAL D9 */
+
+#bannerWrap{
+  width:100% !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+  height:180px !important;
+  min-height:180px !important;
+  max-height:180px !important;
+  aspect-ratio:auto !important;
+}
+
+/* Producto: texto 30% / imagen 70% */
+#bannerWrap.banner-mode-product .banner-product-d9{
+  width:100% !important;
+  height:100% !important;
+  display:flex !important;
+  position:relative !important;
+}
+
+#bannerWrap.banner-mode-product .banner-copy-d9{
+  position:relative !important;
+  left:auto !important;
+  top:auto !important;
+  transform:none !important;
+  width:30% !important;
+  flex:0 0 30% !important;
+  padding:18px 0 18px 18px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+}
+
+#bannerWrap.banner-mode-product .banner-art-d9{
+  position:relative !important;
+  right:auto !important;
+  top:auto !important;
+  bottom:auto !important;
+  width:auto !important;
+  flex:1 !important;
+  height:100% !important;
+  margin:12px 14px 12px 8px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+}
+
+#bannerWrap.banner-mode-product .banner-thumb-d9{
+  width:100% !important;
+  height:100% !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  border-radius:14px !important;
+}
+
+/* Full: imagen completa dentro del banner, sin recortar */
+#bannerWrap.banner-mode-full .banner-full-d9{
+  width:100% !important;
+  height:100% !important;
+  display:block !important;
+  border-radius:26px !important;
+  overflow:hidden !important;
+}
+
+#bannerWrap.banner-mode-full .banner-full-img-d9{
+  width:100% !important;
+  height:100% !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  border-radius:26px !important;
+}
