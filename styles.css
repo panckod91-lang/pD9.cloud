@@ -1508,8 +1508,8 @@ body:has(#view-history.active) .status-row-vnext{
 }
 
 
-/* Confirmación de pedido */
-.confirm-modal {
+/* Modal confirmación de pedido */
+.confirm-pedido-modal {
   position: fixed;
   inset: 0;
   z-index: 9999;
@@ -1521,23 +1521,22 @@ body:has(#view-history.active) .status-row-vnext{
   backdrop-filter: blur(6px);
 }
 
-.confirm-modal.hidden {
+.confirm-pedido-modal.hidden {
   display: none;
 }
 
-.confirm-box {
+.confirm-pedido-box {
   width: min(430px, 100%);
   max-height: 86vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: #fff;
   border-radius: 24px;
   box-shadow: 0 24px 70px rgba(10, 31, 68, .28);
-  border: 1px solid rgba(255,255,255,.7);
 }
 
-.confirm-head {
+.confirm-pedido-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1545,7 +1544,7 @@ body:has(#view-history.active) .status-row-vnext{
   padding: 18px 18px 12px;
 }
 
-.confirm-kicker {
+.confirm-pedido-kicker {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: .04em;
@@ -1553,14 +1552,14 @@ body:has(#view-history.active) .status-row-vnext{
   color: #2682b9;
 }
 
-.confirm-head h3 {
+.confirm-pedido-head h3 {
   margin: 2px 0 0;
   font-size: 24px;
   line-height: 1.05;
   color: #12243f;
 }
 
-.confirm-close {
+.confirm-pedido-close {
   width: 36px;
   height: 36px;
   border: 0;
@@ -1571,28 +1570,28 @@ body:has(#view-history.active) .status-row-vnext{
   line-height: 1;
 }
 
-.confirm-body {
+.confirm-pedido-body {
   padding: 0 18px 14px;
   overflow: auto;
 }
 
-.confirm-alert {
+.confirm-pedido-alerta {
   margin: 4px 0 12px;
   padding: 10px 12px;
   border-radius: 16px;
   background: #edf8ff;
   color: #153554;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
-.confirm-grid {
+.confirm-pedido-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
-.confirm-info-card {
+.confirm-pedido-card {
   min-width: 0;
   padding: 11px 12px;
   border-radius: 16px;
@@ -1600,7 +1599,11 @@ body:has(#view-history.active) .status-row-vnext{
   border: 1px solid rgba(18, 36, 63, .08);
 }
 
-.confirm-info-card span {
+.confirm-pedido-card.wide {
+  grid-column: 1 / -1;
+}
+
+.confirm-pedido-card span {
   display: block;
   font-size: 12px;
   font-weight: 800;
@@ -1608,7 +1611,7 @@ body:has(#view-history.active) .status-row-vnext{
   margin-bottom: 4px;
 }
 
-.confirm-info-card strong {
+.confirm-pedido-card strong {
   display: block;
   color: #12243f;
   font-size: 15px;
@@ -1616,7 +1619,7 @@ body:has(#view-history.active) .status-row-vnext{
   word-break: break-word;
 }
 
-.confirm-info-card small {
+.confirm-pedido-card small {
   display: block;
   margin-top: 4px;
   color: #78879a;
@@ -1624,7 +1627,7 @@ body:has(#view-history.active) .status-row-vnext{
   line-height: 1.25;
 }
 
-.confirm-section-title {
+.confirm-pedido-titulo-seccion {
   margin: 14px 0 8px;
   font-size: 13px;
   font-weight: 900;
@@ -1633,26 +1636,26 @@ body:has(#view-history.active) .status-row-vnext{
   letter-spacing: .04em;
 }
 
-.confirm-products {
+.confirm-pedido-productos {
   display: grid;
   gap: 8px;
 }
 
-.confirm-product {
+.confirm-pedido-producto {
   padding: 10px 12px;
   border-radius: 16px;
-  background: #ffffff;
+  background: #fff;
   border: 1px solid rgba(18, 36, 63, .1);
 }
 
-.confirm-product-name {
+.confirm-pedido-producto-nombre {
   font-size: 14px;
   font-weight: 800;
   color: #172b46;
   line-height: 1.2;
 }
 
-.confirm-product-meta {
+.confirm-pedido-producto-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1660,10 +1663,10 @@ body:has(#view-history.active) .status-row-vnext{
   margin-top: 5px;
   color: #65748a;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
-.confirm-actions {
+.confirm-pedido-actions {
   display: grid;
   grid-template-columns: 1fr 1.15fr;
   gap: 10px;
@@ -1672,7 +1675,7 @@ body:has(#view-history.active) .status-row-vnext{
   border-top: 1px solid rgba(18,36,63,.08);
 }
 
-.confirm-btn {
+.confirm-pedido-btn {
   min-height: 48px;
   border: 0;
   border-radius: 16px;
@@ -1680,28 +1683,32 @@ body:has(#view-history.active) .status-row-vnext{
   font-weight: 900;
 }
 
-.confirm-btn.secondary {
+.confirm-pedido-btn.secondary {
   background: #eef3f8;
   color: #18314f;
 }
 
-.confirm-btn.primary {
+.confirm-pedido-btn.primary {
   background: #0785a8;
-  color: #ffffff;
+  color: #fff;
   box-shadow: 0 10px 24px rgba(7,133,168,.25);
 }
 
-.confirm-btn.primary:disabled {
+.confirm-pedido-btn.primary:disabled {
   opacity: .65;
   box-shadow: none;
 }
 
 @media (max-width: 380px) {
-  .confirm-grid {
+  .confirm-pedido-grid {
     grid-template-columns: 1fr;
   }
 
-  .confirm-head h3 {
+  .confirm-pedido-card.wide {
+    grid-column: auto;
+  }
+
+  .confirm-pedido-head h3 {
     font-size: 22px;
   }
 }

@@ -340,21 +340,24 @@
   </div>
 
 
-<div id="modalConfirm" class="confirm-modal hidden" aria-hidden="true">
-  <div class="confirm-box" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
-    <div class="confirm-head">
+<div id="modalConfirmPedido" class="confirm-pedido-modal hidden" aria-hidden="true">
+  <div class="confirm-pedido-box" role="dialog" aria-modal="true" aria-labelledby="confirmPedidoTitle">
+    <div class="confirm-pedido-head">
       <div>
-        <div class="confirm-kicker">Revisión final</div>
-        <h3 id="confirmTitle">Confirmar pedido</h3>
+        <div class="confirm-pedido-kicker">Revisión final</div>
+        <h3 id="confirmPedidoTitle">Confirmar pedido</h3>
       </div>
-      <button id="btnCloseConfirm" class="confirm-close" type="button" aria-label="Cerrar">×</button>
+      <button id="btnConfirmPedidoCerrar" class="confirm-pedido-close" type="button" aria-label="Cerrar">×</button>
     </div>
-    <div id="resumenPedido" class="confirm-body"></div>
-    <div class="confirm-actions">
-      <button id="btnEditConfirm" class="confirm-btn secondary" type="button">Editar</button>
-      <button id="btnConfirmSend" class="confirm-btn primary" type="button">Enviar pedido</button>
+
+    <div id="confirmPedidoResumen" class="confirm-pedido-body"></div>
+
+    <div class="confirm-pedido-actions">
+      <button id="btnConfirmPedidoEditar" class="confirm-pedido-btn secondary" type="button">Editar</button>
+      <button id="btnConfirmPedidoEnviar" class="confirm-pedido-btn primary" type="button">Enviar pedido</button>
     </div>
   </div>
 </div>
+
 </body>
 </html>
