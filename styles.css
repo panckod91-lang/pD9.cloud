@@ -1216,87 +1216,63 @@ body:has(#view-history.active) .status-row-vnext{
     font-size:.8rem !important;
   }
 }
-/* Producto: texto + imagen grande */
-.banner-copy-vnext{
-  width:28% !important;
-  max-width:28% !important;
-}
-
-.banner-art-vnext{
-  position:absolute;
-  right:16px;
-  top:16px;
-  bottom:16px;
-  width:72%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.banner-thumb-vnext{
-  width:100%;
-  height:100%;
-  object-fit:contain;
-  border-radius:16px; /* antes era muy alto */
-}
-
-/* Full image */
-.banner-link-vnext.is-full .banner-art-vnext{
-  inset:0 !important;
-  width:100% !important;
-}
-
-.banner-link-vnext.is-full .banner-thumb-vnext{
-  width:100% !important;
-  height:100% !important;
-  object-fit:cover !important;
-  border-radius:0 !important;
-}
-
-.banner-link-vnext.is-full .banner-copy-vnext{
-  display:none !important;
-}
+/* ===== BANNER MODO A: texto izquierda + imagen derecha ===== */
 .banner-product-d9{
+  display:block !important;      /* anula display:grid de .banner-link-vnext */
+  padding:0 !important;          /* anula padding heredado */
+  min-height:0 !important;       /* anula min-height:218px heredado */
   position:relative;
-  display:block;
-  height:140px;
+  height:150px;
+  overflow:hidden;
+  border-radius:20px;
 }
 
-.banner-copy-vnext{
+.banner-product-d9 .banner-copy-vnext{
   position:absolute;
-  left:16px;
+  left:14px;
   top:50%;
   transform:translateY(-50%);
   width:28%;
+  z-index:2;
 }
 
-.banner-art-vnext{
+.banner-product-d9 .banner-art-vnext{
   position:absolute;
-  right:16px;
-  top:12px;
-  bottom:12px;
-  width:68%;
+  right:0;
+  top:0;
+  bottom:0;
+  width:70%;
+  overflow:hidden;               /* recorta imagen que se salga */
   display:flex;
   align-items:center;
   justify-content:center;
 }
 
-.banner-thumb-vnext{
-  width:100%;
-  height:100%;
+.banner-product-d9 .banner-thumb-vnext{
+  max-width:100%;
+  max-height:100%;
+  width:auto;
+  height:auto;
   object-fit:contain;
-  border-radius:16px;
+  border-radius:0;
+  box-shadow:none;
 }
+
+/* ===== BANNER MODO B: imagen ocupa todo el banner ===== */
 .banner-full-d9{
-  display:block;
-  height:140px;
+  display:block !important;      /* anula display:grid de .banner-link-vnext */
+  padding:0 !important;          /* anula padding heredado */
+  min-height:0 !important;       /* anula min-height:218px heredado */
   position:relative;
+  height:150px;
   overflow:hidden;
+  border-radius:20px;
 }
 
 .banner-full-img-d9{
+  display:block;
   width:100%;
   height:100%;
   object-fit:cover;
-  border-radius:20px;
+  border-radius:0;
 }
