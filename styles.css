@@ -232,18 +232,6 @@ main{width:100%}
     linear-gradient(135deg,#05214b 0%, #02142e 58%, #16346d 100%);
   box-shadow:var(--shadow);margin-bottom:14px;
 }
-.banner-link-vnext{
-  display:grid;grid-template-columns:1fr 168px;gap:10px;align-items:center;
-  min-height:218px;padding:24px 24px 22px;text-decoration:none;color:#fff;position:relative
-}
-.banner-link-vnext::before{
-  content:"";position:absolute;inset:0;
-  background:
-    linear-gradient(135deg, rgba(71,197,255,.08) 0%, transparent 36%),
-    linear-gradient(145deg, transparent 50%, rgba(255,75,95,.10) 100%);
-  pointer-events:none
-}
-.banner-copy-vnext,.banner-art-vnext{position:relative;z-index:1}
 .banner-kicker-vnext{
   display:inline-flex;background:#ff1a22;color:#fff;border-radius:14px;
   padding:8px 14px;font-size:.86rem;font-weight:900;letter-spacing:.02em
@@ -252,11 +240,6 @@ main{width:100%}
   margin-top:18px;font-size:clamp(1.3rem,4.8vw,2.3rem);line-height:.95;
   font-weight:900;color:#58cbff
 }
-.banner-thumb-vnext{
-  width:148px;height:148px;border-radius:28px;object-fit:cover;margin-left:auto;
-  box-shadow:0 16px 28px rgba(0,0,0,.22)
-}
-.banner-thumb-vnext.empty{background:rgba(255,255,255,.12)}
 
 /* home grid */
 .home-grid-vnext{
@@ -478,8 +461,6 @@ main{width:100%}
   .status-pill-vnext{padding:11px 16px;min-height:52px;font-size:1rem}
   .cta-main-vnext{padding:17px 18px}
   .cta-icon-vnext{width:58px;height:58px}
-  .banner-link-vnext{grid-template-columns:1fr 132px;padding:20px 18px}
-  .banner-thumb-vnext{width:118px;height:118px;border-radius:24px}
   .action-card-vnext{min-height:144px;padding:16px 42px 16px 14px}
   .icon-wrap-vnext{width:52px;height:52px}
   .view-head h2{font-size:clamp(1.7rem,7vw,2.2rem)}
@@ -508,10 +489,8 @@ body{padding:10px 12px 16px;}
 .cta-copy-vnext small{font-size:.95rem;margin-top:4px;}
 .cta-arrow-vnext{font-size:2.5rem;}
 .promo-card-vnext{min-height:178px;border-radius:26px;margin-bottom:12px;}
-.banner-link-vnext{grid-template-columns:1fr 132px;gap:12px;min-height:178px;padding:18px 18px 16px;}
 .banner-kicker-vnext{padding:7px 12px;font-size:.78rem;border-radius:13px;}
 .banner-title-vnext{margin-top:14px;font-size:clamp(1.05rem,4vw,1.65rem);}
-.banner-thumb-vnext{width:122px;height:122px;border-radius:24px;}
 .home-grid-vnext{gap:10px;margin-bottom:12px;}
 .action-card-vnext{display:flex;align-items:center;min-height:124px;padding:14px 40px 14px 14px;border-radius:22px;}
 .action-head-vnext{align-items:center;gap:12px;width:100%;}
@@ -541,8 +520,6 @@ body{padding:10px 12px 16px;}
   .cta-copy-vnext strong{font-size:1.58rem;}
   .cta-copy-vnext small{font-size:.9rem;}
   .promo-card-vnext{min-height:166px;}
-  .banner-link-vnext{grid-template-columns:1fr 118px;min-height:166px;padding:16px 16px 14px;}
-  .banner-thumb-vnext{width:112px;height:112px;border-radius:22px;}
   .action-card-vnext{min-height:116px;padding:13px 38px 13px 13px;}
   .icon-wrap-vnext{width:44px;height:44px;}
   .title-group-vnext strong{font-size:.92rem;}
@@ -706,10 +683,8 @@ body{padding:10px 12px 16px;}
   border-radius:26px;
   margin-bottom:12px;
 }
-.banner-copy-vnext{padding:16px 18px}
 .banner-title-vnext{font-size:1.02rem}
 .banner-kicker-vnext{font-size:.75rem}
-.banner-thumb-vnext{width:128px;height:128px;border-radius:24px}
 
 .home-grid-vnext{
   display:grid;
@@ -1265,9 +1240,10 @@ body:has(#view-history.active) .status-row-vnext{
   display:flex !important;
   flex-direction:column !important;
   justify-content:center !important;
-  align-items:flex-start !important;
-  padding-left:4px !important;
+  align-items:center !important;
+  padding:0 6px !important;
   z-index:2 !important;
+  text-align:center !important;
 }
 
 #bannerWrap.banner-mode-product .banner-kicker-vnext{
@@ -1370,7 +1346,9 @@ body:has(#view-history.active) .status-row-vnext{
   #bannerWrap.banner-mode-product .banner-copy-d9{
     flex-basis:24% !important;
     max-width:24% !important;
-    padding-left:2px !important;
+    padding:0 4px !important;
+    align-items:center !important;
+    text-align:center !important;
   }
 
   #bannerWrap.banner-mode-product .banner-kicker-vnext{
