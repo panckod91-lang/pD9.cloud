@@ -1508,19 +1508,28 @@ body:has(#view-history.active) .status-row-vnext{
 }
 
 
-/* Resaltar botón inicio en headers internos */
-.view-head .back-btn[data-back="home"],
-.history-head-d9 .history-home-d9,
-.topbar-d9 .history-home-d9 {
-  border: 2px solid #ef3340 !important;
+/* D9 FIX FUERTE: botón inicio visible en headers internos */
+button.home-red-d9 {
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  border: 3px solid #ef3340 !important;
+  border-radius: 16px !important;
   background: #ffffff !important;
-  box-shadow: 0 8px 18px rgba(239, 51, 64, .18) !important;
-  color: #10243d !important;
-  font-weight: 900 !important;
+  color: #12243f !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+  box-shadow: 0 8px 20px rgba(239, 51, 64, .28) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.view-head .back-btn[data-back="home"]:active,
-.history-head-d9 .history-home-d9:active,
-.topbar-d9 .history-home-d9:active {
-  transform: scale(.96);
+button.home-red-d9:active {
+  transform: scale(.96) !important;
+}
+
+/* D9 FIX: eliminar cualquier resto visual del logo simple del login */
+#loginModal .login-brand {
+  display: none !important;
 }
