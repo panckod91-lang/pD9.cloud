@@ -1674,3 +1674,32 @@ button.home-red-d9:active {
     font-size: 22px;
   }
 }
+
+
+/* Institucional dinámico desde confi */
+#companyModal {
+  align-items: center;
+}
+
+.company-panel-d9 {
+  max-height: 84vh;
+  overflow-y: auto;
+}
+
+.company-contact-d9 {
+  display: grid;
+  gap: 10px;
+}
+
+.company-contact-d9 > strong {
+  display: block;
+  color: #12243f;
+  font-size: 16px;
+  font-weight: 900;
+  margin-top: 2px;
+}
+
+.company-grid-d9 a {
+  color: #0785a8;
+  text-decoration: none;
+}

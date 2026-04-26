@@ -678,7 +678,89 @@ function closeLogin() {
 }
 
 
+
+function onlyDigitsText(value = "") {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function renderCompanyInfo() {
+  const box = $("#companyContent");
+  if (!box) return;
+
+  const insti = confText("insti", "Distribuidora local orientada a la atención ágil de clientes, toma de pedidos y consulta de precios actualizados.");
+  const direc = confText("direc", "");
+  const wasapp = confText("wasapp", "");
+  const horarios = confText("horarios", "");
+  const waDigits = onlyDigitsText(wasapp);
+
+  let html = "";
+
+  if (insti) {
+    html += `
+      <div class="company-card-d9">
+        <strong>Sobre la empresa</strong>
+        <p>${esc(insti).replace(/\n/g, "<br>")}</p>
+      </div>
+    `;
+  }
+
+  html += `
+    <div class="company-card-d9">
+      <strong>Qué podés hacer desde la app</strong>
+      <ul>
+        <li>Consultar lista de precios.</li>
+        <li>Armar pedidos por cliente.</li>
+        <li>Enviar pedidos por WhatsApp.</li>
+        <li>Trabajar con soporte offline.</li>
+      </ul>
+    </div>
+  `;
+
+  const contacto = [];
+
+  if (direc) {
+    contacto.push(`
+      <div>
+        <span>Dirección</span>
+        <strong>${esc(direc)}</strong>
+      </div>
+    `);
+  }
+
+  if (wasapp) {
+    contacto.push(`
+      <div>
+        <span>WhatsApp</span>
+        <strong>${waDigits ? `<a href="https://wa.me/${waDigits}" target="_blank" rel="noopener">${esc(wasapp)}</a>` : esc(wasapp)}</strong>
+      </div>
+    `);
+  }
+
+  if (horarios) {
+    contacto.push(`
+      <div>
+        <span>Horarios</span>
+        <strong>${esc(horarios)}</strong>
+      </div>
+    `);
+  }
+
+  if (contacto.length) {
+    html += `
+      <div class="company-contact-d9">
+        <strong>Contactos</strong>
+        <div class="company-grid-d9">
+          ${contacto.join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  box.innerHTML = html;
+}
+
 function openCompanyInfo() {
+  renderCompanyInfo();
   const modal = $("#companyModal");
   if (!modal) return;
   modal.classList.remove("hidden");
