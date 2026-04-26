@@ -340,16 +340,21 @@
   </div>
 
 
-<div id="modalConfirm" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9999;">
-  <div style="background:#fff;padding:16px;border-radius:12px;max-width:90%;width:360px;">
-    <h3 style="margin-top:0;">Confirmar pedido</h3>
-    <div id="resumenPedido" style="max-height:300px;overflow:auto;font-size:14px;"></div>
-    <div style="display:flex;gap:8px;margin-top:12px;">
-      <button onclick="cerrarConfirm()" style="flex:1;">Editar</button>
-      <button id="btnConfirmSend" style="flex:1;">Enviar</button>
+<div id="modalConfirm" class="confirm-modal hidden" aria-hidden="true">
+  <div class="confirm-box" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="confirm-head">
+      <div>
+        <div class="confirm-kicker">Revisión final</div>
+        <h3 id="confirmTitle">Confirmar pedido</h3>
+      </div>
+      <button id="btnCloseConfirm" class="confirm-close" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <div id="resumenPedido" class="confirm-body"></div>
+    <div class="confirm-actions">
+      <button id="btnEditConfirm" class="confirm-btn secondary" type="button">Editar</button>
+      <button id="btnConfirmSend" class="confirm-btn primary" type="button">Enviar pedido</button>
     </div>
   </div>
 </div>
-
 </body>
 </html>

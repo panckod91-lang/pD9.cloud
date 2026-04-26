@@ -1,27 +1,84 @@
 
 function abrirConfirmacion(){
+  if (!validateOrder()) return;
+
   const modal = document.getElementById("modalConfirm");
   const resumen = document.getElementById("resumenPedido");
-  if(!modal || !resumen) return;
+  const btnConfirm = document.getElementById("btnConfirmSend");
+  const btnEdit = document.getElementById("btnEditConfirm");
+  const btnClose = document.getElementById("btnCloseConfirm");
+  if(!modal || !resumen || !btnConfirm) return;
 
-  let html = "";
-  html += "<b>Productos:</b><br>";
-  state.cart.forEach(p=>{
-    html += `• ${p.nombre} x${p.cantidad || 1}<br>`;
-  });
+  const cliente = state.selectedClient || {};
+  const clienteNombre = cliente.nombre_real || cliente.nombre || "Sin cliente";
+  const clienteExtra = [cliente.telefono || "", cliente.direccion || cliente.ciudad || ""].filter(Boolean).join(" · ");
+  const lista = priceLabel(getActivePriceList());
+  const itemsCount = state.cart.reduce((acc, item) => acc + Number(item.cantidad || 0), 0);
 
-  resumen.innerHTML = html;
-  modal.style.display = "flex";
+  const productos = state.cart.map(item => `
+    <div class="confirm-product">
+      <div class="confirm-product-name">${esc(item.nombre)}</div>
+      <div class="confirm-product-meta">
+        <span>x${Number(item.cantidad || 0)}</span>
+        <span>${money(Number(item.precio || 0) * Number(item.cantidad || 0))}</span>
+      </div>
+    </div>
+  `).join("");
 
-  document.getElementById("btnConfirmSend").onclick = ()=>{
+  resumen.innerHTML = `
+    <div class="confirm-alert">Verificá cliente y lista antes de enviar.</div>
+
+    <div class="confirm-grid">
+      <div class="confirm-info-card">
+        <span>Cliente</span>
+        <strong>${esc(clienteNombre)}</strong>
+        ${clienteExtra ? `<small>${esc(clienteExtra)}</small>` : ""}
+      </div>
+
+      <div class="confirm-info-card">
+        <span>Lista</span>
+        <strong>${esc(lista)}</strong>
+      </div>
+
+      <div class="confirm-info-card">
+        <span>Items</span>
+        <strong>${itemsCount}</strong>
+      </div>
+
+      <div class="confirm-info-card">
+        <span>Total</span>
+        <strong>${money(cartTotal())}</strong>
+      </div>
+    </div>
+
+    <div class="confirm-section-title">Productos</div>
+    <div class="confirm-products">${productos}</div>
+  `;
+
+  btnConfirm.disabled = false;
+  btnConfirm.textContent = "Enviar pedido";
+
+  btnConfirm.onclick = ()=>{
+    if (state.isSending || btnConfirm.disabled) return;
+    btnConfirm.disabled = true;
+    btnConfirm.textContent = "Enviando...";
     cerrarConfirm();
     sendOrder();
   };
+
+  if (btnEdit) btnEdit.onclick = cerrarConfirm;
+  if (btnClose) btnClose.onclick = cerrarConfirm;
+
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
 }
 
 function cerrarConfirm(){
   const modal = document.getElementById("modalConfirm");
-  if(modal) modal.style.display = "none";
+  if(modal) {
+    modal.classList.add("hidden");
+    modal.setAttribute("aria-hidden", "true");
+  }
 }
 
 const SHEET_ID = "1wHdgm_V0mloLaIsVPIIqbmTYBomx8DIUmXEplClCMz8";
