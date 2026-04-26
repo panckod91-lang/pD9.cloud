@@ -1565,3 +1565,40 @@ body:has(#view-history.active) .status-row-vnext{
   object-position:center !important;
   border-radius:26px !important;
 }
+#bannerWrap.banner-mode-product .banner-art-d9{
+  flex:1 !important;
+  height:100% !important;
+  margin:6px 8px 6px 4px !important; /* 🔥 menos margen */
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:16px !important;
+  overflow:hidden !important;
+}
+
+#bannerWrap.banner-mode-product .banner-thumb-d9{
+  width:100% !important;
+  height:100% !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  transform:scale(1.08); /* 🔥 lo agranda sin romper */
+}
+#bannerWrap.banner-mode-full{
+  background:none !important;
+  padding:0 !important;
+}
+
+#bannerWrap.banner-mode-full .banner-full-d9{
+  width:100% !important;
+  height:100% !important;
+  display:block !important;
+  overflow:hidden !important;
+}
+
+#bannerWrap.banner-mode-full .banner-full-img-d9{
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important; /* 🔥 llena todo */
+  object-position:center !important;
+  border-radius:20px !important; /* 🔥 curvas suaves */
+}
