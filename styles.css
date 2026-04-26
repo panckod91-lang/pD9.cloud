@@ -1804,3 +1804,11 @@ button.home-red-d9:active {
   text-decoration: none;
   word-break: break-word;
 }
+
+.support-version-d9 {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: #8a97a6;
+  font-weight: 700;
+}

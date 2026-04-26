@@ -626,6 +626,9 @@ function renderSupport() {
   const webValue = s.web ? esc(s.web) : "-";
   const webHref = s.web ? esc(s.web) : "";
 
+  const version = s.version || "";
+  const versionFecha = s.version_fecha || "";
+
   $("#supportBox").innerHTML = `
     <div class="support-pro-card-d9">
       <div class="support-pro-head-d9">
@@ -642,7 +645,7 @@ function renderSupport() {
           <div class="support-pro-icon-d9">📱</div>
           <div>
             <span>WhatsApp</span>
-            ${whatsappHref ? `<a href="${whatsappHref}" target="_blank" rel="noopener">${whatsappValue}</a>` : `<strong>${whatsappValue}</strong>`}
+            ${whatsappHref ? `<a href="${whatsappHref}" target="_blank">${whatsappValue}</a>` : `<strong>${whatsappValue}</strong>`}
           </div>
         </div>
 
@@ -658,10 +661,18 @@ function renderSupport() {
           <div class="support-pro-icon-d9">🌐</div>
           <div>
             <span>Web</span>
-            ${webHref ? `<a href="${webHref}" target="_blank" rel="noopener">${webValue}</a>` : `<strong>${webValue}</strong>`}
+            ${webHref ? `<a href="${webHref}" target="_blank">${webValue}</a>` : `<strong>${webValue}</strong>`}
           </div>
         </div>
       </div>
+
+      ${(version || versionFecha) ? `
+        <div class="support-version-d9">
+          ${version ? `<div>Versión ${esc(version)}</div>` : ``}
+          ${versionFecha ? `<div>${esc(versionFecha)}</div>` : ``}
+        </div>
+      ` : ``}
+
     </div>`;
 }
 
