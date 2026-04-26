@@ -1,3 +1,18 @@
+
+function changeSlide(newIndex){
+  const banner = document.querySelector('.promo-card-vnext');
+  if(!banner){ currentIndex=newIndex; renderBanner(currentIndex); return; }
+
+  banner.style.transition = 'opacity 0.4s ease';
+  banner.style.opacity = 0;
+
+  setTimeout(()=>{
+    currentIndex = newIndex;
+    renderBanner(currentIndex);
+    banner.style.opacity = 1;
+  },200);
+}
+
 const SHEET_ID = "1wHdgm_V0mloLaIsVPIIqbmTYBomx8DIUmXEplClCMz8";
 const WEBHOOK_ENDPOINTS = [
   "https://wild-pond-6b36.pancko-d9.workers.dev",
