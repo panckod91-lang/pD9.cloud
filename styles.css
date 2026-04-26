@@ -225,169 +225,38 @@ main{width:100%}
 
 /* banner */
 .banner-wrap{display:block}
-
-#bannerWrap.promo-card-vnext{
-  width:100%;
-  height:180px;
-  min-height:180px;
-  max-height:180px;
-  overflow:hidden;
-  border-radius:28px;
-  margin:0 0 14px;
-  box-shadow:var(--shadow);
-}
-
-/* MODO PRODUCTO: texto izquierda + imagen 70/75 derecha */
-#bannerWrap.banner-mode-product{
+.promo-card-vnext{
+  min-height:218px;border-radius:28px;overflow:hidden;position:relative;
   background:
-    radial-gradient(circle at 82% 25%, rgba(255,72,94,.20), transparent 24%),
+    radial-gradient(circle at 83% 24%, rgba(255,72,94,.30), transparent 22%),
     linear-gradient(135deg,#05214b 0%, #02142e 58%, #16346d 100%);
+  box-shadow:var(--shadow);margin-bottom:14px;
 }
-
-#bannerWrap.banner-mode-product .banner-product-d9{
-  width:100%;
-  height:100%;
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:14px 12px 14px 14px;
-  text-decoration:none;
-  color:#fff;
+.banner-link-vnext{
+  display:grid;grid-template-columns:1fr 168px;gap:10px;align-items:center;
+  min-height:218px;padding:24px 24px 22px;text-decoration:none;color:#fff;position:relative
 }
-
-#bannerWrap.banner-mode-product .banner-copy-d9{
-  flex:0 0 24%;
-  max-width:24%;
-  min-width:0;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:flex-start;
-  padding-left:0;
-  z-index:2;
+.banner-link-vnext::before{
+  content:"";position:absolute;inset:0;
+  background:
+    linear-gradient(135deg, rgba(71,197,255,.08) 0%, transparent 36%),
+    linear-gradient(145deg, transparent 50%, rgba(255,75,95,.10) 100%);
+  pointer-events:none
 }
-
-#bannerWrap .banner-kicker-vnext{
-  display:inline-flex;
-  width:max-content;
-  max-width:100%;
-  background:#ff1a22;
-  color:#fff;
-  border-radius:999px;
-  padding:6px 12px;
-  font-size:.78rem;
-  line-height:1;
-  font-weight:900;
-  letter-spacing:.01em;
-  margin:0 0 10px;
+.banner-copy-vnext,.banner-art-vnext{position:relative;z-index:1}
+.banner-kicker-vnext{
+  display:inline-flex;background:#ff1a22;color:#fff;border-radius:14px;
+  padding:8px 14px;font-size:.86rem;font-weight:900;letter-spacing:.02em
 }
-
-#bannerWrap .banner-title-vnext{
-  margin:0 0 2px;
-  color:#58cbff;
-  font-size:1.18rem;
-  line-height:1.02;
-  font-weight:900;
+.banner-title-vnext{
+  margin-top:18px;font-size:clamp(1.3rem,4.8vw,2.3rem);line-height:.95;
+  font-weight:900;color:#58cbff
 }
-
-#bannerWrap .banner-line-vnext{
-  color:#fff;
-  font-size:.98rem;
-  line-height:1.08;
-  font-weight:500;
+.banner-thumb-vnext{
+  width:148px;height:148px;border-radius:28px;object-fit:cover;margin-left:auto;
+  box-shadow:0 16px 28px rgba(0,0,0,.22)
 }
-
-#bannerWrap.banner-mode-product .banner-art-d9{
-  flex:1 1 auto;
-  height:100%;
-  min-width:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-  border-radius:18px;
-}
-
-#bannerWrap.banner-mode-product .banner-thumb-d9{
-  width:100%;
-  height:100%;
-  max-width:none;
-  max-height:none;
-  object-fit:contain;
-  object-position:center;
-  display:block;
-  border-radius:16px;
-}
-
-/* MODO FULL: imagen completa contenida, sin fondo azul */
-#bannerWrap.banner-mode-full{
-  background:transparent;
-  padding:0;
-}
-
-#bannerWrap.banner-mode-full .banner-full-d9{
-  width:100%;
-  height:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-  border-radius:26px;
-  text-decoration:none;
-  background:transparent;
-  clip-path: inset(0 round 26px);
-}
-
-#bannerWrap.banner-mode-full .banner-full-img-d9{
-  width:100%;
-  height:100%;
-  object-fit:contain;
-  object-position:center;
-  display:block;
-  border-radius:26px;
-  background:transparent;
-}
-
-@media (max-width:420px){
-  #bannerWrap.promo-card-vnext{
-    height:168px;
-    min-height:168px;
-    max-height:168px;
-    border-radius:26px;
-  }
-
-  #bannerWrap.banner-mode-product .banner-product-d9{
-    padding:12px 10px 12px 12px;
-    gap:7px;
-  }
-
-  #bannerWrap.banner-mode-product .banner-copy-d9{
-    flex-basis:24%;
-    max-width:24%;
-  }
-
-  #bannerWrap .banner-kicker-vnext{
-    padding:6px 10px;
-    font-size:.72rem;
-    margin-bottom:9px;
-  }
-
-  #bannerWrap .banner-title-vnext{
-    font-size:1.04rem;
-  }
-
-  #bannerWrap .banner-line-vnext{
-    font-size:.92rem;
-  }
-
-  #bannerWrap.banner-mode-product .banner-art-d9{
-    border-radius:16px;
-  }
-
-  #bannerWrap.banner-mode-product .banner-thumb-d9{
-    border-radius:14px;
-  }
-}
+.banner-thumb-vnext.empty{background:rgba(255,255,255,.12)}
 
 /* home grid */
 .home-grid-vnext{
@@ -1347,31 +1216,183 @@ body:has(#view-history.active) .status-row-vnext{
     font-size:.8rem !important;
   }
 }
-/* Ajuste fino banner D9 */
 
-/* Producto: puntas un poco más suaves */
-#bannerWrap.banner-mode-product,
+/* ============================================================
+   BANNER D9 LIMPIO FINAL
+   - Alto fijo para que el carrusel no salte
+   - Producto: texto izquierda + imagen maximizada sin recorte
+   - Full: imagen centrada, fondo transparente y esquinas reales
+   ============================================================ */
+
+#bannerWrap.promo-card-vnext{
+  width:100% !important;
+  height:180px !important;
+  min-height:180px !important;
+  max-height:180px !important;
+  margin:0 0 12px 0 !important;
+  padding:0 !important;
+  overflow:visible !important;
+  border-radius:28px !important;
+  aspect-ratio:auto !important;
+}
+
+/* PRODUCTO */
+#bannerWrap.banner-mode-product{
+  overflow:hidden !important;
+  box-shadow:var(--shadow) !important;
+  background:
+    radial-gradient(circle at 83% 24%, rgba(255,72,94,.24), transparent 22%),
+    linear-gradient(135deg,#05214b 0%, #02142e 58%, #16346d 100%) !important;
+}
+
 #bannerWrap.banner-mode-product .banner-product-d9{
-  border-radius:30px !important;
+  width:100% !important;
+  height:100% !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:6px !important;
+  padding:12px 10px !important;
+  color:#fff !important;
+  text-decoration:none !important;
+  box-sizing:border-box !important;
 }
 
-#bannerWrap.banner-mode-product .banner-art-d9,
+#bannerWrap.banner-mode-product .banner-copy-d9{
+  flex:0 0 24% !important;
+  max-width:24% !important;
+  min-width:0 !important;
+  height:100% !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  align-items:flex-start !important;
+  padding-left:4px !important;
+  z-index:2 !important;
+}
+
+#bannerWrap.banner-mode-product .banner-kicker-vnext{
+  display:inline-flex !important;
+  width:max-content !important;
+  max-width:100% !important;
+  margin:0 0 8px 0 !important;
+  padding:6px 10px !important;
+  border-radius:14px !important;
+  font-size:.78rem !important;
+  line-height:1 !important;
+}
+
+#bannerWrap.banner-mode-product .banner-title-vnext{
+  margin:0 0 2px 0 !important;
+  font-size:1.18rem !important;
+  line-height:1.05 !important;
+}
+
+#bannerWrap.banner-mode-product .banner-line-vnext{
+  margin:0 !important;
+  color:#fff !important;
+  font-size:.92rem !important;
+  line-height:1.16 !important;
+}
+
+#bannerWrap.banner-mode-product .banner-art-d9{
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  height:100% !important;
+  margin:0 !important;
+  padding:2px 4px 2px 0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  overflow:visible !important;
+  background:transparent !important;
+}
+
 #bannerWrap.banner-mode-product .banner-thumb-d9{
-  border-radius:22px !important;
+  display:block !important;
+  width:auto !important;
+  height:100% !important;
+  max-width:100% !important;
+  max-height:100% !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  border-radius:18px !important;
+  clip-path:inset(0 round 18px) !important;
+  transform:none !important;
+  box-shadow:none !important;
+  background:transparent !important;
 }
 
-/* Full: fondo transparente + esquinas suaves */
+/* FULL */
 #bannerWrap.banner-mode-full{
   background:transparent !important;
   box-shadow:none !important;
-  border-radius:28px !important;
-  overflow:hidden !important;
+  overflow:visible !important;
 }
 
 #bannerWrap.banner-mode-full .banner-full-d9{
+  width:100% !important;
+  height:100% !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  overflow:visible !important;
+  text-decoration:none !important;
   background:transparent !important;
-  border-radius:28px !important;
-  overflow:hidden !important;
+  border-radius:0 !important;
 }
 
-#
+#bannerWrap.banner-mode-full .banner-full-img-d9{
+  display:block !important;
+  width:auto !important;
+  height:100% !important;
+  max-width:100% !important;
+  max-height:100% !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  border-radius:22px !important;
+  clip-path:inset(0 round 22px) !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+@media (max-width:420px){
+  #bannerWrap.promo-card-vnext{
+    height:168px !important;
+    min-height:168px !important;
+    max-height:168px !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-product-d9{
+    padding:11px 9px !important;
+    gap:5px !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-copy-d9{
+    flex-basis:24% !important;
+    max-width:24% !important;
+    padding-left:2px !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-kicker-vnext{
+    font-size:.72rem !important;
+    padding:5px 8px !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-title-vnext{
+    font-size:1.05rem !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-line-vnext{
+    font-size:.86rem !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-thumb-d9{
+    border-radius:16px !important;
+    clip-path:inset(0 round 16px) !important;
+  }
+
+  #bannerWrap.banner-mode-full .banner-full-img-d9{
+    border-radius:20px !important;
+    clip-path:inset(0 round 20px) !important;
+  }
+}
