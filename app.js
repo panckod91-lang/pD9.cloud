@@ -1,18 +1,3 @@
-
-function changeSlide(newIndex){
-  const banner = document.querySelector('.promo-card-vnext');
-  if(!banner){ currentIndex=newIndex; renderBanner(currentIndex); return; }
-
-  banner.style.transition = 'opacity 0.4s ease';
-  banner.style.opacity = 0;
-
-  setTimeout(()=>{
-    currentIndex = newIndex;
-    renderBanner(currentIndex);
-    banner.style.opacity = 1;
-  },200);
-}
-
 const SHEET_ID = "1wHdgm_V0mloLaIsVPIIqbmTYBomx8DIUmXEplClCMz8";
 const WEBHOOK_ENDPOINTS = [
   "https://wild-pond-6b36.pancko-d9.workers.dev",
@@ -63,7 +48,8 @@ const bannerCarousel = {
   delay: 5200,
   signature: "",
   touchStartX: 0,
-  touchStartY: 0
+  touchStartY: 0,
+  isAnimating: false
 };
 
 const $ = (s) => document.querySelector(s);
@@ -459,17 +445,51 @@ function startBannerCarousel(rows) {
   if (!rows || rows.length <= 1) return;
   bannerCarousel.timer = setInterval(() => {
     if (document.hidden || state.currentView !== "home") return;
-    bannerCarousel.index = (bannerCarousel.index + 1) % rows.length;
-    renderBanner(true);
+    const nextIndex = (bannerCarousel.index + 1) % rows.length;
+    renderBannerWithTransition(nextIndex, 1);
   }, bannerCarousel.delay);
 }
 
 function goBannerSlide(index) {
   const rows = getBannerRows();
   if (!rows.length) return;
-  bannerCarousel.index = Math.max(0, Math.min(Number(index) || 0, rows.length - 1));
-  renderBanner(true);
+  const newIndex = Math.max(0, Math.min(Number(index) || 0, rows.length - 1));
+  const direction = newIndex >= bannerCarousel.index ? 1 : -1;
+  renderBannerWithTransition(newIndex, direction);
   startBannerCarousel(rows);
+}
+
+function renderBannerWithTransition(newIndex, direction = 1) {
+  const rows = getBannerRows();
+  const box = $("#bannerWrap");
+  if (!rows.length || !box || rows.length <= 1 || bannerCarousel.isAnimating) {
+    bannerCarousel.index = Math.max(0, Math.min(Number(newIndex) || 0, Math.max(rows.length - 1, 0)));
+    renderBanner(true);
+    return;
+  }
+
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    bannerCarousel.index = Math.max(0, Math.min(Number(newIndex) || 0, rows.length - 1));
+    renderBanner(true);
+    return;
+  }
+
+  bannerCarousel.isAnimating = true;
+  box.style.setProperty("--banner-dir", direction >= 0 ? "1" : "-1");
+  box.classList.remove("banner-transition-in");
+  box.classList.add("banner-transition-out");
+
+  setTimeout(() => {
+    bannerCarousel.index = Math.max(0, Math.min(Number(newIndex) || 0, rows.length - 1));
+    renderBanner(true);
+    box.classList.remove("banner-transition-out");
+    box.classList.add("banner-transition-in");
+
+    setTimeout(() => {
+      box.classList.remove("banner-transition-in");
+      bannerCarousel.isAnimating = false;
+    }, 560);
+  }, 300);
 }
 
 function renderBanner(skipTimerReset = false) {
@@ -1646,10 +1666,10 @@ function bind() {
       if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
       const rows = getBannerRows();
       if (rows.length <= 1) return;
-      bannerCarousel.index = dx < 0
+      const nextIndex = dx < 0
         ? (bannerCarousel.index + 1) % rows.length
         : (bannerCarousel.index - 1 + rows.length) % rows.length;
-      renderBanner(true);
+      renderBannerWithTransition(nextIndex, dx < 0 ? 1 : -1);
       startBannerCarousel(rows);
     }, { passive: true });
   }

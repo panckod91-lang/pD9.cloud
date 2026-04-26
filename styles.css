@@ -1466,3 +1466,43 @@ body:has(#view-history.active) .status-row-vnext{
     width:16px !important;
   }
 }
+
+
+/* D9 - carrusel: transición visible y suave */
+#bannerWrap.banner-carousel-d9 > a {
+  transition: opacity .34s ease, transform .34s ease, filter .34s ease;
+  will-change: opacity, transform, filter;
+}
+
+#bannerWrap.banner-carousel-d9.banner-transition-out > a {
+  opacity: 0;
+  transform: translateX(calc(var(--banner-dir, 1) * -14px)) scale(.982);
+  filter: blur(1.5px);
+}
+
+#bannerWrap.banner-carousel-d9.banner-transition-in > a {
+  animation: d9BannerEnter .56s cubic-bezier(.18,.78,.28,1) both;
+}
+
+@keyframes d9BannerEnter {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--banner-dir, 1) * 18px)) scale(.985);
+    filter: blur(1.5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bannerWrap.banner-carousel-d9 > a,
+  #bannerWrap.banner-carousel-d9.banner-transition-in > a {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
