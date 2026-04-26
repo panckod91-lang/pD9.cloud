@@ -225,38 +225,168 @@ main{width:100%}
 
 /* banner */
 .banner-wrap{display:block}
-.promo-card-vnext{
-  min-height:218px;border-radius:28px;overflow:hidden;position:relative;
+
+#bannerWrap.promo-card-vnext{
+  width:100%;
+  height:180px;
+  min-height:180px;
+  max-height:180px;
+  overflow:hidden;
+  border-radius:28px;
+  margin:0 0 14px;
+  box-shadow:var(--shadow);
+}
+
+/* MODO PRODUCTO: texto izquierda + imagen 70/75 derecha */
+#bannerWrap.banner-mode-product{
   background:
-    radial-gradient(circle at 83% 24%, rgba(255,72,94,.30), transparent 22%),
+    radial-gradient(circle at 82% 25%, rgba(255,72,94,.20), transparent 24%),
     linear-gradient(135deg,#05214b 0%, #02142e 58%, #16346d 100%);
-  box-shadow:var(--shadow);margin-bottom:14px;
 }
-.banner-link-vnext{
-  display:grid;grid-template-columns:1fr 168px;gap:10px;align-items:center;
-  min-height:218px;padding:24px 24px 22px;text-decoration:none;color:#fff;position:relative
+
+#bannerWrap.banner-mode-product .banner-product-d9{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:14px 12px 14px 14px;
+  text-decoration:none;
+  color:#fff;
 }
-.banner-link-vnext::before{
-  content:"";position:absolute;inset:0;
-  background:
-    linear-gradient(135deg, rgba(71,197,255,.08) 0%, transparent 36%),
-    linear-gradient(145deg, transparent 50%, rgba(255,75,95,.10) 100%);
-  pointer-events:none
+
+#bannerWrap.banner-mode-product .banner-copy-d9{
+  flex:0 0 24%;
+  max-width:24%;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:flex-start;
+  padding-left:0;
+  z-index:2;
 }
-.banner-copy-vnext,.banner-art-vnext{position:relative;z-index:1}
-.banner-kicker-vnext{
-  display:inline-flex;background:#ff1a22;color:#fff;border-radius:14px;
-  padding:8px 14px;font-size:.86rem;font-weight:900;letter-spacing:.02em
+
+#bannerWrap .banner-kicker-vnext{
+  display:inline-flex;
+  width:max-content;
+  max-width:100%;
+  background:#ff1a22;
+  color:#fff;
+  border-radius:999px;
+  padding:6px 12px;
+  font-size:.78rem;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:.01em;
+  margin:0 0 10px;
 }
-.banner-title-vnext{
-  margin-top:18px;font-size:clamp(1.3rem,4.8vw,2.3rem);line-height:.95;
-  font-weight:900;color:#58cbff
+
+#bannerWrap .banner-title-vnext{
+  margin:0 0 2px;
+  color:#58cbff;
+  font-size:1.18rem;
+  line-height:1.02;
+  font-weight:900;
 }
-.banner-thumb-vnext{
-  width:148px;height:148px;border-radius:28px;object-fit:cover;margin-left:auto;
-  box-shadow:0 16px 28px rgba(0,0,0,.22)
+
+#bannerWrap .banner-line-vnext{
+  color:#fff;
+  font-size:.98rem;
+  line-height:1.08;
+  font-weight:500;
 }
-.banner-thumb-vnext.empty{background:rgba(255,255,255,.12)}
+
+#bannerWrap.banner-mode-product .banner-art-d9{
+  flex:1 1 auto;
+  height:100%;
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  border-radius:18px;
+}
+
+#bannerWrap.banner-mode-product .banner-thumb-d9{
+  width:100%;
+  height:100%;
+  max-width:none;
+  max-height:none;
+  object-fit:contain;
+  object-position:center;
+  display:block;
+  border-radius:16px;
+}
+
+/* MODO FULL: imagen completa contenida, sin fondo azul */
+#bannerWrap.banner-mode-full{
+  background:transparent;
+  padding:0;
+}
+
+#bannerWrap.banner-mode-full .banner-full-d9{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  border-radius:28px;
+  text-decoration:none;
+  background:transparent;
+}
+
+#bannerWrap.banner-mode-full .banner-full-img-d9{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:center;
+  display:block;
+  border-radius:24px;
+  background:transparent;
+}
+
+@media (max-width:420px){
+  #bannerWrap.promo-card-vnext{
+    height:168px;
+    min-height:168px;
+    max-height:168px;
+    border-radius:26px;
+  }
+
+  #bannerWrap.banner-mode-product .banner-product-d9{
+    padding:12px 10px 12px 12px;
+    gap:7px;
+  }
+
+  #bannerWrap.banner-mode-product .banner-copy-d9{
+    flex-basis:24%;
+    max-width:24%;
+  }
+
+  #bannerWrap .banner-kicker-vnext{
+    padding:6px 10px;
+    font-size:.72rem;
+    margin-bottom:9px;
+  }
+
+  #bannerWrap .banner-title-vnext{
+    font-size:1.04rem;
+  }
+
+  #bannerWrap .banner-line-vnext{
+    font-size:.92rem;
+  }
+
+  #bannerWrap.banner-mode-product .banner-art-d9{
+    border-radius:16px;
+  }
+
+  #bannerWrap.banner-mode-product .banner-thumb-d9{
+    border-radius:14px;
+  }
+}
 
 /* home grid */
 .home-grid-vnext{
@@ -1215,457 +1345,4 @@ body:has(#view-history.active) .status-row-vnext{
     padding:5px 11px !important;
     font-size:.8rem !important;
   }
-}
-/* ============================================================
-   BANNER D9 v5 — ratio único 2:1 para ambos modos
-   ============================================================ */
-
-/* Imagen recomendada para ambos modos: 2:1
-   Ejemplos: 1200x600 / 1000x500 / 800x400 */
-.promo-card-vnext.banner-mode-product,
-.promo-card-vnext.banner-mode-full{
-  padding:0;
-  min-height:0;
-  aspect-ratio:2 / 1;
-  display:flex;
-  overflow:hidden;
-  border-radius:26px;
-  margin-bottom:12px;
-}
-
-/* ============================================================
-   BANNER MODO A — producto 30/70 con aire fino en la imagen
-   ============================================================ */
-.promo-card-vnext.banner-mode-product{
-  background:
-    radial-gradient(circle at 83% 24%, rgba(255,72,94,.24), transparent 22%),
-    linear-gradient(135deg,#05214b 0%, #02142e 58%, #16346d 100%);
-}
-
-.banner-product-d9{
-  flex:1;
-  position:relative;
-  display:block;
-  overflow:hidden;
-  text-decoration:none;
-  color:#fff;
-}
-
-.banner-copy-d9{
-  position:absolute;
-  left:14px;
-  top:50%;
-  transform:translateY(-50%);
-  width:28%;
-  z-index:2;
-}
-
-.banner-copy-d9 .banner-kicker-vnext{
-  display:block;
-  width:fit-content;
-  margin:0 0 8px 0;
-  padding:5px 10px;
-  font-size:.78rem;
-}
-
-/* Imagen derecha con margen arriba/abajo/derecha.
-   Sin margen izquierdo para conectar mejor con el bloque azul. */
-.banner-art-d9{
-  position:absolute;
-  right:10px;
-  top:10px;
-  bottom:10px;
-  width:calc(70% - 10px);
-  overflow:hidden;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border-radius:20px;
-  background:rgba(255,255,255,.06);
-}
-
-.banner-thumb-d9{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  display:block;
-  border-radius:20px;
-}
-
-.banner-thumb-d9.empty{
-  background:rgba(255,255,255,.12);
-}
-
-/* ============================================================
-   BANNER MODO B — imagen completa, impacto total
-   ============================================================ */
-.promo-card-vnext.banner-mode-full{
-  background:none;
-}
-
-.banner-full-d9{
-  flex:1;
-  display:block;
-  overflow:hidden;
-  border-radius:26px;
-}
-
-.banner-full-img-d9{
-  display:block;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  border-radius:26px;
-}
-
-@media (max-width:380px){
-  .banner-copy-d9{
-    left:12px;
-    width:29%;
-  }
-  .banner-copy-d9 .banner-kicker-vnext{
-    font-size:.72rem;
-    padding:4px 8px;
-  }
-  .banner-art-d9{
-    right:8px;
-    top:8px;
-    bottom:8px;
-    width:calc(70% - 8px);
-    border-radius:18px;
-  }
-  .banner-thumb-d9{
-    border-radius:18px;
-  }
-}
-/* =========================
-   CONTENEDOR BASE (alto fijo)
-========================= */
-.promo-card-vnext{
-  height:180px !important;
-  min-height:180px !important;
-  max-height:180px !important;
-  overflow:hidden !important;
-  display:flex;
-  border-radius:20px;
-  background:#061b36; /* fondo para cuando sobra espacio */
-}
-
-/* =========================
-   MODO PRODUCTO (70 / 30)
-========================= */
-.promo-card-vnext.banner-mode-product{
-  padding:16px;
-  gap:12px;
-  align-items:center;
-}
-
-/* Texto */
-.banner-mode-product .banner-copy-vnext{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-}
-
-/* Imagen */
-.banner-mode-product .banner-art-vnext{
-  flex:2;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-/* Imagen en sí */
-.banner-mode-product .banner-thumb-vnext{
-  width:100%;
-  height:100%;
-  object-fit:contain !important;
-  object-position:center !important;
-  border-radius:16px;
-  background:transparent;
-}
-
-/* =========================
-   MODO FULL (imagen completa)
-========================= */
-.promo-card-vnext.banner-mode-full{
-  padding:0;
-  display:flex;
-}
-
-/* Link ocupa todo */
-.banner-mode-full .banner-link-vnext{
-  width:100%;
-  height:100%;
-  display:flex;
-}
-
-/* Imagen */
-.banner-mode-full .banner-full-img-d9{
-  width:100%;
-  height:100%;
-  object-fit:contain !important;
-  object-position:center !important;
-  display:block;
-  border-radius:20px;
-  background:transparent;
-}
-/* ===== BANNER FIX FINAL BASE ===== */
-
-#bannerWrap,
-.promo-card-vnext.banner-wrap{
-  width:100% !important;
-  max-width:100% !important;
-  margin-left:0 !important;
-  margin-right:0 !important;
-  box-sizing:border-box !important;
-}
-
-/* Alto fijo del banner */
-#bannerWrap.promo-card-vnext{
-  height:180px !important;
-  min-height:180px !important;
-  max-height:180px !important;
-  overflow:hidden !important;
-  border-radius:28px !important;
-  background:#061b36 !important;
-}
-
-/* Link interno ocupa todo */
-#bannerWrap .banner-link-vnext{
-  width:100% !important;
-  height:100% !important;
-  display:flex !important;
-  box-sizing:border-box !important;
-  text-decoration:none !important;
-}
-
-/* ===== MODO PRODUCTO ===== */
-
-#bannerWrap.banner-mode-product .banner-product-d9{
-  display:flex !important;
-  align-items:center !important;
-  gap:12px !important;
-  padding:16px !important;
-}
-
-#bannerWrap.banner-mode-product .banner-copy-vnext{
-  flex:0 0 30% !important;
-  max-width:30% !important;
-  display:flex !important;
-  flex-direction:column !important;
-  justify-content:center !important;
-  z-index:2 !important;
-}
-
-#bannerWrap.banner-mode-product .banner-art-vnext{
-  flex:1 !important;
-  height:100% !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-}
-
-#bannerWrap.banner-mode-product .banner-thumb-vnext{
-  width:100% !important;
-  height:100% !important;
-  object-fit:contain !important;
-  object-position:center !important;
-  border-radius:16px !important;
-  display:block !important;
-}
-
-/* ===== MODO FULL ===== */
-
-#bannerWrap.banner-mode-full .banner-full-d9{
-  display:flex !important;
-  width:100% !important;
-  height:100% !important;
-  padding:0 !important;
-}
-
-#bannerWrap.banner-mode-full .banner-full-img-d9{
-  width:100% !important;
-  height:100% !important;
-  object-fit:contain !important;
-  object-position:center !important;
-  display:block !important;
-}
-/* FIX DEFINITIVO BANNER ACTUAL D9 */
-
-#bannerWrap{
-  width:100% !important;
-  margin-left:0 !important;
-  margin-right:0 !important;
-  height:180px !important;
-  min-height:180px !important;
-  max-height:180px !important;
-  aspect-ratio:auto !important;
-}
-
-/* Producto: texto 30% / imagen 70% */
-#bannerWrap.banner-mode-product .banner-product-d9{
-  width:100% !important;
-  height:100% !important;
-  display:flex !important;
-  position:relative !important;
-}
-
-#bannerWrap.banner-mode-product .banner-copy-d9{
-  position:relative !important;
-  left:auto !important;
-  top:auto !important;
-  transform:none !important;
-  width:30% !important;
-  flex:0 0 30% !important;
-  padding:18px 0 18px 18px !important;
-  display:flex !important;
-  flex-direction:column !important;
-  justify-content:center !important;
-}
-
-#bannerWrap.banner-mode-product .banner-art-d9{
-  position:relative !important;
-  right:auto !important;
-  top:auto !important;
-  bottom:auto !important;
-  width:auto !important;
-  flex:1 !important;
-  height:100% !important;
-  margin:12px 14px 12px 8px !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  border-radius:18px !important;
-  overflow:hidden !important;
-}
-
-#bannerWrap.banner-mode-product .banner-thumb-d9{
-  width:100% !important;
-  height:100% !important;
-  object-fit:contain !important;
-  object-position:center !important;
-  border-radius:14px !important;
-}
-
-/* Full: imagen completa dentro del banner, sin recortar */
-#bannerWrap.banner-mode-full .banner-full-d9{
-  width:100% !important;
-  height:100% !important;
-  display:block !important;
-  border-radius:26px !important;
-  overflow:hidden !important;
-}
-
-#bannerWrap.banner-mode-full .banner-full-img-d9{
-  width:100% !important;
-  height:100% !important;
-  object-fit:contain !important;
-  object-position:center !important;
-  border-radius:26px !important;
-}
-#bannerWrap.banner-mode-product .banner-art-d9{
-  flex:1 !important;
-  height:100% !important;
-  margin:6px 8px 6px 4px !important; /* 🔥 menos margen */
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  border-radius:16px !important;
-  overflow:hidden !important;
-}
-
-#bannerWrap.banner-mode-product .banner-thumb-d9{
-  width:100% !important;
-  height:100% !important;
-  object-fit:contain !important;
-  object-position:center !important;
-  transform:scale(1.08); /* 🔥 lo agranda sin romper */
-}
-#bannerWrap.banner-mode-full{
-  background:none !important;
-  padding:0 !important;
-}
-
-#bannerWrap.banner-mode-full .banner-full-d9{
-  width:100% !important;
-  height:100% !important;
-  display:block !important;
-  overflow:hidden !important;
-}
-
-#bannerWrap.banner-mode-full .banner-full-img-d9{
-  width:100% !important;
-  height:100% !important;
-  object-fit:cover !important; /* 🔥 llena todo */
-  object-position:center !important;
-  border-radius:20px !important; /* 🔥 curvas suaves */
-}
-/* === BANNER FINAL: contain real, sin recortes === */
-
-/* alto fijo */
-#bannerWrap{
-  height:180px !important;
-  min-height:180px !important;
-  max-height:180px !important;
-  overflow:hidden !important;
-}
-
-/* PRODUCTO */
-#bannerWrap.banner-mode-product .banner-product-d9{
-  width:100% !important;
-  height:100% !important;
-  display:flex !important;
-  align-items:center !important;
-  gap:10px !important;
-  padding:14px !important;
-}
-
-#bannerWrap.banner-mode-product .banner-copy-d9{
-  flex:0 0 28% !important;
-  max-width:28% !important;
-}
-
-#bannerWrap.banner-mode-product .banner-art-d9{
-  flex:1 !important;
-  height:100% !important;
-  margin:0 !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  overflow:hidden !important;
-}
-
-#bannerWrap.banner-mode-product .banner-thumb-d9{
-  width:100% !important;
-  height:100% !important;
-  max-width:none !important;
-  max-height:none !important;
-  object-fit:contain !important;
-  object-position:center !important;
-  transform:none !important;
-  border-radius:14px !important;
-}
-
-/* FULL */
-#bannerWrap.banner-mode-full .banner-full-d9{
-  width:100% !important;
-  height:100% !important;
-  display:flex !important;
-  align-items:center !important;
-  justify-content:center !important;
-  overflow:hidden !important;
-  background:#061b36 !important;
-  border-radius:28px !important;
-}
-
-#bannerWrap.banner-mode-full .banner-full-img-d9{
-  width:100% !important;
-  height:100% !important;
-  max-width:none !important;
-  max-height:none !important;
-  object-fit:contain !important;
-  object-position:center !important;
-  border-radius:22px !important;
 }
