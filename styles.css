@@ -332,9 +332,10 @@ main{width:100%}
   align-items:center;
   justify-content:center;
   overflow:hidden;
-  border-radius:28px;
+  border-radius:26px;
   text-decoration:none;
   background:transparent;
+  clip-path: inset(0 round 26px);
 }
 
 #bannerWrap.banner-mode-full .banner-full-img-d9{
@@ -343,7 +344,7 @@ main{width:100%}
   object-fit:contain;
   object-position:center;
   display:block;
-  border-radius:24px;
+  border-radius:26px;
   background:transparent;
 }
 
