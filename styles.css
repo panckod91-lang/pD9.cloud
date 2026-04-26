@@ -1602,3 +1602,70 @@ body:has(#view-history.active) .status-row-vnext{
   object-position:center !important;
   border-radius:20px !important; /* 🔥 curvas suaves */
 }
+/* === BANNER FINAL: contain real, sin recortes === */
+
+/* alto fijo */
+#bannerWrap{
+  height:180px !important;
+  min-height:180px !important;
+  max-height:180px !important;
+  overflow:hidden !important;
+}
+
+/* PRODUCTO */
+#bannerWrap.banner-mode-product .banner-product-d9{
+  width:100% !important;
+  height:100% !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  padding:14px !important;
+}
+
+#bannerWrap.banner-mode-product .banner-copy-d9{
+  flex:0 0 28% !important;
+  max-width:28% !important;
+}
+
+#bannerWrap.banner-mode-product .banner-art-d9{
+  flex:1 !important;
+  height:100% !important;
+  margin:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  overflow:hidden !important;
+}
+
+#bannerWrap.banner-mode-product .banner-thumb-d9{
+  width:100% !important;
+  height:100% !important;
+  max-width:none !important;
+  max-height:none !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  transform:none !important;
+  border-radius:14px !important;
+}
+
+/* FULL */
+#bannerWrap.banner-mode-full .banner-full-d9{
+  width:100% !important;
+  height:100% !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  overflow:hidden !important;
+  background:#061b36 !important;
+  border-radius:28px !important;
+}
+
+#bannerWrap.banner-mode-full .banner-full-img-d9{
+  width:100% !important;
+  height:100% !important;
+  max-width:none !important;
+  max-height:none !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  border-radius:22px !important;
+}
