@@ -618,11 +618,47 @@ function renderTicker(){
 function renderSupport() {
   const s = state.support || {};
   updateSupportChip();
+
+  const whatsapp = s.whatsapp ? `<a href="https://wa.me/${onlyDigits(s.whatsapp)}" target="_blank" rel="noopener">${esc(s.whatsapp)}</a>` : `<span>-</span>`;
+  const email = s.email ? `<a href="mailto:${esc(s.email)}">${esc(s.email)}</a>` : `<span>-</span>`;
+  const web = s.web ? `<a href="${esc(s.web)}" target="_blank" rel="noopener">${esc(s.web)}</a>` : `<span>-</span>`;
+
   $("#supportBox").innerHTML = `
-    <strong>${esc(s.nombre || "Sin dato")}</strong>
-    <div class="mini-text">WhatsApp: ${s.whatsapp ? `<a href="https://wa.me/${onlyDigits(s.whatsapp)}" target="_blank">${esc(s.whatsapp)}</a>` : "-"}</div>
-    <div class="mini-text">Email: ${s.email ? `<a href="mailto:${esc(s.email)}">${esc(s.email)}</a>` : "-"}</div>
-    <div class="mini-text">Web: ${s.web ? `<a href="${esc(s.web)}" target="_blank">${esc(s.web)}</a>` : "-"}</div>`;
+    <div class="support-pro-card">
+      <div class="support-pro-head">
+        <div class="support-pro-avatar">🛠️</div>
+        <div>
+          <div class="support-pro-kicker">Soporte técnico</div>
+          <strong>${esc(s.nombre || "Sin dato")}</strong>
+        </div>
+      </div>
+
+      <div class="support-pro-list">
+        <div class="support-pro-item">
+          <div class="support-pro-icon">📱</div>
+          <div>
+            <span>WhatsApp</span>
+            ${whatsapp}
+          </div>
+        </div>
+
+        <div class="support-pro-item">
+          <div class="support-pro-icon">✉️</div>
+          <div>
+            <span>Email</span>
+            ${email}
+          </div>
+        </div>
+
+        <div class="support-pro-item">
+          <div class="support-pro-icon">🌐</div>
+          <div>
+            <span>Web</span>
+            ${web}
+          </div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function syncSessionUI() {
