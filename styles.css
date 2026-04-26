@@ -1396,3 +1396,73 @@ body:has(#view-history.active) .status-row-vnext{
     clip-path:inset(0 round 20px) !important;
   }
 }
+
+/* ============================================================
+   CARRUSEL BANNER D9
+   - Se monta encima del banner estable
+   - No cambia layout de FULL ni PRODUCTO
+   ============================================================ */
+#bannerWrap.banner-carousel-d9{
+  position:relative !important;
+  touch-action:pan-y !important;
+}
+
+#bannerWrap.banner-carousel-d9 .banner-dots-d9{
+  position:absolute !important;
+  left:50% !important;
+  bottom:8px !important;
+  transform:translateX(-50%) !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:6px !important;
+  padding:4px 7px !important;
+  border-radius:999px !important;
+  background:rgba(0,0,0,.22) !important;
+  backdrop-filter:blur(8px) !important;
+  -webkit-backdrop-filter:blur(8px) !important;
+  z-index:5 !important;
+}
+
+#bannerWrap.banner-carousel-d9 .banner-dot-d9{
+  width:7px !important;
+  height:7px !important;
+  min-width:7px !important;
+  min-height:7px !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:999px !important;
+  background:rgba(255,255,255,.55) !important;
+  box-shadow:none !important;
+  cursor:pointer !important;
+  opacity:.85 !important;
+  transition:width .2s ease, opacity .2s ease, background .2s ease !important;
+}
+
+#bannerWrap.banner-carousel-d9 .banner-dot-d9.active{
+  width:18px !important;
+  background:#fff !important;
+  opacity:1 !important;
+}
+
+#bannerWrap.banner-mode-full .banner-dots-d9{
+  bottom:10px !important;
+}
+
+@media (max-width:420px){
+  #bannerWrap.banner-carousel-d9 .banner-dots-d9{
+    bottom:7px !important;
+    gap:5px !important;
+  }
+
+  #bannerWrap.banner-carousel-d9 .banner-dot-d9{
+    width:6px !important;
+    height:6px !important;
+    min-width:6px !important;
+    min-height:6px !important;
+  }
+
+  #bannerWrap.banner-carousel-d9 .banner-dot-d9.active{
+    width:16px !important;
+  }
+}

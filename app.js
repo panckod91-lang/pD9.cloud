@@ -42,6 +42,15 @@ const state = {
   manualPriceOverride: false
 };
 
+const bannerCarousel = {
+  index: 0,
+  timer: null,
+  delay: 5200,
+  signature: "",
+  touchStartX: 0,
+  touchStartY: 0
+};
+
 const $ = (s) => document.querySelector(s);
 const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Number(v) || 0);
 const readJSON = (k, f = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
@@ -396,24 +405,82 @@ function renderPendingBadge() {
   el.textContent = `${count} pendiente${count === 1 ? "" : "s"}`;
 }
 
-function renderBanner() {
+function getBannerRows() {
+  return (Array.isArray(state.ads) ? state.ads : [])
+    .slice()
+    .sort((a, b) => Number(rowVal(a, "orden", "id") || 0) - Number(rowVal(b, "orden", "id") || 0));
+}
+
+function bannerSignature(rows) {
+  return rows.map((r) => [
+    rowVal(r, "orden", "id"),
+    rowVal(r, "imagen_url_full", "imagen_full"),
+    rowVal(r, "imagen_url", "imagen", "link_imagen"),
+    rowVal(r, "titulo"),
+    rowVal(r, "texto_1", "texto1", "linea1"),
+    rowVal(r, "texto_2", "texto2", "linea2")
+  ].join("|")).join("||");
+}
+
+function preloadBannerImages(rows) {
+  rows.forEach((row) => {
+    const src = String(rowVal(row, "imagen_url_full", "imagen_full") || rowVal(row, "imagen_url", "imagen", "link_imagen") || "").trim();
+    if (!src) return;
+    const img = new Image();
+    img.decoding = "async";
+    img.src = src;
+  });
+}
+
+function stopBannerCarousel() {
+  if (bannerCarousel.timer) {
+    clearInterval(bannerCarousel.timer);
+    bannerCarousel.timer = null;
+  }
+}
+
+function startBannerCarousel(rows) {
+  stopBannerCarousel();
+  if (!rows || rows.length <= 1) return;
+  bannerCarousel.timer = setInterval(() => {
+    if (document.hidden || state.currentView !== "home") return;
+    bannerCarousel.index = (bannerCarousel.index + 1) % rows.length;
+    renderBanner(true);
+  }, bannerCarousel.delay);
+}
+
+function goBannerSlide(index) {
+  const rows = getBannerRows();
+  if (!rows.length) return;
+  bannerCarousel.index = Math.max(0, Math.min(Number(index) || 0, rows.length - 1));
+  renderBanner(true);
+  startBannerCarousel(rows);
+}
+
+function renderBanner(skipTimerReset = false) {
   const box = $("#bannerWrap");
   if (!box) return;
 
-  const rows = Array.isArray(state.ads) ? state.ads : [];
-  const first = rows
-    .slice()
-    .sort((a, b) => Number(rowVal(a, "id", "orden") || 0) - Number(rowVal(b, "id", "orden") || 0))[0];
+  const rows = getBannerRows();
+  const sig = bannerSignature(rows);
 
-  console.log("[D9] publicidad rows:", rows);
-  console.log("[D9] publicidad first:", first);
+  if (sig !== bannerCarousel.signature) {
+    bannerCarousel.signature = sig;
+    bannerCarousel.index = 0;
+    preloadBannerImages(rows);
+  }
 
-  if (!first) {
+  if (!rows.length) {
+    stopBannerCarousel();
     box.classList.add("hidden");
+    box.classList.remove("banner-mode-full", "banner-mode-product", "banner-carousel-d9");
     box.innerHTML = "";
     console.warn("[D9] publicidad: no llegó ninguna fila activa desde Sheets/cache.");
     return;
   }
+
+  if (bannerCarousel.index >= rows.length) bannerCarousel.index = 0;
+  const first = rows[bannerCarousel.index];
 
   const tag = String(rowVal(first, "texto", "tag") || "").trim();
   const titulo = String(rowVal(first, "titulo") || tag || "Publicidad").trim();
@@ -423,21 +490,29 @@ function renderBanner() {
   const imgFull = String(rowVal(first, "imagen_url_full", "imagen_full") || "").trim();
   const link = String(rowVal(first, "link_url", "link") || "#").trim() || "#";
   const hasLink = link && link !== "#";
+  const dotsHtml = rows.length > 1
+    ? `<div class="banner-dots-d9" aria-label="Banners">${rows.map((_, i) => `<button type="button" class="banner-dot-d9 ${i === bannerCarousel.index ? "active" : ""}" data-banner-slide="${i}" aria-label="Banner ${i + 1}"></button>`).join("")}</div>`
+    : "";
 
-  console.log("[D9] publicidad item:", {
+  console.log("[D9] publicidad slide:", {
+    actual: bannerCarousel.index + 1,
+    total: rows.length,
     tag, titulo, linea1, linea2, imgProducto, imgFull, link,
     tipo: imgFull ? "full" : "producto"
   });
 
   box.classList.remove("hidden");
+  box.classList.add("banner-carousel-d9");
 
   if (imgFull) {
     box.classList.add("banner-mode-full");
     box.classList.remove("banner-mode-product");
     box.innerHTML = `
       <a class="banner-full-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
-        <img class="banner-full-img-d9" src="${esc(imgFull)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">
-      </a>`;
+        <img class="banner-full-img-d9" src="${esc(imgFull)}" alt="${esc(titulo || 'Publicidad')}" loading="eager">
+      </a>
+      ${dotsHtml}`;
+    if (!skipTimerReset) startBannerCarousel(rows);
     return;
   }
 
@@ -456,9 +531,12 @@ function renderBanner() {
         ${textHtml || `<div class="banner-title-vnext">Publicidad</div>`}
       </div>
       <div class="banner-art-d9">
-        ${imgProducto ? `<img class="banner-thumb-d9" src="${esc(imgProducto)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">` : `<div class="banner-thumb-d9 empty"></div>`}
+        ${imgProducto ? `<img class="banner-thumb-d9" src="${esc(imgProducto)}" alt="${esc(titulo || 'Publicidad')}" loading="eager">` : `<div class="banner-thumb-d9 empty"></div>`}
       </div>
-    </a>`;
+    </a>
+    ${dotsHtml}`;
+
+  if (!skipTimerReset) startBannerCarousel(rows);
 }
 
 function renderTicker(){
@@ -1514,6 +1592,13 @@ function bind() {
     const historyItem = ev.target.closest("[data-history-id]");
     if (historyItem) toggleHistoryItem(historyItem.dataset.historyId);
 
+    const bannerDot = ev.target.closest("[data-banner-slide]");
+    if (bannerDot) {
+      ev.preventDefault();
+      goBannerSlide(bannerDot.dataset.bannerSlide);
+      return;
+    }
+
     const openPriceCats = ev.target.closest("#btnOpenPriceCategories");
     if (openPriceCats) {
       renderPriceCategoryModal();
@@ -1528,6 +1613,31 @@ function bind() {
       closeModal("priceCategory");
     }
   });
+
+  const bannerEl = document.getElementById("bannerWrap");
+  if (bannerEl) {
+    bannerEl.addEventListener("touchstart", (ev) => {
+      const t = ev.touches?.[0];
+      if (!t) return;
+      bannerCarousel.touchStartX = t.clientX;
+      bannerCarousel.touchStartY = t.clientY;
+    }, { passive: true });
+
+    bannerEl.addEventListener("touchend", (ev) => {
+      const t = ev.changedTouches?.[0];
+      if (!t) return;
+      const dx = t.clientX - bannerCarousel.touchStartX;
+      const dy = t.clientY - bannerCarousel.touchStartY;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) return;
+      const rows = getBannerRows();
+      if (rows.length <= 1) return;
+      bannerCarousel.index = dx < 0
+        ? (bannerCarousel.index + 1) % rows.length
+        : (bannerCarousel.index - 1 + rows.length) % rows.length;
+      renderBanner(true);
+      startBannerCarousel(rows);
+    }, { passive: true });
+  }
 
   window.addEventListener("online", async () => { renderNetwork(); try { await loadAllData(); persistCacheState(); renderAll(); } catch (e) { console.warn(e); } syncPending(); });
   window.addEventListener("offline", () => { renderNetwork(); renderAll(); });
