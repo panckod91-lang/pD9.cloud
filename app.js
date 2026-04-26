@@ -75,6 +75,36 @@ const onlyDigits = (v) => String(v || "").replace(/\D+/g, "");
 const isTrue = (v) => String(v).trim().toLowerCase() === "true";
 function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
 
+function rowVal(row, ...keys) {
+  if (!row) return "";
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(row, key) && row[key] != null) return row[key];
+  }
+  const normalized = Object.fromEntries(Object.entries(row).map(([k, v]) => [String(k).trim().toLowerCase(), v]));
+  for (const key of keys) {
+    const k = String(key).trim().toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(normalized, k) && normalized[k] != null) return normalized[k];
+  }
+  return "";
+}
+
+function normalizeAdRow(r) {
+  const activoRaw = rowVal(r, "activo", "Activo", "ACTIVO");
+  return {
+    raw: r,
+    activoRaw,
+    activo: isTrue(activoRaw),
+    orden: Number(rowVal(r, "id", "orden", "Orden") || 0),
+    tag: String(rowVal(r, "texto", "tag") || "").trim(),
+    imgProducto: String(rowVal(r, "imagen_url", "imagen", "link_imagen") || "").trim(),
+    link: String(rowVal(r, "link_url", "link") || "#").trim() || "#",
+    titulo: String(rowVal(r, "titulo", "Título", "title") || "").trim(),
+    linea1: String(rowVal(r, "texto_1", "texto1", "linea1") || "").trim(),
+    linea2: String(rowVal(r, "texto_2", "texto2", "linea2") || "").trim(),
+    imgFull: String(rowVal(r, "imagen_url_full", "imagen_full", "banner_full") || "").trim()
+  };
+}
+
 function parseRowsByKey(rows) {
   const out = {};
   (rows || []).forEach((r) => {
@@ -235,7 +265,7 @@ async function loadAllData() {
       lista_3: Number(r.lista_3 || r.precio || 0)
     }
   }));
-  state.ads = ads.filter(r => isTrue(r.activo));
+  state.ads = ads.map(normalizeAdRow);
   state.support = Object.fromEntries(support.map(r => [String(r.clave || "").trim(), String(r.valor || "").trim()]));
 }
 
@@ -379,31 +409,32 @@ function renderBanner() {
   const box = $("#bannerWrap");
   if (!box) return;
 
-  const activeAds = Array.isArray(state.ads)
-    ? state.ads
-        .filter(r => isTrue(r.activo))
-        .sort((a, b) => Number(a.id || a.orden || 0) - Number(b.id || b.orden || 0))
-    : [];
+  const ads = Array.isArray(state.ads) ? state.ads.map(a => a?.raw ? a : normalizeAdRow(a)) : [];
+  console.log("[D9] publicidad rows:", ads.map(a => ({ activoRaw:a.activoRaw, activo:a.activo, orden:a.orden, tag:a.tag, titulo:a.titulo, imgProducto:a.imgProducto, imgFull:a.imgFull })));
+
+  const activeAds = ads
+    .filter(a => a.activo)
+    .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
 
   const first = activeAds[0];
   if (!first) {
     box.classList.add("hidden");
     box.innerHTML = "";
+    console.warn("[D9] publicidad: no hay filas activas. Revisar columna activo = true.");
     return;
   }
 
-  const orden = first.id || first.orden || "";
-  const tag = String(first.texto || "").trim();
-  const titulo = String(first.titulo || tag || "Publicidad").trim();
-  const linea1 = String(first.texto_1 || "").trim();
-  const linea2 = String(first.texto_2 || "").trim();
-  const imgProducto = String(first.imagen_url || first.imagen || first.link_imagen || "").trim();
-  const imgFull = String(first.imagen_url_full || "").trim();
-  const link = String(first.link_url || first.link || "#").trim() || "#";
+  const tag = first.tag;
+  const titulo = first.titulo || first.tag || "Publicidad";
+  const linea1 = first.linea1;
+  const linea2 = first.linea2;
+  const imgProducto = first.imgProducto;
+  const imgFull = first.imgFull;
+  const link = first.link || "#";
   const hasLink = link && link !== "#";
   const isFull = !!imgFull;
 
-  console.log("[D9] publicidad item:", { orden, tag, titulo, linea1, linea2, imgProducto, imgFull, link, tipo: isFull ? "full" : "producto" });
+  console.log("[D9] publicidad item:", { orden:first.orden, tag, titulo, linea1, linea2, imgProducto, imgFull, link, tipo: isFull ? "full" : "producto" });
 
   box.classList.remove("hidden");
 
