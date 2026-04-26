@@ -45,11 +45,14 @@ const state = {
 const bannerCarousel = {
   index: 0,
   timer: null,
+  resumeTimer: null,
   delay: 5200,
+  resumeDelay: 5000,
   signature: "",
   touchStartX: 0,
   touchStartY: 0,
-  isAnimating: false
+  isAnimating: false,
+  isPausedByUser: false
 };
 
 const $ = (s) => document.querySelector(s);
@@ -453,10 +456,32 @@ function stopBannerCarousel() {
   }
 }
 
+function clearBannerResumeTimer() {
+  if (bannerCarousel.resumeTimer) {
+    clearTimeout(bannerCarousel.resumeTimer);
+    bannerCarousel.resumeTimer = null;
+  }
+}
+
+function pauseBannerCarouselTemporarily() {
+  const rows = getBannerRows();
+  if (!rows || rows.length <= 1) return;
+
+  bannerCarousel.isPausedByUser = true;
+  stopBannerCarousel();
+  clearBannerResumeTimer();
+
+  bannerCarousel.resumeTimer = setTimeout(() => {
+    bannerCarousel.isPausedByUser = false;
+    startBannerCarousel(getBannerRows());
+  }, bannerCarousel.resumeDelay);
+}
+
 function startBannerCarousel(rows) {
   stopBannerCarousel();
   bannerCarousel.delay = getCarouselDelay();
-  if (!rows || rows.length <= 1) return;
+  if (!bannerCarousel.isPausedByUser) clearBannerResumeTimer();
+  if (!rows || rows.length <= 1 || bannerCarousel.isPausedByUser) return;
   bannerCarousel.timer = setInterval(() => {
     if (document.hidden || state.currentView !== "home") return;
     const nextIndex = (bannerCarousel.index + 1) % rows.length;
@@ -470,7 +495,7 @@ function goBannerSlide(index) {
   const newIndex = Math.max(0, Math.min(Number(index) || 0, rows.length - 1));
   const direction = newIndex >= bannerCarousel.index ? 1 : -1;
   renderBannerWithTransition(newIndex, direction);
-  startBannerCarousel(rows);
+  pauseBannerCarouselTemporarily();
 }
 
 function renderBannerWithTransition(newIndex, direction = 1) {
@@ -1703,6 +1728,12 @@ function bind() {
   $("#btnGoOrder").addEventListener("click", () => showView("order"));
   $("#btnGoPrices").addEventListener("click", () => { renderPriceListControls(); renderPriceProducts(); showView("prices"); });
   $("#btnGoHistory").addEventListener("click", () => { renderHistory(); showView("history"); });
+  const bannerEl = $("#bannerWrap");
+  if (bannerEl) {
+    bannerEl.addEventListener("pointerdown", pauseBannerCarouselTemporarily, { passive: true });
+    bannerEl.addEventListener("touchstart", pauseBannerCarouselTemporarily, { passive: true });
+  }
+
   $("#btnPancko").addEventListener("click", () => { renderSupport(); showView("support"); });
   $("#btnChangeSeller").addEventListener("click", () => openLogin(false));
   const companyBtn = $("#btnCompanyInfo");
