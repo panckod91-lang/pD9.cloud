@@ -1821,15 +1821,4 @@ button.home-red-d9:active {
   align-items: flex-start;
   height: 100%;
 }
-.promo-card-vnext {
-  display: flex;
-  align-items: center; /* 👈 centra TODO vertical */
-}
-.promo-card-vnext .promo-text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.promo-card-vnext {
-  align-items: center !important;
-}
+
