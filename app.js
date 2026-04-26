@@ -128,6 +128,19 @@ function confText(key, fallback = "") {
   return row.valor || row.tex1 || fallback;
 }
 
+
+function getCarouselDelay() {
+  const raw = confText("carrusel", "");
+  const n = Number(String(raw || "").replace(",", ".").trim());
+  if (!Number.isFinite(n) || n <= 0) return 5200;
+
+  // Si cargás 4, lo interpreta como 4 segundos. Si cargás 4000, como 4000 ms.
+  const ms = n < 100 ? n * 1000 : n;
+
+  // Evita valores extremos por error de carga.
+  return Math.max(1500, Math.min(ms, 20000));
+}
+
 function confParts(key) {
   const row = state.config?.[key];
   if (!row) return [];
@@ -442,6 +455,7 @@ function stopBannerCarousel() {
 
 function startBannerCarousel(rows) {
   stopBannerCarousel();
+  bannerCarousel.delay = getCarouselDelay();
   if (!rows || rows.length <= 1) return;
   bannerCarousel.timer = setInterval(() => {
     if (document.hidden || state.currentView !== "home") return;
@@ -626,9 +640,6 @@ function renderSupport() {
   const webValue = s.web ? esc(s.web) : "-";
   const webHref = s.web ? esc(s.web) : "";
 
-  const version = s.version || "";
-  const versionFecha = s.version_fecha || "";
-
   $("#supportBox").innerHTML = `
     <div class="support-pro-card-d9">
       <div class="support-pro-head-d9">
@@ -645,7 +656,7 @@ function renderSupport() {
           <div class="support-pro-icon-d9">📱</div>
           <div>
             <span>WhatsApp</span>
-            ${whatsappHref ? `<a href="${whatsappHref}" target="_blank">${whatsappValue}</a>` : `<strong>${whatsappValue}</strong>`}
+            ${whatsappHref ? `<a href="${whatsappHref}" target="_blank" rel="noopener">${whatsappValue}</a>` : `<strong>${whatsappValue}</strong>`}
           </div>
         </div>
 
@@ -661,19 +672,23 @@ function renderSupport() {
           <div class="support-pro-icon-d9">🌐</div>
           <div>
             <span>Web</span>
-            ${webHref ? `<a href="${webHref}" target="_blank">${webValue}</a>` : `<strong>${webValue}</strong>`}
+            ${webHref ? `<a href="${webHref}" target="_blank" rel="noopener">${webValue}</a>` : `<strong>${webValue}</strong>`}
           </div>
         </div>
       </div>
-
-      ${(version || versionFecha) ? `
-        <div class="support-version-d9">
-          ${version ? `<div>Versión ${esc(version)}</div>` : ``}
-          ${versionFecha ? `<div>${esc(versionFecha)}</div>` : ``}
-        </div>
-      ` : ``}
-
     </div>`;
+  // append version info (robusto)
+  const s2 = state.support || {};
+  if (s2.version || s2.version_fecha) {
+    const v = document.createElement("div");
+    v.className = "support-version-d9";
+    v.innerHTML = `
+      ${s2.version ? `<div>Versión ${esc(s2.version)}</div>` : ``}
+      ${s2.version_fecha ? `<div>${esc(s2.version_fecha)}</div>` : ``}
+    `;
+    $("#supportBox").appendChild(v);
+  }
+
 }
 
 function syncSessionUI() {
