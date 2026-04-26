@@ -1830,3 +1830,6 @@ button.home-red-d9:active {
   flex-direction: column;
   justify-content: center;
 }
+.promo-card-vnext {
+  align-items: center !important;
+}
