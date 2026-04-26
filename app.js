@@ -432,8 +432,10 @@ function renderBanner() {
   box.classList.remove("hidden");
 
   if (imgFull) {
+    box.classList.add("banner-mode-full");
+    box.classList.remove("banner-mode-product");
     box.innerHTML = `
-      <a class="banner-link-vnext banner-full-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
+      <a class="banner-full-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
         <img class="banner-full-img-d9" src="${esc(imgFull)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">
       </a>`;
     return;
@@ -446,13 +448,15 @@ function renderBanner() {
     linea2 ? `<div class="banner-line-vnext">${esc(linea2)}</div>` : ""
   ].filter(Boolean).join("");
 
+  box.classList.add("banner-mode-product");
+  box.classList.remove("banner-mode-full");
   box.innerHTML = `
-    <a class="banner-link-vnext banner-product-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
-      <div class="banner-copy-vnext">
+    <a class="banner-product-d9" href="${esc(link)}" ${hasLink ? 'target="_blank" rel="noopener noreferrer"' : ""}>
+      <div class="banner-copy-d9">
         ${textHtml || `<div class="banner-title-vnext">Publicidad</div>`}
       </div>
-      <div class="banner-art-vnext">
-        ${imgProducto ? `<img class="banner-thumb-vnext" src="${esc(imgProducto)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">` : `<div class="banner-thumb-vnext empty"></div>`}
+      <div class="banner-art-d9">
+        ${imgProducto ? `<img class="banner-thumb-d9" src="${esc(imgProducto)}" alt="${esc(titulo || 'Publicidad')}" loading="lazy">` : `<div class="banner-thumb-d9 empty"></div>`}
       </div>
     </a>`;
 }
