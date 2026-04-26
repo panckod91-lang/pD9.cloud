@@ -1217,17 +1217,31 @@ body:has(#view-history.active) .status-row-vnext{
   }
 }
 /* ============================================================
-   BANNER MODO A — promo-card-vnext con clase banner-mode-product
+   BANNER D9 v5 — ratio único 2:1 para ambos modos
    ============================================================ */
 
-/* El contenedor section se adapta al contenido del banner */
-.promo-card-vnext.banner-mode-product{
+/* Imagen recomendada para ambos modos: 2:1
+   Ejemplos: 1200x600 / 1000x500 / 800x400 */
+.promo-card-vnext.banner-mode-product,
+.promo-card-vnext.banner-mode-full{
   padding:0;
-  min-height:150px;
+  min-height:0;
+  aspect-ratio:2 / 1;
   display:flex;
+  overflow:hidden;
+  border-radius:26px;
+  margin-bottom:12px;
 }
 
-/* El <a> llena todo el section via flex */
+/* ============================================================
+   BANNER MODO A — producto 30/70 con aire fino en la imagen
+   ============================================================ */
+.promo-card-vnext.banner-mode-product{
+  background:
+    radial-gradient(circle at 83% 24%, rgba(255,72,94,.24), transparent 22%),
+    linear-gradient(135deg,#05214b 0%, #02142e 58%, #16346d 100%);
+}
+
 .banner-product-d9{
   flex:1;
   position:relative;
@@ -1237,7 +1251,6 @@ body:has(#view-history.active) .status-row-vnext{
   color:#fff;
 }
 
-/* Texto: centrado verticalmente en el 30% izquierdo */
 .banner-copy-d9{
   position:absolute;
   left:14px;
@@ -1247,7 +1260,6 @@ body:has(#view-history.active) .status-row-vnext{
   z-index:2;
 }
 
-/* Kicker "Promoción" alineado con el texto de abajo */
 .banner-copy-d9 .banner-kicker-vnext{
   display:block;
   width:fit-content;
@@ -1256,57 +1268,73 @@ body:has(#view-history.active) .status-row-vnext{
   font-size:.78rem;
 }
 
-/* Zona imagen: 70% derecho, llena el alto completo */
+/* Imagen derecha con margen arriba/abajo/derecha.
+   Sin margen izquierdo para conectar mejor con el bloque azul. */
 .banner-art-d9{
   position:absolute;
-  right:0;
-  top:0;
-  bottom:0;
-  width:70%;
+  right:10px;
+  top:10px;
+  bottom:10px;
+  width:calc(70% - 10px);
   overflow:hidden;
   display:flex;
   align-items:center;
   justify-content:center;
-  border-radius:14px 0 0 14px;
+  border-radius:20px;
+  background:rgba(255,255,255,.06);
 }
 
-/* Imagen centrada, recortada limpia (cuadrada o vertical) */
 .banner-thumb-d9{
   width:100%;
   height:100%;
   object-fit:cover;
   display:block;
+  border-radius:20px;
 }
+
 .banner-thumb-d9.empty{
   background:rgba(255,255,255,.12);
 }
 
-
 /* ============================================================
-   BANNER MODO B — promo-card-vnext con clase banner-mode-full
+   BANNER MODO B — imagen completa, impacto total
    ============================================================ */
-
-/* El contenedor section se convierte en el banner mismo */
 .promo-card-vnext.banner-mode-full{
-  padding:0;
-  min-height:150px;
   background:none;
-  display:flex;
 }
 
-/* El <a> llena todo el section */
 .banner-full-d9{
   flex:1;
   display:block;
   overflow:hidden;
-  border-radius:0;
+  border-radius:26px;
 }
 
-/* Imagen llena todo — alto y ancho */
 .banner-full-img-d9{
   display:block;
   width:100%;
   height:100%;
   object-fit:cover;
-  border-radius:0;
+  border-radius:26px;
+}
+
+@media (max-width:380px){
+  .banner-copy-d9{
+    left:12px;
+    width:29%;
+  }
+  .banner-copy-d9 .banner-kicker-vnext{
+    font-size:.72rem;
+    padding:4px 8px;
+  }
+  .banner-art-d9{
+    right:8px;
+    top:8px;
+    bottom:8px;
+    width:calc(70% - 8px);
+    border-radius:18px;
+  }
+  .banner-thumb-d9{
+    border-radius:18px;
+  }
 }
