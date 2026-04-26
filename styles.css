@@ -1533,3 +1533,144 @@ button.home-red-d9:active {
 #loginModal .login-brand {
   display: none !important;
 }
+
+
+/* Logo header como botón institucional */
+.logo-btn-d9 {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+
+.logo-btn-d9:active {
+  transform: scale(.96);
+}
+
+/* Modal institucional D9 */
+.company-panel-d9 {
+  gap: 0;
+  overflow: hidden;
+}
+
+.company-head-d9 {
+  display: grid;
+  grid-template-columns: 64px 1fr 36px;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(18, 36, 63, .08);
+}
+
+.company-head-d9 img {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  object-fit: contain;
+  background: #f3fbff;
+  box-shadow: 0 8px 22px rgba(20, 62, 95, .12);
+}
+
+.company-kicker-d9 {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: #2f96c4;
+}
+
+.company-head-d9 h3 {
+  margin: 2px 0 2px;
+  color: #11243e;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.company-head-d9 p {
+  margin: 0;
+  color: #6f7f91;
+  font-size: 14px;
+}
+
+.company-close-d9 {
+  align-self: start;
+}
+
+.company-body-d9 {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+}
+
+.company-card-d9 {
+  border-radius: 18px;
+  padding: 14px;
+  background: #f6fbff;
+  border: 1px solid rgba(18, 36, 63, .08);
+}
+
+.company-card-d9 strong {
+  display: block;
+  color: #12243f;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.company-card-d9 p {
+  margin: 0;
+  color: #607186;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.company-card-d9 ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #607186;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.company-grid-d9 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.company-grid-d9 > div {
+  border-radius: 16px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid rgba(18, 36, 63, .1);
+}
+
+.company-grid-d9 span {
+  display: block;
+  color: #7d8b9d;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.company-grid-d9 strong {
+  display: block;
+  color: #12243f;
+  font-size: 14px;
+}
+
+@media (max-width: 380px) {
+  .company-head-d9 {
+    grid-template-columns: 56px 1fr 34px;
+  }
+
+  .company-head-d9 img {
+    width: 56px;
+    height: 56px;
+  }
+
+  .company-head-d9 h3 {
+    font-size: 22px;
+  }
+}

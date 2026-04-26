@@ -677,6 +677,22 @@ function closeLogin() {
   closeModal("login");
 }
 
+
+function openCompanyInfo() {
+  const modal = $("#companyModal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeCompanyInfo() {
+  const modal = $("#companyModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+
 function logoutSeller() {
   state.seller = null;
   localStorage.removeItem(STORAGE_KEYS.seller);
@@ -1541,6 +1557,8 @@ function bind() {
   $("#btnGoHistory").addEventListener("click", () => { renderHistory(); showView("history"); });
   $("#btnPancko").addEventListener("click", () => { renderSupport(); showView("support"); });
   $("#btnChangeSeller").addEventListener("click", () => openLogin(false));
+  const companyBtn = $("#btnCompanyInfo");
+  if (companyBtn) companyBtn.addEventListener("click", openCompanyInfo);
   const syncPendingEl = $("#btnSyncPending");
   if (syncPendingEl?.tagName === "BUTTON") syncPendingEl.addEventListener("click", syncPending);
   $("#btnLogin").addEventListener("click", loginSeller);

@@ -14,9 +14,9 @@
   <div class="app-shell app-shell-vnext">
     <header class="hero-header-vnext">
       <div class="brand-left-vnext">
-        <div class="logo-badge-vnext">
+        <button id="btnCompanyInfo" class="logo-badge-vnext logo-btn-d9" type="button" aria-label="Ver información de la empresa">
           <img src="icons/logo_d9.png" onerror="this.onerror=null;this.src='icons/icon.svg';" alt="Logo D9" />
-        </div>
+        </button>
         <div class="brand-copy-vnext">
           <h1 id="appTitle">Distribuidora 9</h1>
           <p id="empresaLabel">Gestor de pedidos</p>
@@ -247,6 +247,50 @@
   </div>
 
   
+
+  <div id="companyModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="company"></div>
+    <div class="modal-panel company-panel-d9">
+      <div class="company-head-d9">
+        <img src="icons/logo_d9.png" onerror="this.onerror=null;this.src='icons/icon.svg';" alt="Logo D9" />
+        <div>
+          <div class="company-kicker-d9">Institucional</div>
+          <h3>Distribuidora 9</h3>
+          <p>Gestor de pedidos y consultas.</p>
+        </div>
+        <button class="ghost-x company-close-d9" data-close-modal="company" type="button" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="company-body-d9">
+        <div class="company-card-d9">
+          <strong>Sobre la empresa</strong>
+          <p>Distribuidora local orientada a la atención ágil de clientes, toma de pedidos y consulta de precios actualizados.</p>
+        </div>
+
+        <div class="company-card-d9">
+          <strong>Qué podés hacer desde la app</strong>
+          <ul>
+            <li>Consultar lista de precios.</li>
+            <li>Armar pedidos por cliente.</li>
+            <li>Enviar pedidos por WhatsApp.</li>
+            <li>Trabajar con soporte offline.</li>
+          </ul>
+        </div>
+
+        <div class="company-grid-d9">
+          <div>
+            <span>Estado</span>
+            <strong>App operativa</strong>
+          </div>
+          <div>
+            <span>Soporte</span>
+            <strong>D9 / Pancko</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="loginModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop"></div>
     <div class="modal-panel">
