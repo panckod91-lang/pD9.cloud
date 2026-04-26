@@ -1812,3 +1812,12 @@ button.home-red-d9:active {
   color: #8a97a6;
   font-weight: 700;
 }
+
+/* Banner producto texto centrado limpio */
+.promo-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  height: 100%;
+}
