@@ -1,3 +1,29 @@
+
+function abrirConfirmacion(){
+  const modal = document.getElementById("modalConfirm");
+  const resumen = document.getElementById("resumenPedido");
+  if(!modal || !resumen) return;
+
+  let html = "";
+  html += "<b>Productos:</b><br>";
+  state.cart.forEach(p=>{
+    html += `• ${p.nombre} x${p.cantidad || 1}<br>`;
+  });
+
+  resumen.innerHTML = html;
+  modal.style.display = "flex";
+
+  document.getElementById("btnConfirmSend").onclick = ()=>{
+    cerrarConfirm();
+    sendOrder();
+  };
+}
+
+function cerrarConfirm(){
+  const modal = document.getElementById("modalConfirm");
+  if(modal) modal.style.display = "none";
+}
+
 const SHEET_ID = "1wHdgm_V0mloLaIsVPIIqbmTYBomx8DIUmXEplClCMz8";
 const WEBHOOK_ENDPOINTS = [
   "https://wild-pond-6b36.pancko-d9.workers.dev",
@@ -1566,7 +1592,7 @@ function bind() {
     if (state.cart.length) toast(`Se aplicó ${priceLabel(next)} al pedido.`);
   });
   $("#btnClearCart").addEventListener("click", clearCart);
-  $("#btnSend").addEventListener("click", sendOrder);
+  $("#btnSend").addEventListener("click", abrirConfirmacion);
   $("#btnSavePending").addEventListener("click", savePendingNow);
   $("#btnExportHistory").addEventListener("click", exportHistory);
   $("#btnRestoreHistory")?.addEventListener("click", openRestoreHistory);
