@@ -1705,31 +1705,38 @@ button.home-red-d9:active {
 }
 
 
-/* Soporte más prolijo */
-.support-pro-card {
+/* Soporte D9 - versión prolija */
+.support-box {
+  padding: 0;
+}
+
+.support-pro-card-d9 {
   display: grid;
   gap: 16px;
 }
 
-.support-pro-head {
+.support-pro-head-d9 {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(18, 36, 63, .08);
 }
 
-.support-pro-avatar {
-  width: 52px;
-  height: 52px;
+.support-pro-avatar-d9 {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
   border-radius: 18px;
-  background: #eef8ff;
+  background: linear-gradient(135deg, #e9f8ff, #ffffff);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  box-shadow: inset 0 0 0 1px rgba(24, 92, 135, .06);
+  font-size: 26px;
+  box-shadow: inset 0 0 0 1px rgba(24, 92, 135, .08), 0 10px 24px rgba(18, 36, 63, .08);
 }
 
-.support-pro-kicker {
+.support-pro-kicker-d9 {
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
@@ -1738,32 +1745,39 @@ button.home-red-d9:active {
   margin-bottom: 3px;
 }
 
-.support-pro-head strong {
+.support-pro-head-d9 strong {
   display: block;
   color: #12243f;
-  font-size: 19px;
-  line-height: 1.15;
+  font-size: 20px;
+  line-height: 1.1;
 }
 
-.support-pro-list {
+.support-pro-head-d9 p {
+  margin: 4px 0 0;
+  color: #6f7f91;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.support-pro-list-d9 {
   display: grid;
   gap: 10px;
 }
 
-.support-pro-item {
+.support-pro-item-d9 {
   display: grid;
-  grid-template-columns: 42px 1fr;
+  grid-template-columns: 44px 1fr;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 12px;
   border-radius: 18px;
   background: #f6fbff;
   border: 1px solid rgba(18, 36, 63, .08);
 }
 
-.support-pro-icon {
-  width: 42px;
-  height: 42px;
+.support-pro-icon-d9 {
+  width: 44px;
+  height: 44px;
   border-radius: 15px;
   background: #ffffff;
   display: flex;
@@ -1773,16 +1787,17 @@ button.home-red-d9:active {
   box-shadow: 0 8px 20px rgba(18, 36, 63, .06);
 }
 
-.support-pro-item span {
+.support-pro-item-d9 span {
   display: block;
   color: #78879a;
   font-size: 12px;
   font-weight: 900;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
-.support-pro-item a,
-.support-pro-item div > span:last-child {
+.support-pro-item-d9 a,
+.support-pro-item-d9 strong {
+  display: block;
   color: #167dae;
   font-size: 16px;
   font-weight: 800;

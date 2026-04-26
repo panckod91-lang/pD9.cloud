@@ -619,42 +619,46 @@ function renderSupport() {
   const s = state.support || {};
   updateSupportChip();
 
-  const whatsapp = s.whatsapp ? `<a href="https://wa.me/${onlyDigits(s.whatsapp)}" target="_blank" rel="noopener">${esc(s.whatsapp)}</a>` : `<span>-</span>`;
-  const email = s.email ? `<a href="mailto:${esc(s.email)}">${esc(s.email)}</a>` : `<span>-</span>`;
-  const web = s.web ? `<a href="${esc(s.web)}" target="_blank" rel="noopener">${esc(s.web)}</a>` : `<span>-</span>`;
+  const nombre = esc(s.nombre || "M.J.S. Desarrollo APPs");
+  const whatsappValue = s.whatsapp ? esc(s.whatsapp) : "-";
+  const whatsappHref = s.whatsapp ? `https://wa.me/${onlyDigits(s.whatsapp)}` : "";
+  const emailValue = s.email ? esc(s.email) : "-";
+  const webValue = s.web ? esc(s.web) : "-";
+  const webHref = s.web ? esc(s.web) : "";
 
   $("#supportBox").innerHTML = `
-    <div class="support-pro-card">
-      <div class="support-pro-head">
-        <div class="support-pro-avatar">🛠️</div>
+    <div class="support-pro-card-d9">
+      <div class="support-pro-head-d9">
+        <div class="support-pro-avatar-d9">🛠️</div>
         <div>
-          <div class="support-pro-kicker">Soporte técnico</div>
-          <strong>${esc(s.nombre || "Sin dato")}</strong>
+          <div class="support-pro-kicker-d9">Soporte técnico</div>
+          <strong>${nombre}</strong>
+          <p>Contacto y asistencia para el uso de la app.</p>
         </div>
       </div>
 
-      <div class="support-pro-list">
-        <div class="support-pro-item">
-          <div class="support-pro-icon">📱</div>
+      <div class="support-pro-list-d9">
+        <div class="support-pro-item-d9">
+          <div class="support-pro-icon-d9">📱</div>
           <div>
             <span>WhatsApp</span>
-            ${whatsapp}
+            ${whatsappHref ? `<a href="${whatsappHref}" target="_blank" rel="noopener">${whatsappValue}</a>` : `<strong>${whatsappValue}</strong>`}
           </div>
         </div>
 
-        <div class="support-pro-item">
-          <div class="support-pro-icon">✉️</div>
+        <div class="support-pro-item-d9">
+          <div class="support-pro-icon-d9">✉️</div>
           <div>
             <span>Email</span>
-            ${email}
+            ${s.email ? `<a href="mailto:${emailValue}">${emailValue}</a>` : `<strong>${emailValue}</strong>`}
           </div>
         </div>
 
-        <div class="support-pro-item">
-          <div class="support-pro-icon">🌐</div>
+        <div class="support-pro-item-d9">
+          <div class="support-pro-icon-d9">🌐</div>
           <div>
             <span>Web</span>
-            ${web}
+            ${webHref ? `<a href="${webHref}" target="_blank" rel="noopener">${webValue}</a>` : `<strong>${webValue}</strong>`}
           </div>
         </div>
       </div>
