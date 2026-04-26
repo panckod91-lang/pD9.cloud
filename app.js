@@ -89,6 +89,12 @@ function rowVal(row, ...keys) {
   return "";
 }
 
+function isActiveAd(row) {
+  const val = rowVal(row, "activo", "active");
+  if (val === true) return true;
+  return String(val).trim().toLowerCase() === "true";
+}
+
 
 function parseRowsByKey(rows) {
   const out = {};
@@ -250,7 +256,7 @@ async function loadAllData() {
       lista_3: Number(r.lista_3 || r.precio || 0)
     }
   }));
-  state.ads = ads.filter(r => isTrue(r.activo));
+  state.ads = ads.filter(isActiveAd);
   state.support = Object.fromEntries(support.map(r => [String(r.clave || "").trim(), String(r.valor || "").trim()]));
 }
 
@@ -394,8 +400,6 @@ function renderBanner() {
   const box = $("#bannerWrap");
   if (!box) return;
 
-  // Usamos lo que ya viene funcionando desde loadAllData().
-  // Si por algún motivo no hay nada, recién ahí ocultamos.
   const rows = Array.isArray(state.ads) ? state.ads : [];
   const first = rows
     .slice()
