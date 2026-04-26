@@ -1566,7 +1566,7 @@ function bind() {
     if (state.cart.length) toast(`Se aplicó ${priceLabel(next)} al pedido.`);
   });
   $("#btnClearCart").addEventListener("click", clearCart);
-  $("#btnSend").addEventListener("click", abrirConfirmacionPedido);
+  $("#btnSend").addEventListener("click", sendOrder);
   $("#btnSavePending").addEventListener("click", savePendingNow);
   $("#btnExportHistory").addEventListener("click", exportHistory);
   $("#btnRestoreHistory")?.addEventListener("click", openRestoreHistory);
@@ -1772,90 +1772,3 @@ async function init() {
 }
 
 init();
-
-
-function abrirConfirmacionPedido(){
-  if (!validateOrder()) return;
-
-  const modal = document.getElementById("modalConfirmPedido");
-  const resumen = document.getElementById("confirmPedidoResumen");
-  const btnConfirm = document.getElementById("btnConfirmPedidoEnviar");
-  const btnEdit = document.getElementById("btnConfirmPedidoEditar");
-  const btnClose = document.getElementById("btnConfirmPedidoCerrar");
-
-  if (!modal || !resumen || !btnConfirm) {
-    sendOrder();
-    return;
-  }
-
-  const cliente = state.selectedClient || {};
-  const clienteNombre = cliente.nombre_real || cliente.nombre || "Sin cliente";
-  const clienteExtra = [cliente.telefono || "", cliente.direccion || cliente.ciudad || ""].filter(Boolean).join(" · ");
-  const lista = priceLabel(getActivePriceList());
-  const itemsCount = state.cart.reduce((acc, item) => acc + Number(item.cantidad || 0), 0);
-
-  const productosHtml = state.cart.map(item => `
-    <div class="confirm-pedido-producto">
-      <div class="confirm-pedido-producto-nombre">${esc(item.nombre)}</div>
-      <div class="confirm-pedido-producto-meta">
-        <span>x${Number(item.cantidad || 0)}</span>
-        <span>${money(Number(item.precio || 0) * Number(item.cantidad || 0))}</span>
-      </div>
-    </div>
-  `).join("");
-
-  resumen.innerHTML = `
-    <div class="confirm-pedido-alerta">Verificá cliente y lista antes de enviar.</div>
-
-    <div class="confirm-pedido-grid">
-      <div class="confirm-pedido-card wide">
-        <span>Cliente</span>
-        <strong>${esc(clienteNombre)}</strong>
-        ${clienteExtra ? `<small>${esc(clienteExtra)}</small>` : ""}
-      </div>
-
-      <div class="confirm-pedido-card">
-        <span>Lista</span>
-        <strong>${esc(lista)}</strong>
-      </div>
-
-      <div class="confirm-pedido-card">
-        <span>Items</span>
-        <strong>${itemsCount}</strong>
-      </div>
-
-      <div class="confirm-pedido-card">
-        <span>Total</span>
-        <strong>${money(cartTotal())}</strong>
-      </div>
-    </div>
-
-    <div class="confirm-pedido-titulo-seccion">Productos</div>
-    <div class="confirm-pedido-productos">${productosHtml}</div>
-  `;
-
-  btnConfirm.disabled = false;
-  btnConfirm.textContent = "Enviar pedido";
-
-  btnConfirm.onclick = () => {
-    if (state.isSending || btnConfirm.disabled) return;
-    btnConfirm.disabled = true;
-    btnConfirm.textContent = "Enviando...";
-    cerrarConfirmacionPedido();
-    sendOrder();
-  };
-
-  if (btnEdit) btnEdit.onclick = cerrarConfirmacionPedido;
-  if (btnClose) btnClose.onclick = cerrarConfirmacionPedido;
-
-  modal.classList.remove("hidden");
-  modal.setAttribute("aria-hidden", "false");
-}
-
-function cerrarConfirmacionPedido(){
-  const modal = document.getElementById("modalConfirmPedido");
-  if (modal) {
-    modal.classList.add("hidden");
-    modal.setAttribute("aria-hidden", "true");
-  }
-}
