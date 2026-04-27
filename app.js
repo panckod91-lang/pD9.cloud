@@ -1,5 +1,3 @@
-function cleanCategory(cat){return String(cat||'').replace(/^\d+\s*/,'').trim();}
-
 const SHEET_ID = "1wHdgm_V0mloLaIsVPIIqbmTYBomx8DIUmXEplClCMz8";
 const WEBHOOK_ENDPOINTS = [
   "https://wild-pond-6b36.pancko-d9.workers.dev",
@@ -1138,6 +1136,13 @@ function sortByName(a, b) {
   return String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base", numeric: true });
 }
 
+function cleanCategory(cat) {
+  return String(cat || "")
+    .replace(/^\s*\d+[\s\-._:]*/, "")
+    .trim();
+}
+
+
 function renderPriceProducts() {
   const box = $("#priceProductsList");
   if (!box) return;
@@ -1200,8 +1205,7 @@ function categoriesList() {
       .filter(productHasValidPrice)
       .map(p => p.categoria)
       .filter(Boolean)
-  )].sort((a,b)=>cleanCategory(a).localeCompare(cleanCategory(b),"es"));
-}));
+  )].sort((a, b) => cleanCategory(a).localeCompare(cleanCategory(b), "es", { sensitivity: "base", numeric: true }));
 }
 
 function renderCategories() {
