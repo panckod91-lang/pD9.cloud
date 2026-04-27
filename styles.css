@@ -1867,3 +1867,38 @@ button.home-red-d9:active {
     border-radius: 28px 28px 0 0 !important;
   }
 }
+
+
+/* D9 ajuste final modal productos: borde inferior limpio */
+#productModal .product-modal-panel-d9 {
+  border-radius: 28px !important;
+  padding-bottom: 16px !important;
+  background: #fff !important;
+}
+
+#productModal #productList {
+  padding-bottom: 112px !important;
+}
+
+#productModal #btnProductDone {
+  position: sticky !important;
+  bottom: 0 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 -16px 28px rgba(255,255,255,.96) !important;
+}
+
+@media (max-width: 430px) {
+  #productModal .product-modal-panel-d9 {
+    width: calc(100% - 24px) !important;
+    border-radius: 28px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-bottom: 16px !important;
+  }
+
+  #productModal #btnProductDone {
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 18px !important;
+  }
+}
