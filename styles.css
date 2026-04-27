@@ -1913,3 +1913,44 @@ button.home-red-d9:active {
 #productModal .product-modal-panel-d9 {
   max-height: 92vh !important;
 }
+
+
+/* D9 Lista de precios: buscador/categoría fijos al scrollear */
+#view-prices .card.section-block {
+  overflow: visible;
+}
+
+.price-sticky-d9 {
+  position: sticky;
+  top: 8px;
+  z-index: 30;
+  background: rgba(255, 255, 255, .94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0 0 10px;
+  margin: 0 0 10px;
+  border-radius: 0 0 18px 18px;
+}
+
+.price-sticky-d9::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  height: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,0));
+  pointer-events: none;
+}
+
+.price-sticky-d9 #priceCategoryWrap {
+  margin-top: 10px;
+}
+
+.price-sticky-d9 #priceListInfo {
+  margin-top: 8px;
+}
+
+#priceProductsList {
+  padding-top: 2px;
+}
