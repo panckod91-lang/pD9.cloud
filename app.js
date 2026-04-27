@@ -543,13 +543,6 @@ function renderBanner(skipTimerReset = false) {
     ? `<div class="banner-dots-d9" aria-label="Banners">${rows.map((_, i) => `<button type="button" class="banner-dot-d9 ${i === bannerCarousel.index ? "active" : ""}" data-banner-slide="${i}" aria-label="Banner ${i + 1}"></button>`).join("")}</div>`
     : "";
 
-  console.log("[D9] publicidad slide:", {
-    actual: bannerCarousel.index + 1,
-    total: rows.length,
-    tag, titulo, linea1, linea2, imgProducto, imgFull, link,
-    tipo: imgFull ? "full" : "producto"
-  });
-
   box.classList.remove("hidden");
   box.classList.add("banner-carousel-d9");
 
@@ -1474,7 +1467,6 @@ async function sendOrder() {
         } else {
           saveHistory(payload, "ok", "Enviado correctamente");
           renderPendingBadge();
-          console.log("Pedido guardado OK");
         }
       })
       .catch(err => {
