@@ -928,11 +928,11 @@ function renderClients() {
   const canBrowseClients = state.seller?.rol === "vendedor";
 
   const base = canBrowseClients
-    ? state.clients.filter(c => !term || c.nombre.toLowerCase().includes(term))
+    ? state.clients
+        .filter(c => !term || c.nombre.toLowerCase().includes(term))
+        .sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base", numeric: true }))
     : [];
 
-  // 397 clientes no es pesado: mostramos todos los activos disponibles.
-  // Si en el futuro hay miles, el buscador ya filtra sobre toda la base.
   const filtered = base.slice(0, 600);
 
   const occasionalBtn = `
@@ -1127,6 +1127,15 @@ function renderPriceCategoryModal() {
     </button>`).join("");
 }
 
+
+function productHasValidPrice(p) {
+  return Number(productPrice(p)) > 0;
+}
+
+function sortByName(a, b) {
+  return String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base", numeric: true });
+}
+
 function renderPriceProducts() {
   const box = $("#priceProductsList");
   if (!box) return;
@@ -1136,22 +1145,26 @@ function renderPriceProducts() {
   let filtered = [];
 
   if (term) {
-    // La búsqueda de lista de precios revisa toda la base.
     filtered = state.products
+      .filter(productHasValidPrice)
       .filter(p => p.nombre.toLowerCase().includes(term) && (!cat || p.categoria === cat))
+      .sort(sortByName)
       .slice(0, 500);
   } else if (cat) {
-    // Si hay categoría, muestra todos los productos de esa categoría.
     filtered = state.products
+      .filter(productHasValidPrice)
       .filter(p => p.categoria === cat)
+      .sort(sortByName)
       .slice(0, 500);
   } else {
-    // Sin búsqueda ni categoría, mostramos una muestra inicial para no cargar de golpe.
-    filtered = state.products.slice(0, 200);
+    filtered = state.products
+      .filter(productHasValidPrice)
+      .sort(sortByName)
+      .slice(0, 200);
   }
 
   if (!filtered.length) {
-    box.innerHTML = '<div class="empty-state">No encontré productos para esa lista.</div>';
+    box.innerHTML = '<div class="empty-state">No encontré productos con precio válido para esa lista.</div>';
     return;
   }
 
@@ -1180,7 +1193,12 @@ function refreshPricesAcrossApp() {
 }
 
 function categoriesList() {
-  return [...new Set(state.products.map(p => p.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  return [...new Set(
+    state.products
+      .filter(productHasValidPrice)
+      .map(p => p.categoria)
+      .filter(Boolean)
+  )].sort((a, b) => String(a).localeCompare(String(b), "es", { sensitivity: "base", numeric: true }));
 }
 
 function renderCategories() {
@@ -1214,17 +1232,18 @@ function renderProducts() {
   let filtered = [];
 
   if (term) {
-    // Cuando hay búsqueda, busca en toda la base.
     filtered = state.products
+      .filter(productHasValidPrice)
       .filter(p => p.nombre.toLowerCase().includes(term) && (!cat || p.categoria === cat))
+      .sort(sortByName)
       .slice(0, 500);
   } else if (cat) {
-    // Con categoría seleccionada, muestra todos los productos de esa categoría.
     filtered = state.products
+      .filter(productHasValidPrice)
       .filter(p => p.categoria === cat)
+      .sort(sortByName)
       .slice(0, 500);
   } else {
-    // Sin categoría ni búsqueda, evitamos renderizar cientos de productos.
     list.innerHTML = '<div class="empty-state">Elegí una categoría o buscá un producto.</div>';
     return;
   }
@@ -1244,7 +1263,7 @@ function renderProducts() {
           </div>
         </button>`;
     }).join("")
-    : '<div class="empty-state">No encontré productos.</div>';
+    : '<div class="empty-state">No encontré productos con precio válido.</div>';
 }
 
 function toggleProduct(id) {

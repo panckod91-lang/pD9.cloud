@@ -1902,3 +1902,14 @@ button.home-red-d9:active {
     border-radius: 18px !important;
   }
 }
+
+
+/* D9 ajuste útil modal productos: menos aire externo */
+#productModal.modal {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+#productModal .product-modal-panel-d9 {
+  max-height: 92vh !important;
+}
