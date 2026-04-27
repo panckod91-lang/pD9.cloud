@@ -926,9 +926,15 @@ function renderClients() {
   const term = $("#clientSearch").value.trim().toLowerCase();
   const list = $("#clientList");
   const canBrowseClients = state.seller?.rol === "vendedor";
-  const filtered = canBrowseClients
-    ? state.clients.filter(c => c.nombre.toLowerCase().includes(term)).slice(0, 80)
+
+  const base = canBrowseClients
+    ? state.clients.filter(c => !term || c.nombre.toLowerCase().includes(term))
     : [];
+
+  // 397 clientes no es pesado: mostramos todos los activos disponibles.
+  // Si en el futuro hay miles, el buscador ya filtra sobre toda la base.
+  const filtered = base.slice(0, 600);
+
   const occasionalBtn = `
     <button class="option-item option-button special-option" id="btnOccasionalClient" type="button">
       <strong>+ Cliente nuevo / ocasional</strong>
@@ -946,7 +952,7 @@ function renderClients() {
         <strong>${esc(c.nombre)}</strong>
         <div class="option-meta">${esc(c.telefono || "Sin teléfono")} · ${esc(c.direccion || "Sin dirección")}</div>
       </button>`).join("")
-    : occasionalBtn || '<div class="empty-state">No encontré clientes.</div>';
+    : occasionalBtn + '<div class="empty-state">No encontré clientes.</div>';
 }
 
 function selectClient(id) {
@@ -1126,9 +1132,23 @@ function renderPriceProducts() {
   if (!box) return;
   const term = (state.priceSearch || "").toLowerCase();
   const cat = state.priceCategory;
-  const filtered = state.products
-    .filter(p => p.nombre.toLowerCase().includes(term) && (!cat || p.categoria === cat))
-    .slice(0, 200);
+
+  let filtered = [];
+
+  if (term) {
+    // La búsqueda de lista de precios revisa toda la base.
+    filtered = state.products
+      .filter(p => p.nombre.toLowerCase().includes(term) && (!cat || p.categoria === cat))
+      .slice(0, 500);
+  } else if (cat) {
+    // Si hay categoría, muestra todos los productos de esa categoría.
+    filtered = state.products
+      .filter(p => p.categoria === cat)
+      .slice(0, 500);
+  } else {
+    // Sin búsqueda ni categoría, mostramos una muestra inicial para no cargar de golpe.
+    filtered = state.products.slice(0, 200);
+  }
 
   if (!filtered.length) {
     box.innerHTML = '<div class="empty-state">No encontré productos para esa lista.</div>';
@@ -1190,9 +1210,25 @@ function renderProducts() {
   const term = $("#productSearch").value.trim().toLowerCase();
   const cat = state.selectedCategory;
   const list = $("#productList");
-  const filtered = state.products
-    .filter(p => p.nombre.toLowerCase().includes(term) && (!cat || p.categoria === cat))
-    .slice(0, 200);
+
+  let filtered = [];
+
+  if (term) {
+    // Cuando hay búsqueda, busca en toda la base.
+    filtered = state.products
+      .filter(p => p.nombre.toLowerCase().includes(term) && (!cat || p.categoria === cat))
+      .slice(0, 500);
+  } else if (cat) {
+    // Con categoría seleccionada, muestra todos los productos de esa categoría.
+    filtered = state.products
+      .filter(p => p.categoria === cat)
+      .slice(0, 500);
+  } else {
+    // Sin categoría ni búsqueda, evitamos renderizar cientos de productos.
+    list.innerHTML = '<div class="empty-state">Elegí una categoría o buscá un producto.</div>';
+    return;
+  }
+
   list.innerHTML = filtered.length
     ? filtered.map(p => {
       const selected = state.cart.some(x => x.id === p.id);
