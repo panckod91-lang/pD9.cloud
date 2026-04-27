@@ -1954,3 +1954,22 @@ button.home-red-d9:active {
 #priceProductsList {
   padding-top: 2px;
 }
+
+
+/* D9 Lista de precios: título con casita fijo */
+#view-prices .history-head-d9 {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  background: rgba(238, 249, 255, .96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding-top: 6px;
+  padding-bottom: 8px;
+  border-radius: 0 0 22px 22px;
+}
+
+/* al estar fija la cabecera, los filtros quedan debajo */
+#view-prices .price-sticky-d9 {
+  top: 92px;
+}

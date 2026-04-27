@@ -283,19 +283,27 @@ async function loadAllData() {
   state.support = Object.fromEntries(support.map(r => [String(r.clave || "").trim(), String(r.valor || "").trim()]));
 }
 
-function showView(name) {
+function showView(name, pushHistory = true) {
   state.currentView = name;
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   const target = document.getElementById(`view-${name}`);
   if (target) target.classList.add("active");
   window.scrollTo({ top: 0, behavior: "smooth" });
+
+  if (pushHistory && name !== "home" && window.history && window.history.pushState) {
+    history.pushState({ view: name }, "", location.href);
+  }
 }
 
-function openModal(name) {
+function openModal(name, pushHistory = true) {
   const modal = document.getElementById(`${name}Modal`);
   if (!modal) return;
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
+
+  if (pushHistory && window.history && window.history.pushState) {
+    history.pushState({ modal: name, view: state.currentView || "home" }, "", location.href);
+  }
 }
 
 function closeModal(name) {
@@ -316,6 +324,35 @@ function closeModal(name) {
     renderSelectedClient();
   }
 }
+
+function getOpenModalName() {
+  const modal = document.querySelector(".modal:not(.hidden)");
+  if (!modal || !modal.id) return "";
+  return modal.id.replace(/Modal$/, "");
+}
+
+function closeOpenModalForBack() {
+  const name = getOpenModalName();
+  if (!name) return false;
+  closeModal(name);
+  return true;
+}
+
+function setupAndroidBackButton() {
+  if (!window.history || !window.history.pushState) return;
+
+  history.replaceState({ view: state.currentView || "home" }, "", location.href);
+
+  window.addEventListener("popstate", () => {
+    if (closeOpenModalForBack()) return;
+
+    if (state.currentView && state.currentView !== "home") {
+      showView("home", false);
+      return;
+    }
+  });
+}
+
 
 function updateSupportChip() {
   const chipEl = $("#btnPancko");
@@ -1962,6 +1999,7 @@ function renderSellerName(el, nombre){
 }
 
 async function init() {
+  setupAndroidBackButton();
   bind();
   hydrateCacheState();
   hydrateGuestClient();
