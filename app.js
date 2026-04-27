@@ -1,3 +1,5 @@
+function cleanCategory(cat){return String(cat||'').replace(/^\d+\s*/,'').trim();}
+
 const SHEET_ID = "1wHdgm_V0mloLaIsVPIIqbmTYBomx8DIUmXEplClCMz8";
 const WEBHOOK_ENDPOINTS = [
   "https://wild-pond-6b36.pancko-d9.workers.dev",
@@ -1172,7 +1174,7 @@ function renderPriceProducts() {
     <div class="price-row">
       <div class="price-row-main">
         <strong>${esc(p.nombre)}</strong>
-        <div class="option-meta">${esc(p.categoria)}</div>
+        <div class="option-meta">${esc(cleanCategory(p.categoria))}</div>
       </div>
       <div class="price-row-side">
         <strong>${money(productPrice(p))}</strong>
@@ -1198,7 +1200,8 @@ function categoriesList() {
       .filter(productHasValidPrice)
       .map(p => p.categoria)
       .filter(Boolean)
-  )].sort((a, b) => String(a).localeCompare(String(b), "es", { sensitivity: "base", numeric: true }));
+  )].sort((a,b)=>cleanCategory(a).localeCompare(cleanCategory(b),"es"));
+}));
 }
 
 function renderCategories() {
@@ -1255,7 +1258,7 @@ function renderProducts() {
         <button class="product-item product-picker ${selected ? "is-selected" : ""}" data-toggle-product="${esc(p.id)}" type="button">
           <div class="product-copy">
             <strong>${esc(p.nombre)}</strong>
-            <div class="option-meta">${esc(p.categoria)}</div>
+            <div class="option-meta">${esc(cleanCategory(p.categoria))}</div>
           </div>
           <div class="product-side">
             <div class="product-price">${money(productPrice(p))}</div>
