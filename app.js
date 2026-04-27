@@ -855,12 +855,16 @@ function renderCompanyInfo() {
   box.innerHTML = html;
 }
 
-function openCompanyInfo() {
+function openCompanyInfo(pushHistory = true) {
   renderCompanyInfo();
   const modal = $("#companyModal");
   if (!modal) return;
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
+
+  if (pushHistory && window.history && window.history.pushState) {
+    history.pushState({ modal: "company", view: state.currentView || "home" }, "", location.href);
+  }
 }
 
 function closeCompanyInfo() {
