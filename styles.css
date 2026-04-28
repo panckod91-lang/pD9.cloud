@@ -1969,26 +1969,22 @@ button.home-red-d9:active {
   border-radius: 0 0 22px 22px;
 }
 
-/* al estar fija la cabecera, los filtros quedan debajo */
-#view-prices .price-sticky-d9 {
-  top: 92px;
-}
 @keyframes d9Glow {
-  0%, 90%, 100% {
+  0%, 80%, 100% {
     box-shadow: 0 0 0px rgba(0, 123, 255, 0);
     transform: scale(1);
   }
-  95% {
-    box-shadow: 0 0 18px rgba(0, 123, 255, 0.5);
-    transform: scale(1.05);
+  85% {
+    box-shadow: 0 0 25px rgba(0, 123, 255, 0.7);
+    transform: scale(1.08);
   }
 }
 
 .logo-btn {
-  animation: d9Glow 4s infinite;
+  animation: d9Glow 3s infinite;
   transition: transform 0.2s ease;
 }
 
 .logo-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.92);
 }
