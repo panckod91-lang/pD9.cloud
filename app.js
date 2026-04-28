@@ -1,3 +1,16 @@
+
+// --- FIX NUMEROS FLEXIBLES (coma/punto/$) ---
+function limpiarNumero(valor){
+  if(valor===null||valor===undefined) return 0;
+  return limpiarNumero(
+    String(valor)
+      .replace(/\./g,'')
+      .replace(',', '.')
+      .replace(/\$/g,'')
+      .trim()
+  ) || 0;
+}
+
 const SHEET_ID = "1wHdgm_V0mloLaIsVPIIqbmTYBomx8DIUmXEplClCMz8";
 const WEBHOOK_ENDPOINTS = [
   "https://wild-pond-6b36.pancko-d9.workers.dev",
@@ -53,7 +66,7 @@ const bannerCarousel = {
 };
 
 const $ = (s) => document.querySelector(s);
-const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Number(v) || 0);
+const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(limpiarNumero(v) || 0);
 const readJSON = (k, f = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
 const saveJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 function hydrateCacheState() {
@@ -131,7 +144,7 @@ function confText(key, fallback = "") {
 
 function getCarouselDelay() {
   const raw = confText("carrusel", "");
-  const n = Number(String(raw || "").replace(",", ".").trim());
+  const n = limpiarNumero(String(raw || "").replace(",", ".").trim());
   if (!Number.isFinite(n) || n <= 0) return 5200;
 
   // Si cargás 4, lo interpreta como 4 segundos. Si cargás 4000, como 4000 ms.
@@ -274,9 +287,9 @@ async function loadAllData() {
     nombre: String(r.nombre || "").trim(),
     categoria: String(r.categoria || "Sin categoría").trim() || "Sin categoría",
     precios: {
-      lista_1: Number(r.lista_1 || r.precio || 0),
-      lista_2: Number(r.lista_2 || r.precio || 0),
-      lista_3: Number(r.lista_3 || r.precio || 0)
+      lista_1: limpiarNumero(r.lista_1 || r.precio || 0),
+      lista_2: limpiarNumero(r.lista_2 || r.precio || 0),
+      lista_3: limpiarNumero(r.lista_3 || r.precio || 0)
     }
   }));
   state.ads = ads.filter(isActiveAd);
@@ -459,7 +472,7 @@ function renderPendingBadge() {
 function getBannerRows() {
   return (Array.isArray(state.ads) ? state.ads : [])
     .slice()
-    .sort((a, b) => Number(rowVal(a, "orden", "id") || 0) - Number(rowVal(b, "orden", "id") || 0));
+    .sort((a, b) => limpiarNumero(rowVal(a, "orden", "id") || 0) - limpiarNumero(rowVal(b, "orden", "id") || 0));
 }
 
 function bannerSignature(rows) {
@@ -504,7 +517,7 @@ function startBannerCarousel(rows) {
 function goBannerSlide(index) {
   const rows = getBannerRows();
   if (!rows.length) return;
-  const newIndex = Math.max(0, Math.min(Number(index) || 0, rows.length - 1));
+  const newIndex = Math.max(0, Math.min(limpiarNumero(index) || 0, rows.length - 1));
   const direction = newIndex >= bannerCarousel.index ? 1 : -1;
   renderBannerWithTransition(newIndex, direction);
   startBannerCarousel(rows);
@@ -514,13 +527,13 @@ function renderBannerWithTransition(newIndex, direction = 1) {
   const rows = getBannerRows();
   const box = $("#bannerWrap");
   if (!rows.length || !box || rows.length <= 1 || bannerCarousel.isAnimating) {
-    bannerCarousel.index = Math.max(0, Math.min(Number(newIndex) || 0, Math.max(rows.length - 1, 0)));
+    bannerCarousel.index = Math.max(0, Math.min(limpiarNumero(newIndex) || 0, Math.max(rows.length - 1, 0)));
     renderBanner(true);
     return;
   }
 
   if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    bannerCarousel.index = Math.max(0, Math.min(Number(newIndex) || 0, rows.length - 1));
+    bannerCarousel.index = Math.max(0, Math.min(limpiarNumero(newIndex) || 0, rows.length - 1));
     renderBanner(true);
     return;
   }
@@ -531,7 +544,7 @@ function renderBannerWithTransition(newIndex, direction = 1) {
   box.classList.add("banner-transition-out");
 
   setTimeout(() => {
-    bannerCarousel.index = Math.max(0, Math.min(Number(newIndex) || 0, rows.length - 1));
+    bannerCarousel.index = Math.max(0, Math.min(limpiarNumero(newIndex) || 0, rows.length - 1));
     renderBanner(true);
     box.classList.remove("banner-transition-out");
     box.classList.add("banner-transition-in");
@@ -923,7 +936,7 @@ function priceLabel(key) {
 
 function productPrice(product) {
   const key = getActivePriceList();
-  return Number(product?.precios?.[key] || 0);
+  return limpiarNumero(product?.precios?.[key] || 0);
 }
 
 function renderQuickLabels() {
@@ -1168,7 +1181,7 @@ function renderPriceCategoryModal() {
 
 
 function productHasValidPrice(p) {
-  return Number(productPrice(p)) > 0;
+  return limpiarNumero(productPrice(p)) > 0;
 }
 
 function sortByName(a, b) {
@@ -1446,10 +1459,10 @@ function buildWebhookPayload(payload) {
     cliente: clienteTexto,
     items: (payload?.carrito || []).map(item => ({
       nombre: item.nombre,
-      cantidad: Number(item.cantidad || 0),
-      precio: Number(item.precio || 0)
+      cantidad: limpiarNumero(item.cantidad || 0),
+      precio: limpiarNumero(item.precio || 0)
     })),
-    total: Number(payload?.total || 0),
+    total: limpiarNumero(payload?.total || 0),
     fecha: payload?.fecha || new Date().toISOString()
   };
 }
@@ -1513,7 +1526,7 @@ function saveHistory(payload, status = "enviado", error = "") {
       nombre: x.nombre,
       cantidad: x.cantidad,
       precio: x.precio,
-      subtotal: Number(x.precio || 0) * Number(x.cantidad || 0)
+      subtotal: limpiarNumero(x.precio || 0) * limpiarNumero(x.cantidad || 0)
     })),
     error
   });
@@ -1701,7 +1714,7 @@ function renderHistory() {
               </div>
               <div class="history-product-side">
                 <span class="history-qty">x${esc(prod.cantidad)}</span>
-                <strong>${money(prod.subtotal ?? (Number(prod.precio || 0) * Number(prod.cantidad || 0)))}</strong>
+                <strong>${money(prod.subtotal ?? (limpiarNumero(prod.precio || 0) * limpiarNumero(prod.cantidad || 0)))}</strong>
               </div>
             </div>`).join('')}
         </div>`
