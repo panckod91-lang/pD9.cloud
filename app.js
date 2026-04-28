@@ -54,6 +54,47 @@ const bannerCarousel = {
 
 const $ = (s) => document.querySelector(s);
 const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Number(v) || 0);
+
+function parseD9Number(value) {
+  if (value === null || value === undefined || value === "") return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+
+  let s = String(value)
+    .replace(/\$/g, "")
+    .replace(/\s/g, "")
+    .trim();
+
+  if (!s) return 0;
+
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+
+  if (hasComma && hasDot) {
+    const lastComma = s.lastIndexOf(",");
+    const lastDot = s.lastIndexOf(".");
+
+    if (lastComma > lastDot) {
+      // Formato AR: 27.172,97
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      // Formato US: 3,025.00
+      s = s.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    const parts = s.split(",");
+    if (parts.length === 2 && parts[1].length <= 2) {
+      // Decimal con coma: 27172,97
+      s = parts[0].replace(/\./g, "") + "." + parts[1];
+    } else {
+      // Miles con coma: 26,128
+      s = s.replace(/,/g, "");
+    }
+  }
+
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
 const readJSON = (k, f = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
 const saveJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 function hydrateCacheState() {
@@ -274,9 +315,9 @@ async function loadAllData() {
     nombre: String(r.nombre || "").trim(),
     categoria: String(r.categoria || "Sin categoría").trim() || "Sin categoría",
     precios: {
-      lista_1: Number(r.lista_1 || r.precio || 0),
-      lista_2: Number(r.lista_2 || r.precio || 0),
-      lista_3: Number(r.lista_3 || r.precio || 0)
+      lista_1: parseD9Number(r.lista_1 || r.precio || 0),
+      lista_2: parseD9Number(r.lista_2 || r.precio || 0),
+      lista_3: parseD9Number(r.lista_3 || r.precio || 0)
     }
   }));
   state.ads = ads.filter(isActiveAd);
@@ -923,7 +964,7 @@ function priceLabel(key) {
 
 function productPrice(product) {
   const key = getActivePriceList();
-  return Number(product?.precios?.[key] || 0);
+  return parseD9Number(product?.precios?.[key] || 0);
 }
 
 function renderQuickLabels() {
