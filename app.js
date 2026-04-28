@@ -576,9 +576,7 @@ function renderBanner(skipTimerReset = false) {
   const imgFull = String(rowVal(first, "imagen_url_full", "imagen_full") || "").trim();
   const link = String(rowVal(first, "link_url", "link") || "#").trim() || "#";
   const hasLink = link && link !== "#";
-  const dotsHtml = rows.length > 1
-    ? `<div class="banner-dots-d9" aria-label="Banners">${rows.map((_, i) => `<button type="button" class="banner-dot-d9 ${i === bannerCarousel.index ? "active" : ""}" data-banner-slide="${i}" aria-label="Banner ${i + 1}"></button>`).join("")}</div>`
-    : "";
+  const dotsHtml = "";
 
   box.classList.remove("hidden");
   box.classList.add("banner-carousel-d9");
