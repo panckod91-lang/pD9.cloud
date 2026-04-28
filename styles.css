@@ -1981,10 +1981,17 @@ button.home-red-d9:active {
 }
 
 .logo-btn {
-  animation: d9Glow 3s infinite;
-  transition: transform 0.2s ease;
+  animation: d9Glow 2s infinite;
+  transition: transform 0.1s ease;
 }
 
 .logo-btn:active {
   transform: scale(0.92);
+}
+/* Ocultar dots del carrusel */
+.carousel-dots,
+.carousel-indicators,
+.dots,
+.slider-dots {
+  display: none !important;
 }
