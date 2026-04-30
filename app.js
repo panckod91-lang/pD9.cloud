@@ -1451,7 +1451,7 @@ function selectClient(id) {
     state.manualPriceOverride = false;
     if ((changedClient || changedList) && state.cart.length) {
       state.cart = state.cart.map(item => ({ ...item, precio: productPrice(item) }));
-      toast("Cambiaste de cliente. Se actualizaron los precios del pedido.");
+      toast("Cambiaste de cliente.");
     }
     refreshPricesAcrossApp();
   }
@@ -1542,7 +1542,7 @@ function saveOccasionalClient() {
   state.activePriceList = lista;
   if (previousId && previousId !== nextId && state.cart.length) {
     state.cart = state.cart.map(item => ({ ...item, precio: productPrice(item) }));
-    toast("Cliente ocasional cargado. Se actualizaron los precios del pedido.");
+    toast("Cliente ocasional cargado.");
   }
   closeModal("occasionalClient");
   closeModal("client");
