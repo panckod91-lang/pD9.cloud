@@ -375,5 +375,26 @@
     </div>
   </div>
 
+
+  <div id="orderConfirmModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="orderConfirm"></div>
+    <div class="modal-panel order-confirm-panel-d9">
+      <div class="modal-head-row">
+        <div>
+          <h3>Confirmar pedido</h3>
+          <p class="modal-text small-gap">Verificá cliente y lista antes de enviar.</p>
+        </div>
+        <button class="ghost-x" data-close-modal="orderConfirm" type="button">✕</button>
+      </div>
+
+      <div id="orderConfirmContent" class="order-confirm-content-d9"></div>
+
+      <div class="confirm-actions-d9">
+        <button id="btnCancelOrderConfirm" class="secondary-btn" type="button">Editar</button>
+        <button id="btnConfirmOrderSend" class="primary-btn" type="button">Confirmar y enviar</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
