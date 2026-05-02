@@ -507,25 +507,6 @@ body{padding:10px 12px 16px;}
 .live-dot-vnext{width:11px;height:11px;box-shadow:0 0 0 5px rgba(54,180,255,.13);}
 .led-marquee-vnext{font-size:.89rem;gap:14px;}
 .led-end-vnext{font-size:1rem;}
-@media (max-width:420px){
-  body{padding:8px 10px 14px;}
-  .hero-header-vnext{padding:11px 12px;}
-  .logo-badge-vnext{width:58px;height:58px;}
-  .logo-badge-vnext img{width:44px;height:44px;}
-  .brand-copy-vnext h1{font-size:1.78rem;}
-  .brand-copy-vnext p{font-size:.9rem;}
-  .status-pill-vnext{padding:9px 13px;font-size:.93rem;min-height:44px;}
-  .cta-main-vnext{padding:15px 16px;}
-  .cta-icon-vnext{width:52px;height:52px;font-size:1.55rem;}
-  .cta-copy-vnext strong{font-size:1.58rem;}
-  .cta-copy-vnext small{font-size:.9rem;}
-  .promo-card-vnext{min-height:166px;}
-  .action-card-vnext{min-height:116px;padding:13px 38px 13px 13px;}
-  .icon-wrap-vnext{width:44px;height:44px;}
-  .title-group-vnext strong{font-size:.92rem;}
-  .title-group-vnext small{font-size:.75rem;}
-  .pending-count-vnext{right:38px;top:11px;}
-}
 
 
 /* ===== Polish v4: top bar + grid only ===== */
@@ -648,24 +629,7 @@ body{padding:10px 12px 16px;}
 }
 
 /* ===== RESPONSIVE ===== */
-@media (max-width: 420px){
 
-  .status-row-vnext{
-    gap:10px;
-    margin:0 4px 14px;
-  }
-
-  .status-pill-small-vnext{
-    padding:6px 10px;
-    font-size:.75rem;
-  }
-
-  .status-pill-user-vnext{
-    width:min(100%, 52vw);
-    font-size:.9rem;
-  }
-
-}
 .pendingBadge, #pendingBadge{display:none !important}
 
 .cta-main-vnext{
@@ -789,23 +753,7 @@ body{padding:10px 12px 16px;}
 .led-live-vnext{font-size:.96rem}
 .led-marquee-vnext{font-size:.93rem}
 
-@media (max-width: 420px){
-  .status-row-vnext{
-    margin-bottom:14px;
-    grid-template-columns:auto 1fr auto;
-    gap:8px;
-  }
 
-  .status-pill-small-vnext{
-    padding:6px 10px;
-    font-size:.72rem;
-  }
-
-  .status-pill-user-vnext{
-    width:min(100%, 52vw);
-    font-size:.86rem;
-  }
-}
 .ticker-track{
   display:flex;
   align-items:center;
@@ -831,13 +779,6 @@ body{padding:10px 12px 16px;}
 @keyframes tickerMove{
   from { transform: translateX(0); }
   to   { transform: translateX(calc(-1 * var(--move))); }
-}
-
-
-@media (max-width: 420px){
-  .status-row-vnext{margin-bottom:14px}
-  .status-pill-small-vnext{padding:0 9px;font-size:.7rem}
-  .status-pill-user-vnext{max-width:46vw;font-size:.86rem}
 }
 
 
@@ -881,15 +822,7 @@ body{padding:10px 12px 16px;}
 }
 
 /* Responsive: mantener altura uniforme en mobile chico */
-@media (max-width: 420px) {
-  .status-pill-small-vnext,
-  .status-pill-user-vnext {
-    min-height: 44px;
-    height: 44px;
-    padding: 0 12px;
-    font-size: .86rem;
-  }
-}
+
 
 /* ===== FIX FINAL BARRA ESTADO - NO SOLAPAR ===== */
 .status-row-vnext{
@@ -994,34 +927,7 @@ body{padding:10px 12px 16px;}
   flex:0 0 auto !important;
 }
 
-@media (max-width:420px){
-  .status-row-vnext{
-    column-gap:12px !important;
-    margin:0 4px 14px !important;
-  }
 
-  .status-pill-vnext{
-    height:44px !important;
-    min-height:44px !important;
-  }
-
-  .status-pill-small-vnext{
-    padding:0 10px !important;
-    font-size:.78rem !important;
-  }
-
-  #sellerBadge.status-pill-user-vnext,
-  #sellerBadge{
-    max-width:100% !important;
-    padding:0 10px !important;
-    font-size:.76rem !important;
-    gap:6px !important;
-  }
-
-  #sellerBadge::before{
-    font-size:.95rem !important;
-  }
-}
 /* Evitar selección de texto / búsqueda accidental en mobile */
 body,
 button,
@@ -1087,7 +993,6 @@ select {
   -webkit-user-select: text;
   user-select: text;
 }
-
 
 
 /* ===== HEADERS INTERNOS D9 (historial / pedido / precios) ===== */
@@ -1165,32 +1070,6 @@ body:has(#view-history.active) .status-row-vnext{
   text-align:center !important;
 }
 
-@media (max-width:420px){
-  .history-head-d9{
-    grid-template-columns:48px 1fr auto !important;
-    gap:10px !important;
-    padding:9px 10px !important;
-    border-radius:22px !important;
-  }
-  .history-home-d9{
-    width:48px !important;
-    height:48px !important;
-    min-height:48px !important;
-    font-size:1.15rem !important;
-  }
-  .history-title-d9 h2{
-    font-size:1.45rem !important;
-  }
-  .history-title-d9 .subhead{
-    font-size:.84rem !important;
-    max-width:210px !important;
-  }
-  .history-actions-d9 .link-btn{
-    min-width:82px !important;
-    padding:5px 11px !important;
-    font-size:.8rem !important;
-  }
-}
 
 /* ============================================================
    BANNER D9 LIMPIO FINAL
@@ -1331,49 +1210,6 @@ body:has(#view-history.active) .status-row-vnext{
   box-shadow:none !important;
 }
 
-@media (max-width:420px){
-  #bannerWrap.promo-card-vnext{
-    height:168px !important;
-    min-height:168px !important;
-    max-height:168px !important;
-  }
-
-  #bannerWrap.banner-mode-product .banner-product-d9{
-    padding:11px 9px !important;
-    gap:5px !important;
-  }
-
-  #bannerWrap.banner-mode-product .banner-copy-d9{
-    flex-basis:24% !important;
-    max-width:24% !important;
-    padding:0 4px !important;
-    align-items:center !important;
-    text-align:center !important;
-  }
-
-  #bannerWrap.banner-mode-product .banner-kicker-vnext{
-    font-size:.72rem !important;
-    padding:5px 8px !important;
-  }
-
-  #bannerWrap.banner-mode-product .banner-title-vnext{
-    font-size:1.05rem !important;
-  }
-
-  #bannerWrap.banner-mode-product .banner-line-vnext{
-    font-size:.86rem !important;
-  }
-
-  #bannerWrap.banner-mode-product .banner-thumb-d9{
-    border-radius:16px !important;
-    clip-path:inset(0 round 16px) !important;
-  }
-
-  #bannerWrap.banner-mode-full .banner-full-img-d9{
-    border-radius:20px !important;
-    clip-path:inset(0 round 20px) !important;
-  }
-}
 
 /* ============================================================
    CARRUSEL BANNER D9
@@ -1388,30 +1224,27 @@ body:has(#view-history.active) .status-row-vnext{
 
 /* D9 - carrusel: transición visible y suave */
 #bannerWrap.banner-carousel-d9 > a {
-  transition: opacity .34s ease, transform .34s ease, filter .34s ease;
-  will-change: opacity, transform, filter;
+  transition: opacity .32s ease, transform .32s ease;
+  will-change: opacity, transform;
 }
 
 #bannerWrap.banner-carousel-d9.banner-transition-out > a {
   opacity: 0;
-  transform: translateX(calc(var(--banner-dir, 1) * -14px)) scale(.982);
-  filter: blur(1.5px);
+  transform: translateX(calc(var(--banner-dir, 1) * -12px)) scale(.984);
 }
 
 #bannerWrap.banner-carousel-d9.banner-transition-in > a {
-  animation: d9BannerEnter .56s cubic-bezier(.18,.78,.28,1) both;
+  animation: d9BannerEnter .52s cubic-bezier(.18,.78,.28,1) both;
 }
 
 @keyframes d9BannerEnter {
   from {
     opacity: 0;
-    transform: translateX(calc(var(--banner-dir, 1) * 18px)) scale(.985);
-    filter: blur(1.5px);
+    transform: translateX(calc(var(--banner-dir, 1) * 16px)) scale(.986);
   }
   to {
     opacity: 1;
     transform: translateX(0) scale(1);
-    filter: blur(0);
   }
 }
 
@@ -1741,7 +1574,6 @@ button.home-red-d9:active {
 }
 
 
-
 /* D9 - Modal productos centrado + buscador fijo + lista scrolleable */
 #productModal.modal {
   align-items: center !important;
@@ -1946,7 +1778,7 @@ button.home-red-d9:active {
 .order-confirm-content-d9 {
   display: grid;
   gap: 12px;
-  max-height: 58vh;
+  align-content: start;
   overflow-y: auto;
   padding-bottom: 4px;
 }
@@ -2459,3 +2291,495 @@ button.home-red-d9:active {
 #view-prices .history-head-d9{
   z-index:90 !important;
 }
+
+
+/* === D9 pedidos confirmación pulida === */
+.preview-box.compact-preview{
+  display:none !important;
+}
+
+#orderConfirmModal{
+  align-items:center !important;
+  justify-content:center !important;
+  padding:8px !important;
+}
+
+#orderConfirmModal .order-confirm-panel-d9{
+  width:calc(100vw - 24px) !important;
+  max-width:680px !important;
+  height:calc(100dvh - 28px) !important;
+  max-height:calc(100dvh - 28px) !important;
+  min-height:calc(100dvh - 28px) !important;
+  margin:0 auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  border-radius:28px !important;
+}
+
+#orderConfirmModal .modal-head-row{
+  flex:0 0 auto !important;
+  position:relative !important;
+  display:flex !important;
+  justify-content:center !important;
+  text-align:center !important;
+  padding:18px 64px 10px !important;
+}
+
+#orderConfirmModal .modal-head-row > div{
+  width:100% !important;
+}
+
+#orderConfirmModal .modal-head-row h3{
+  margin:0 !important;
+  font-size:25px !important;
+  line-height:1.1 !important;
+  font-weight:950 !important;
+  color:#173454 !important;
+}
+
+#orderConfirmModal .modal-head-row .modal-text{
+  margin:6px 0 0 !important;
+  font-size:14px !important;
+  line-height:1.25 !important;
+}
+
+#orderConfirmModal .modal-head-row .ghost-x{
+  position:absolute !important;
+  top:14px !important;
+  right:18px !important;
+}
+
+#orderConfirmContent.order-confirm-content-d9{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  padding-bottom:12px !important;
+}
+
+#orderConfirmModal .confirm-actions-d9{
+  flex:0 0 auto !important;
+  padding-top:10px !important;
+}
+
+#orderConfirmModal .confirm-info-grid-d9{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+}
+
+#orderConfirmModal .confirm-info-card-d9.wide{
+  grid-column:1 / -1 !important;
+}
+
+#orderConfirmModal .confirm-info-card-d9 strong{
+  line-height:1.15 !important;
+}
+
+#orderConfirmModal .confirm-products-d9{
+  padding-bottom:8px !important;
+}
+
+
+/* === D9 confirm modal FINAL REAL === */
+
+/* Panel fijo y estructura */
+#orderConfirmModal{
+  align-items:center !important;
+  justify-content:center !important;
+  padding:8px !important;
+}
+
+#orderConfirmModal .order-confirm-panel-d9{
+  width:calc(100vw - 24px) !important;
+  max-width:680px !important;
+  height:calc(100dvh - 28px) !important;
+  max-height:calc(100dvh - 28px) !important;
+  min-height:calc(100dvh - 28px) !important;
+  margin:0 auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  border-radius:28px !important;
+}
+
+/* El contenido scrollea; los botones quedan abajo */
+#orderConfirmContent.order-confirm-content-d9{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  padding-bottom:12px !important;
+}
+
+/* Resumen: cliente arriba, 3 datos en una sola línea debajo */
+#orderConfirmModal .confirm-info-grid-d9{
+  display:grid !important;
+  grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+  gap:8px !important;
+}
+
+#orderConfirmModal .confirm-info-card-d9.wide{
+  grid-column:1 / -1 !important;
+}
+
+#orderConfirmModal .confirm-info-card-d9{
+  min-width:0 !important;
+  padding:10px 8px !important;
+}
+
+#orderConfirmModal .confirm-info-card-d9 span{
+  font-size:11px !important;
+  line-height:1.05 !important;
+  white-space:nowrap !important;
+}
+
+#orderConfirmModal .confirm-info-card-d9 strong{
+  font-size:16px !important;
+  line-height:1.12 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+/* El total puede ser más largo; lo achicamos un poco si hace falta */
+#orderConfirmModal .confirm-info-card-d9:nth-child(4) strong{
+  font-size:15px !important;
+}
+
+/* Botones abajo, alineados y siempre visibles */
+#orderConfirmModal .confirm-actions-d9{
+  flex:0 0 auto !important;
+  margin-top:auto !important;
+  position:sticky !important;
+  bottom:0 !important;
+  z-index:30 !important;
+  background:#fff !important;
+  padding:10px 0 6px !important;
+  display:flex !important;
+  gap:10px !important;
+}
+
+#orderConfirmModal .confirm-actions-d9 button{
+  flex:1 1 0 !important;
+  min-width:0 !important;
+}
+
+/* Productos no empujan botones fuera */
+#orderConfirmModal .confirm-products-d9{
+  padding-bottom:8px !important;
+}
+
+
+/* === D9 confirm metrics row STRUCTURE FIX === */
+#orderConfirmModal .confirm-info-grid-d9{
+  display:none !important;
+}
+
+#orderConfirmModal .confirm-client-card-d9{
+  width:100% !important;
+  box-sizing:border-box !important;
+  border:1px solid rgba(23,52,84,.10) !important;
+  background:#f7fbfe !important;
+  border-radius:16px !important;
+  padding:12px 14px !important;
+  margin:0 !important;
+}
+
+#orderConfirmModal .confirm-client-card-d9 span{
+  display:block !important;
+  font-size:12px !important;
+  font-weight:850 !important;
+  color:#6f8294 !important;
+  line-height:1.1 !important;
+}
+
+#orderConfirmModal .confirm-client-card-d9 strong{
+  display:block !important;
+  font-size:18px !important;
+  line-height:1.15 !important;
+  color:#173454 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  margin-top:4px !important;
+}
+
+#orderConfirmModal .confirm-client-card-d9 small{
+  display:block !important;
+  font-size:13px !important;
+  color:#6f8294 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  margin-top:4px !important;
+}
+
+#orderConfirmModal .confirm-metrics-row-d9{
+  display:flex !important;
+  flex-direction:row !important;
+  flex-wrap:nowrap !important;
+  gap:7px !important;
+  margin:0 0 14px !important;
+  width:100% !important;
+  box-sizing:border-box !important;
+}
+
+#orderConfirmModal .confirm-metric-card-d9{
+  flex:1 1 0 !important;
+  min-width:0 !important;
+  height:72px !important;
+  box-sizing:border-box !important;
+  border:1px solid rgba(23,52,84,.10) !important;
+  background:#f7fbfe !important;
+  border-radius:15px !important;
+  padding:9px 10px !important;
+}
+
+#orderConfirmModal .confirm-metric-card-d9.total{
+  flex:1.5 1 0 !important;
+}
+
+#orderConfirmModal .confirm-metric-card-d9 span{
+  display:block !important;
+  font-size:10px !important;
+  font-weight:850 !important;
+  color:#6f8294 !important;
+  line-height:1 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  text-align:right !important;
+}
+
+#orderConfirmModal .confirm-metric-card-d9 strong{
+  display:block !important;
+  font-size:16px !important;
+  line-height:1.05 !important;
+  color:#173454 !important;
+  font-weight:950 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  margin-top:8px !important;
+  text-align:right !important;
+}
+
+#orderConfirmModal .confirm-metric-card-d9.total strong{
+  font-size:17px !important;
+}
+
+#orderConfirmModal .confirm-section-title-d9{
+  margin-top:2px !important;
+}
+
+@media (max-width:420px){
+body{padding:8px 10px 14px;}
+  .hero-header-vnext{padding:11px 12px;}
+  .logo-badge-vnext{width:58px;height:58px;}
+  .logo-badge-vnext img{width:44px;height:44px;}
+  .brand-copy-vnext h1{font-size:1.78rem;}
+  .brand-copy-vnext p{font-size:.9rem;}
+  .status-pill-vnext{padding:9px 13px;font-size:.93rem;min-height:44px;}
+  .cta-main-vnext{padding:15px 16px;}
+  .cta-icon-vnext{width:52px;height:52px;font-size:1.55rem;}
+  .cta-copy-vnext strong{font-size:1.58rem;}
+  .cta-copy-vnext small{font-size:.9rem;}
+  .promo-card-vnext{min-height:166px;}
+  .action-card-vnext{min-height:116px;padding:13px 38px 13px 13px;}
+  .icon-wrap-vnext{width:44px;height:44px;}
+  .title-group-vnext strong{font-size:.92rem;}
+  .title-group-vnext small{font-size:.75rem;}
+  .pending-count-vnext{right:38px;top:11px;}
+
+.status-row-vnext{
+    gap:10px;
+    margin:0 4px 14px;
+  }
+
+  .status-pill-small-vnext{
+    padding:6px 10px;
+    font-size:.75rem;
+  }
+
+  .status-pill-user-vnext{
+    width:min(100%, 52vw);
+    font-size:.9rem;
+  }
+
+.status-row-vnext{
+    margin-bottom:14px;
+    grid-template-columns:auto 1fr auto;
+    gap:8px;
+  }
+
+  .status-pill-small-vnext{
+    padding:6px 10px;
+    font-size:.72rem;
+  }
+
+  .status-pill-user-vnext{
+    width:min(100%, 52vw);
+    font-size:.86rem;
+  }
+
+.status-row-vnext{margin-bottom:14px}
+  .status-pill-small-vnext{padding:0 9px;font-size:.7rem}
+  .status-pill-user-vnext{max-width:46vw;font-size:.86rem}
+
+.status-pill-small-vnext,
+  .status-pill-user-vnext {
+    min-height: 44px;
+    height: 44px;
+    padding: 0 12px;
+    font-size: .86rem;
+  }
+
+.status-row-vnext{
+    column-gap:12px !important;
+    margin:0 4px 14px !important;
+  }
+
+  .status-pill-vnext{
+    height:44px !important;
+    min-height:44px !important;
+  }
+
+  .status-pill-small-vnext{
+    padding:0 10px !important;
+    font-size:.78rem !important;
+  }
+
+  #sellerBadge.status-pill-user-vnext,
+  #sellerBadge{
+    max-width:100% !important;
+    padding:0 10px !important;
+    font-size:.76rem !important;
+    gap:6px !important;
+  }
+
+  #sellerBadge::before{
+    font-size:.95rem !important;
+  }
+
+.history-head-d9{
+    grid-template-columns:48px 1fr auto !important;
+    gap:10px !important;
+    padding:9px 10px !important;
+    border-radius:22px !important;
+  }
+  .history-home-d9{
+    width:48px !important;
+    height:48px !important;
+    min-height:48px !important;
+    font-size:1.15rem !important;
+  }
+  .history-title-d9 h2{
+    font-size:1.45rem !important;
+  }
+  .history-title-d9 .subhead{
+    font-size:.84rem !important;
+    max-width:210px !important;
+  }
+  .history-actions-d9 .link-btn{
+    min-width:82px !important;
+    padding:5px 11px !important;
+    font-size:.8rem !important;
+  }
+
+#bannerWrap.promo-card-vnext{
+    height:168px !important;
+    min-height:168px !important;
+    max-height:168px !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-product-d9{
+    padding:11px 9px !important;
+    gap:5px !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-copy-d9{
+    flex-basis:24% !important;
+    max-width:24% !important;
+    padding:0 4px !important;
+    align-items:center !important;
+    text-align:center !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-kicker-vnext{
+    font-size:.72rem !important;
+    padding:5px 8px !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-title-vnext{
+    font-size:1.05rem !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-line-vnext{
+    font-size:.86rem !important;
+  }
+
+  #bannerWrap.banner-mode-product .banner-thumb-d9{
+    border-radius:16px !important;
+    clip-path:inset(0 round 16px) !important;
+  }
+
+  #bannerWrap.banner-mode-full .banner-full-img-d9{
+    border-radius:20px !important;
+    clip-path:inset(0 round 20px) !important;
+  }
+}
+
+
+/* === D9: evitar pull-to-refresh accidental === */
+html,
+body{
+  overscroll-behavior-y:none;
+  overscroll-behavior-x:none;
+}
+
+.app-shell-vnext,
+main{
+  overscroll-behavior-y:contain;
+}
+
+.modal,
+.modal-panel,
+#productModal #productList,
+#orderConfirmContent,
+.price-products-list,
+.history-list{
+  overscroll-behavior:contain;
+}
+
+/* ─── D9 ADMIN ───────────────────────────────────────────────────── */
+.admin-shell { max-width: 720px; }
+.admin-hero { background: linear-gradient(135deg, #111827, #2563eb 55%, #61bde8); }
+.admin-status-row { margin-bottom: 12px; }
+.admin-intro-card, .admin-card { background: #fff; border: 1px solid rgba(17,24,39,.08); border-radius: 22px; box-shadow: 0 12px 28px rgba(15,23,42,.08); padding: 16px; margin: 12px 0; }
+.admin-intro-card { display: flex; flex-direction: column; gap: 4px; }
+.admin-intro-card span, .admin-note { color: #64748b; font-size: .9rem; }
+.admin-grid { grid-template-columns: 1fr; }
+.admin-page-head { display: grid; grid-template-columns: 44px 1fr; gap: 10px; align-items: center; margin: 8px 0 12px; }
+.admin-page-head h2 { margin: 0; font-size: 1.25rem; }
+.admin-page-head p { margin: 2px 0 0; color: #64748b; font-size: .88rem; }
+.admin-home-btn { height: 42px; border: 0; border-radius: 15px; background: #e0f2fe; box-shadow: 0 8px 16px rgba(2,132,199,.12); font-size: 1.15rem; }
+.admin-form { display: flex; flex-direction: column; gap: 10px; }
+.admin-label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; color: #334155; margin: 8px 0; }
+.admin-input { width: 100%; border: 1px solid #dbe3ef; border-radius: 14px; padding: 11px 12px; font: inherit; background: #f8fafc; box-sizing: border-box; }
+.admin-textarea { min-height: 88px; resize: vertical; }
+.admin-triple { display: grid; gap: 8px; margin-top: 10px; }
+.admin-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.admin-btn { border: 0; border-radius: 14px; padding: 11px 14px; font-weight: 800; background: #e2e8f0; color: #0f172a; }
+.admin-btn.primary { background: #2563eb; color: white; }
+.admin-btn.danger { background: #dc2626; color: white; }
+.admin-btn:disabled { opacity: .45; }
+.sticky-actions { position: sticky; bottom: 8px; background: rgba(255,255,255,.9); backdrop-filter: blur(8px); border-radius: 18px; padding: 8px; border: 1px solid rgba(15,23,42,.08); }
+.admin-check { display: flex; align-items: center; gap: 8px; font-size: .9rem; color: #334155; margin-top: 10px; }
+.admin-filter-grid { display: grid; gap: 8px; }
+.admin-table-wrap { margin-top: 12px; }
+.admin-table-scroll { overflow: auto; max-height: 60vh; margin-top: 10px; border-radius: 14px; border: 1px solid #e2e8f0; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: .82rem; background: white; }
+.admin-table th { position: sticky; top: 0; background: #f1f5f9; text-align: left; z-index: 1; }
+.admin-table th, .admin-table td { padding: 8px 9px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+.toast.error { background: #991b1b; }
+.toast.ok { background: #065f46; }
