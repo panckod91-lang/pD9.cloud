@@ -1,12 +1,14 @@
 const WEBHOOK_ENDPOINTS = [
-  "https://wild-pond-6b36.pancko-d9.workers.dev",
+  "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
-const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbyG1FnAOxm5tpUcvd4n6kvg9yHn6BMjoNOveUXggaEd6jAoDsyIo6RiYu06dPTxwTm3/exec?action=bootstrap";
+const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
+const APP_VERSION = "v1.0.0 (integración)";
 const STORAGE_KEYS = {
   seller: "d9_usuario",
   history: "d9_historial",
   pending: "d9_pendientes",
-  guestClient: "d9_invitado_cliente"
+  guestClient: "d9_invitado_cliente",
+  versionLogged: "d9_version_logged"
 };
 const CACHE_KEYS = {
   config: "d9_cache_config",
@@ -98,6 +100,99 @@ function parseD9Number(value) {
 
 const readJSON = (k, f = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; } };
 const saveJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+function getApiBaseD9() {
+  return BOOTSTRAP_URL.split("?")[0];
+}
+
+function getVersionDateD9() {
+  return new Date().toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+}
+
+async function postVersionLogD9(payload) {
+  const apiBase = getApiBaseD9();
+  const body = JSON.stringify(payload);
+
+  async function tryPost(options) {
+    const r = await fetch(`${apiBase}?action=log_version`, {
+      method: "POST",
+      cache: "no-store",
+      redirect: "follow",
+      ...options
+    });
+
+    const text = await r.text();
+
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      throw new Error("Respuesta no JSON del script: " + text.slice(0, 160));
+    }
+  }
+
+  try {
+    return await tryPost({
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body
+    });
+  } catch (firstErr) {
+    console.warn("[D9] log_version text/plain falló, pruebo payload form", firstErr);
+    return await tryPost({
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
+      body: "payload=" + encodeURIComponent(body)
+    });
+  }
+}
+
+async function registerAppVersionD9() {
+  try {
+    const alreadyInSheet = String(state.support?.version || "").trim() === APP_VERSION;
+
+    if (alreadyInSheet) {
+      localStorage.setItem(STORAGE_KEYS.versionLogged, APP_VERSION);
+      return;
+    }
+
+    if (localStorage.getItem(STORAGE_KEYS.versionLogged) === APP_VERSION) {
+      return;
+    }
+
+    const fecha = getVersionDateD9();
+
+    const result = await postVersionLogD9({
+      action: "log_version",
+      version: APP_VERSION,
+      fecha
+    });
+
+    if (!result?.ok) {
+      throw new Error(result?.error || "El script no confirmó log_version");
+    }
+
+    state.support = {
+      ...(state.support || {}),
+      version: APP_VERSION,
+      version_fecha: fecha
+    };
+
+    saveJSON(CACHE_KEYS.support, state.support);
+    localStorage.setItem(STORAGE_KEYS.versionLogged, APP_VERSION);
+
+    console.log("[D9] Versión registrada en soporte", APP_VERSION, fecha);
+  } catch (err) {
+    console.warn("[D9] No se pudo registrar versión:", err);
+  }
+}
+
 function hydrateCacheState() {
   state.config = readJSON(CACHE_KEYS.config, state.config || {});
   state.users = readJSON(CACHE_KEYS.users, state.users || []);
@@ -124,7 +219,7 @@ async function registerServiceWorker() {
   }
 }
 const onlyDigits = (v) => String(v || "").replace(/\D+/g, "");
-const isTrue = (v) => String(v).trim().toLowerCase() === "true";
+const isTrue = (v) => ["true", "si", "sí", "1", "activo", "yes", "verdadero"].includes(String(v).trim().toLowerCase());
 function esc(v){ return String(v ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
 
 function rowVal(row, ...keys) {
@@ -1032,7 +1127,7 @@ async function loadAllData() {
     nombre: String(r.nombre || "").trim(),
     clave: String(r.clave || "").trim(),
     rol: String(r.rol || "cliente").trim().toLowerCase(),
-    lista_precio: String(r.lista_precio || "").trim().toLowerCase(),
+    lista_1: String(r.lista_1 || "").trim().toLowerCase(),
     cliente_id: String(r.cliente_id || "").trim(),
     wasap_report: String(r.wasap_report || "").trim()
   }));
@@ -1043,7 +1138,7 @@ async function loadAllData() {
     telefono: String(r.telefono || "").trim(),
     direccion: String(r.direccion || "").trim(),
     ciudad: String(r.ciudad || r.localidad || "").trim(),
-    lista_precio: String(r.lista_precio || "").trim().toLowerCase()
+    lista_1: String(r.lista_1 || "").trim().toLowerCase()
   }));
 
   state.products = products.filter(r => isTrue(r.activo)).map(r => ({
@@ -1052,8 +1147,8 @@ async function loadAllData() {
     categoria: String(r.categoria || "Sin categoría").trim() || "Sin categoría",
     precios: {
       lista_1: parseD9Number(r.lista_1 || r.precio || 0),
-      lista_2: parseD9Number(r.lista_2 || r.precio || 0),
-      lista_3: parseD9Number(r.lista_3 || r.precio || 0)
+      lista_2: parseD9Number(r.lista_2 || 0),
+      lista_3: parseD9Number(r.lista_3 || 0)
     }
   }));
 
@@ -1532,9 +1627,9 @@ function applyUserContext() {
       nombre: state.seller.nombre,
       telefono: "",
       direccion: "",
-      lista_precio: state.seller.lista_precio || "lista_1"
+      lista_1: state.seller.lista_1 || "lista_1"
     };
-    state.activePriceList = state.selectedClient.lista_precio || state.seller.lista_precio || "lista_1";
+    state.activePriceList = state.selectedClient.lista_1 || state.seller.lista_1 || "lista_1";
   } else {
     state.selectedClient = null;
     state.activePriceList = state.activePriceList || "lista_1";
@@ -1690,15 +1785,15 @@ function loginSeller() {
 
 function getActivePriceList() {
   if (!state.seller) return "lista_1";
-  if (state.seller?.rol === "cliente") return state.selectedClient?.lista_precio || state.seller.lista_precio || "lista_1";
+  if (state.seller?.rol === "cliente") return state.selectedClient?.lista_1 || state.seller.lista_1 || "lista_1";
   return state.activePriceList || "lista_1";
 }
 
 function priceLabel(key) {
   const labels = {
     lista_1: "Lista_1 · Contado",
-    lista_2: "Lista_2 · Pueblos",
-    lista_3: "Lista_3 · Vendedores"
+    lista_1: "Lista_2 · Pueblos",
+    lista_1: "Lista_3 · Vendedores"
   };
   return labels[key] || key || "Lista";
 }
@@ -1793,7 +1888,7 @@ function selectClient(id) {
   state.selectedClient = c;
   if (state.seller?.rol === "vendedor") {
     const previousActive = state.activePriceList || "lista_1";
-    const nextList = c.lista_precio || "lista_1";
+    const nextList = c.lista_1 || "lista_1";
     const changedClient = previousClientId && String(previousClientId) !== String(c.id);
     const changedList = nextList !== previousActive;
     state.activePriceList = nextList;
@@ -1837,7 +1932,7 @@ function renderOrderPriceListControls() {
     box.classList.remove("hidden");
     select.value = state.activePriceList || "lista_1";
     const clientName = state.selectedClient?.nombre_real || state.selectedClient?.nombre || "sin cliente";
-    const defaultList = state.selectedClient?.lista_precio || "lista_1";
+    const defaultList = state.selectedClient?.lista_1 || "lista_1";
     const currentList = state.activePriceList || defaultList;
     const override = !!state.selectedClient && currentList !== defaultList;
     info.textContent = override
@@ -1881,7 +1976,7 @@ function saveOccasionalClient() {
     telefono,
     direccion: [direccion, ciudad].filter(Boolean).join(" · "),
     ciudad,
-    lista_precio: lista,
+    lista_1: lista,
     ocasional: true
   };
   state.guestClientDraft = state.selectedClient;
@@ -2821,7 +2916,7 @@ function bind() {
       return;
     }
     state.activePriceList = next;
-    state.manualPriceOverride = !!state.selectedClient && next !== (state.selectedClient.lista_precio || "lista_1");
+    state.manualPriceOverride = !!state.selectedClient && next !== (state.selectedClient.lista_1 || "lista_1");
     refreshPricesAcrossApp();
     if (state.cart.length) toast(`Se aplicó ${priceLabel(next)} al pedido.`);
   });
@@ -3025,6 +3120,7 @@ async function init() {
 
   try {
     await loadAllData();
+    await registerAppVersionD9();
     persistCacheState();
     hydrateGuestClient();
     hydrateSeller();
