@@ -2,7 +2,12 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.0.1 (fix fecha)";
+const APP_VERSION = "v1.1.0 (icono identidad fix)";
+const AUTO_REFRESH_MS = 10 * 60 * 1000;
+const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
+let lastAutoRefreshAtD9 = 0;
+let autoRefreshStartedD9 = false;
+let isAppUpdateAvailableD9 = false;
 const STORAGE_KEYS = {
   seller: "d9_usuario",
   history: "d9_historial",
@@ -57,6 +62,21 @@ const bannerCarousel = {
 
 const $ = (s) => document.querySelector(s);
 const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Number(v) || 0);
+
+function tapFeedbackD9() {
+  try {
+    if (navigator.vibrate) navigator.vibrate(18);
+  } catch (_) {}
+}
+
+function setSyncChipBusyD9(busy) {
+  const btn = $("#btnPancko");
+  if (!btn || isAppUpdateAvailableD9) return;
+
+  btn.classList.toggle("is-syncing-d9", !!busy);
+  btn.textContent = busy ? "↻ Sync..." : "↻ Sync";
+}
+
 
 function parseD9Number(value) {
   if (value === null || value === undefined || value === "") return 0;
@@ -1232,13 +1252,49 @@ function setupAndroidBackButton() {
 }
 
 
+
+function setAppUpdateAvailableD9(flag) {
+  isAppUpdateAvailableD9 = !!flag;
+  updateSupportChip();
+}
+
+async function checkAppVersionD9() {
+  try {
+    const res = await fetch(`./app.js?vcheck=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return;
+
+    const txt = await res.text();
+    const match = txt.match(/const\s+APP_VERSION\s*=\s*"([^"]+)"/);
+    const latest = match ? String(match[1] || "").trim() : "";
+
+    if (latest && latest !== APP_VERSION) {
+      setAppUpdateAvailableD9(true);
+    } else {
+      setAppUpdateAvailableD9(false);
+    }
+  } catch (err) {
+    console.warn("[D9] No se pudo verificar versión nueva:", err);
+  }
+}
+
+function reloadAppForUpdateD9() {
+  window.location.href = `${location.pathname}?v=${Date.now()}`;
+}
+
 function updateSupportChip() {
   const chipEl = $("#btnPancko");
   if (!chipEl) return;
-  chipEl.textContent =
-    state.support?.["chip_info"] ||
-    state.support?.["chip info"] ||
-    "M.J.S.";
+
+  chipEl.classList.toggle("version-alert-d9", !!isAppUpdateAvailableD9);
+
+  if (isAppUpdateAvailableD9) {
+    chipEl.textContent = "⚠️ Actualizar";
+    chipEl.title = "Nueva versión disponible";
+    return;
+  }
+
+  chipEl.title = "Sincronizar datos";
+  chipEl.textContent = "↻ Sync";
 }
 
 function renderTop() {
@@ -1277,6 +1333,43 @@ function renderNetwork() {
   }
 }
 
+function getActiveIdentityD9() {
+  if (state.seller) {
+    const rolRaw = String(state.seller.rol || "").trim().toLowerCase();
+    const rol = rolRaw === "cliente" ? "Cliente" : rolRaw === "vendedor" ? "Vendedor" : "Usuario";
+    return {
+      name: state.seller.nombre || "Usuario",
+      role: rol,
+      kind: rolRaw || "usuario",
+      muted: false
+    };
+  }
+
+  if (state.guestClientDraft?.nombre_real || state.guestClientDraft?.nombre) {
+    return {
+      name: state.guestClientDraft.nombre_real || state.guestClientDraft.nombre || "Invitado",
+      role: "Invitado",
+      kind: "invitado",
+      muted: false
+    };
+  }
+
+  return {
+    name: "Sin usuario",
+    role: "",
+    kind: "none",
+    muted: true
+  };
+}
+
+function renderIdentityNameD9(el, name) {
+  el.textContent = "";
+  const text = document.createElement("span");
+  text.className = "identity-name-d9";
+  text.textContent = name;
+  el.appendChild(text);
+}
+
 function renderSellerBadge() {
   const badge = $("#sellerBadge");
   if (!badge) return;
@@ -1289,15 +1382,25 @@ function renderSellerBadge() {
     badge.appendChild(nameEl);
   }
 
-  if (!state.seller) {
-    nameEl.textContent = "Sin usuario";
-    badge.classList.add("muted");
-    return;
+  let roleEl = badge.querySelector(".identity-role-d9");
+  if (!roleEl) {
+    roleEl = document.createElement("small");
+    roleEl.className = "identity-role-d9";
+    badge.appendChild(roleEl);
   }
 
-  renderSellerName(nameEl, state.seller.nombre || "Usuario");
-  badge.classList.remove("muted");
+  const identity = getActiveIdentityD9();
+
+  badge.classList.toggle("muted", !!identity.muted);
+  badge.classList.remove("identity-vendedor-d9", "identity-cliente-d9", "identity-invitado-d9", "identity-none-d9");
+  badge.classList.add(`identity-${identity.kind || "none"}-d9`);
+  badge.setAttribute("role", "button");
+  badge.title = "Ver usuario";
+
+  renderIdentityNameD9(nameEl, identity.name);
+  roleEl.textContent = identity.role ? `👥 ${identity.role}` : "";
 }
+
 
 function renderPendingBadge() {
   const pending = readJSON(STORAGE_KEYS.pending, []);
@@ -1727,6 +1830,28 @@ function renderCompanyInfo() {
     `;
   }
 
+
+  const supportName = state.support?.["chip_info"] || state.support?.["chip info"] || "M.J.S.";
+  const supportVersion = state.support?.["version"] || state.support?.["versión"] || APP_VERSION;
+  const supportDate = state.support?.["fecha"] || state.support?.["version_fecha"] || "";
+  const supportPhone = state.support?.["whatsapp"] || state.support?.["telefono"] || "";
+  const supportMail = state.support?.["email"] || "";
+
+  html += `
+    <div class="company-support-full-d9">
+      <div>
+        <span>Soporte técnico</span>
+        <strong>${esc(supportName)}</strong>
+      </div>
+      <div class="company-support-meta-d9">
+        <p><b>Versión:</b> ${esc(supportVersion)}</p>
+        ${supportDate ? `<p><b>Actualizada:</b> ${esc(supportDate)}</p>` : ""}
+        ${supportPhone ? `<p><b>WhatsApp soporte:</b> ${esc(supportPhone)}</p>` : ""}
+        ${supportMail ? `<p><b>Email:</b> ${esc(supportMail)}</p>` : ""}
+      </div>
+    </div>
+  `;
+
   box.innerHTML = html;
 }
 
@@ -1980,6 +2105,7 @@ function saveOccasionalClient() {
     ocasional: true
   };
   state.guestClientDraft = state.selectedClient;
+  renderSellerBadge();
   if (!state.seller) {
     saveJSON(STORAGE_KEYS.guestClient, state.guestClientDraft);
   }
@@ -2871,6 +2997,14 @@ function confirmOrderAndSend() {
 }
 
 function bind() {
+  document.addEventListener("pointerdown", (ev) => {
+    const target = ev.target.closest("button, .action-card-vnext, .status-pill-vnext, [data-view], [data-back]");
+    if (!target) return;
+    target.classList.add("tap-active-d9");
+    window.setTimeout(() => target.classList.remove("tap-active-d9"), 160);
+  }, { passive: true });
+
+
   bindInlineQtyCaptureD9();
 
   document.addEventListener("click", (e) => {
@@ -2892,7 +3026,14 @@ function bind() {
   $("#btnGoOrder").addEventListener("click", () => showView("order"));
   $("#btnGoPrices").addEventListener("click", () => { renderPriceListControls(); renderPriceProducts(); showView("prices"); });
   $("#btnGoHistory").addEventListener("click", () => { renderHistory(); showView("history"); });
-  $("#btnPancko").addEventListener("click", () => { renderSupport(); showView("support"); });
+  $("#sellerBadge").addEventListener("click", () => openLogin(false));
+  $("#btnPancko").addEventListener("click", () => {
+    if (isAppUpdateAvailableD9) {
+      reloadAppForUpdateD9();
+      return;
+    }
+    refreshDataInBackgroundD9("manual");
+  });
   $("#btnChangeSeller").addEventListener("click", () => openLogin(false));
   const companyBtn = $("#btnCompanyInfo");
   if (companyBtn) companyBtn.addEventListener("click", openCompanyInfo);
@@ -3098,6 +3239,72 @@ function renderSellerName(el, nombre){
   });
 }
 
+
+function shouldSkipAutoRefreshD9() {
+  if (!navigator.onLine) return true;
+  if (state.isSending || state.isSyncing) return true;
+  if (state.currentView === "order") return true;
+  if (typeof getOpenModalName === "function" && getOpenModalName()) return true;
+  return false;
+}
+
+async function refreshDataInBackgroundD9(reason = "auto") {
+  if (shouldSkipAutoRefreshD9()) return false;
+
+  const isManual = reason === "manual";
+  if (isManual) {
+    tapFeedbackD9();
+    setSyncChipBusyD9(true);
+  }
+
+  try {
+    await loadAllData();
+    persistCacheState();
+    hydrateGuestClient();
+    hydrateSeller();
+
+    if (state.currentView !== "order") {
+      applyUserContext();
+    }
+
+    safeRenderAfterBackgroundTaskD9();
+    renderTicker();
+    renderBanner();
+    renderNetwork();
+    checkAppVersionD9();
+
+    lastAutoRefreshAtD9 = Date.now();
+    if (isManual) toast("Datos sincronizados.");
+    console.log(`[D9] Datos actualizados automáticamente (${reason}).`);
+    return true;
+  } catch (err) {
+    console.warn(`[D9] No se pudo actualizar automáticamente (${reason}):`, err);
+    if (isManual) toast("No se pudo sincronizar.");
+    return false;
+  } finally {
+    if (isManual) setSyncChipBusyD9(false);
+  }
+}
+
+function setupAutoRefreshD9() {
+  if (autoRefreshStartedD9) return;
+  autoRefreshStartedD9 = true;
+  lastAutoRefreshAtD9 = Date.now();
+
+  setInterval(() => {
+    refreshDataInBackgroundD9("interval");
+  }, AUTO_REFRESH_MS);
+
+  const refreshOnReturn = () => {
+    if (document.visibilityState && document.visibilityState !== "visible") return;
+    if (Date.now() - lastAutoRefreshAtD9 < FOREGROUND_REFRESH_MIN_MS) return;
+    refreshDataInBackgroundD9("return");
+  };
+
+  document.addEventListener("visibilitychange", refreshOnReturn);
+  window.addEventListener("focus", refreshOnReturn);
+}
+
 async function init() {
   enableTickerTouchD9();
   injectOrderConfirmStylesD9();
@@ -3113,6 +3320,7 @@ async function init() {
   renderAll();
   renderNetwork();
   await registerServiceWorker();
+  setupAutoRefreshD9();
 
   if (!navigator.onLine) {
     return;
@@ -3130,6 +3338,7 @@ async function init() {
     }
     renderAll();
     renderNetwork();
+    checkAppVersionD9();
     syncPending();
   } catch (error) {
     console.error(error);

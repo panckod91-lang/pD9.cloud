@@ -2750,3 +2750,336 @@ main{
 .history-list{
   overscroll-behavior:contain;
 }
+
+/* === D9 FIX Lista de precios: modal categorías sobre buscador sticky === */
+#priceCategoryModal.modal{
+  z-index:999999 !important;
+  align-items:flex-end !important;
+}
+
+#priceCategoryModal .modal-backdrop{
+  z-index:1 !important;
+}
+
+#priceCategoryModal .modal-panel{
+  z-index:2 !important;
+  position:relative !important;
+}
+
+
+/* === v1.0.4 update alert + sync chip === */
+#btnPancko{
+  transition:transform .16s ease, background .16s ease !important;
+}
+
+#btnPancko.version-alert-d9{
+  color:#173454 !important;
+  font-weight:950 !important;
+}
+
+#btnPancko.version-alert-d9::before{
+  background:#ffb703 !important;
+  box-shadow:0 0 0 7px rgba(255,183,3,.22) !important;
+  animation:d9UpdatePulse 950ms ease-in-out infinite !important;
+}
+
+#btnPancko:active{
+  transform:scale(.96) !important;
+}
+
+@keyframes d9UpdatePulse{
+  0%{ transform:scale(.92); opacity:.72; }
+  50%{ transform:scale(1.12); opacity:1; }
+  100%{ transform:scale(.92); opacity:.72; }
+}
+
+.company-grid-d9 small{
+  display:block !important;
+  margin-top:6px !important;
+  color:#7b8a95 !important;
+  font-size:12px !important;
+  line-height:1.25 !important;
+}
+
+
+/* === v1.0.5 sync chip + soporte full modal === */
+#btnPancko{
+  min-width:86px !important;
+  font-weight:900 !important;
+}
+
+#btnPancko.version-alert-d9{
+  min-width:112px !important;
+}
+
+.company-support-full-d9{
+  margin-top:18px !important;
+  padding:16px 18px !important;
+  border:1px solid rgba(23,52,84,.10) !important;
+  border-radius:20px !important;
+  background:#f6fbff !important;
+  box-shadow:0 4px 14px rgba(21,91,145,.06) !important;
+}
+
+.company-support-full-d9 span{
+  display:block !important;
+  color:#7b8a95 !important;
+  font-size:13px !important;
+  font-weight:800 !important;
+  margin-bottom:5px !important;
+}
+
+.company-support-full-d9 strong{
+  display:block !important;
+  color:#173454 !important;
+  font-size:18px !important;
+  line-height:1.2 !important;
+}
+
+.company-support-meta-d9{
+  margin-top:10px !important;
+  display:grid !important;
+  gap:4px !important;
+}
+
+.company-support-meta-d9 p{
+  margin:0 !important;
+  color:#637789 !important;
+  font-size:13px !important;
+  line-height:1.35 !important;
+}
+
+.company-support-meta-d9 b{
+  color:#173454 !important;
+}
+
+
+/* === v1.0.6 identidad activa === */
+#sellerBadge{
+  cursor:pointer !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:center !important;
+  align-items:center !important;
+  gap:1px !important;
+  min-height:58px !important;
+  line-height:1.1 !important;
+  transition:transform .16s ease, box-shadow .16s ease !important;
+}
+
+#sellerBadge:active{
+  transform:scale(.97) !important;
+}
+
+#sellerBadge .seller-name{
+  max-width:100% !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:6px !important;
+  font-weight:950 !important;
+  line-height:1.05 !important;
+  min-width:0 !important;
+}
+
+#sellerBadge .identity-icon-d9{
+  flex:0 0 auto !important;
+  font-size:18px !important;
+  line-height:1 !important;
+}
+
+#sellerBadge .identity-name-d9{
+  min-width:0 !important;
+  max-width:150px !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+  display:block !important;
+}
+
+#sellerBadge .identity-role-d9{
+  display:block !important;
+  font-size:11px !important;
+  font-weight:850 !important;
+  color:#7b8a95 !important;
+  line-height:1.1 !important;
+  margin-top:2px !important;
+}
+
+#sellerBadge.identity-vendedor-d9 .identity-role-d9{
+  color:#1684d8 !important;
+}
+
+#sellerBadge.identity-cliente-d9 .identity-role-d9{
+  color:#18a66a !important;
+}
+
+#sellerBadge.identity-invitado-d9 .identity-role-d9{
+  color:#c58b00 !important;
+}
+
+
+/* === v1.0.7 identidad fix === */
+#sellerBadge .identity-icon-d9{
+  display:none !important;
+}
+
+#sellerBadge .seller-name{
+  gap:0 !important;
+}
+
+#sellerBadge .identity-name-d9{
+  max-width:155px !important;
+}
+
+#sellerBadge.identity-invitado-d9 .identity-name-d9{
+  max-width:145px !important;
+}
+
+
+/* === v1.0.8 identidad compacta === */
+#sellerBadge{
+  min-height:54px !important;
+  padding-top:8px !important;
+  padding-bottom:8px !important;
+  gap:2px !important;
+}
+
+#sellerBadge .seller-name{
+  line-height:1.08 !important;
+}
+
+#sellerBadge .identity-name-d9{
+  max-width:165px !important;
+}
+
+#sellerBadge .identity-role-d9{
+  margin-top:0 !important;
+  font-size:11px !important;
+  line-height:1.05 !important;
+  white-space:nowrap !important;
+}
+
+#btnPancko.version-alert-d9{
+  min-width:96px !important;
+  font-size:13px !important;
+  padding-left:10px !important;
+  padding-right:10px !important;
+  white-space:nowrap !important;
+}
+
+
+/* === v1.0.9 feedback tap + icono identidad fix definitivo === */
+
+/* Mata cualquier icono viejo/fantasma que quede como primer hijo directo */
+#sellerBadge > .identity-icon-d9,
+#sellerBadge > .user-icon,
+#sellerBadge > .icon,
+#sellerBadge > span:first-child:not(.seller-name){
+  display:none !important;
+}
+
+/* Asegura que solo quede nombre + rol */
+#sellerBadge{
+  overflow:hidden !important;
+}
+
+#sellerBadge .seller-name::before{
+  content:none !important;
+  display:none !important;
+}
+
+#sellerBadge .identity-name-d9{
+  max-width:165px !important;
+}
+
+/* Feedback visual general */
+button,
+.action-card-vnext,
+.cta-main-vnext,
+.status-pill-vnext,
+.price-card-vnext,
+.product-card,
+.client-card,
+.category-card,
+.modal button{
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation !important;
+  transition:
+    transform .09s ease,
+    box-shadow .09s ease,
+    filter .09s ease,
+    opacity .09s ease !important;
+}
+
+button:active,
+.action-card-vnext:active,
+.cta-main-vnext:active,
+.status-pill-vnext:active,
+.price-card-vnext:active,
+.product-card:active,
+.client-card:active,
+.category-card:active,
+.modal button:active,
+.tap-active-d9{
+  transform:scale(.965) !important;
+  filter:brightness(.96) !important;
+}
+
+#btnPancko.is-syncing-d9{
+  opacity:.88 !important;
+}
+
+#btnPancko.is-syncing-d9::before{
+  animation:d9SyncPulse 850ms ease-in-out infinite !important;
+}
+
+@keyframes d9SyncPulse{
+  0%{ transform:scale(.92); opacity:.70; }
+  50%{ transform:scale(1.12); opacity:1; }
+  100%{ transform:scale(.92); opacity:.70; }
+}
+
+
+/* === v1.1.0 fix definitivo icono fantasma identidad === */
+
+/* El icono superior venía de pseudo-elementos heredados del chip central */
+#sellerBadge::before,
+#sellerBadge::after,
+#sellerBadge .seller-name::before,
+#sellerBadge .seller-name::after,
+.status-pill-user-vnext#sellerBadge::before,
+.status-pill-user-vnext#sellerBadge::after,
+.status-pill-user-vnext#sellerBadge .seller-name::before,
+.status-pill-user-vnext#sellerBadge .seller-name::after{
+  content:none !important;
+  display:none !important;
+  width:0 !important;
+  height:0 !important;
+  min-width:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  background:none !important;
+  box-shadow:none !important;
+}
+
+/* fuerza estructura limpia: nombre arriba, rol abajo */
+#sellerBadge{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:2px !important;
+}
+
+#sellerBadge .seller-name{
+  display:block !important;
+  width:100% !important;
+  text-align:center !important;
+}
+
+#sellerBadge .identity-role-d9{
+  display:block !important;
+  width:100% !important;
+  text-align:center !important;
+}
