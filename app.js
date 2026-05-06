@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.1.0 (icono identidad fix)";
+const APP_VERSION = "v1.1.6 (cantidad manual pro)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -47,7 +47,8 @@ const state = {
   manualPriceOverride: false,
   hasLoadedData: false,
   orderSendLockUntil: 0,
-  lastOrderFingerprint: ""
+  lastOrderFingerprint: "",
+  qtyModalItemId: ""
 };
 
 const bannerCarousel = {
@@ -549,20 +550,20 @@ function injectInlineQtyStylesD9() {
   style.id = "d9-inline-qty-style";
   style.textContent = `
 
-/* === D9 cantidad inline fix v10: controles dentro de tarjeta === */
+/* === D9 cantidad inline fix v11: selector tactil 75/25 === */
 #productModal .product-picker{
   overflow:hidden !important;
 }
 
 #productModal .product-side{
   min-width:112px !important;
-  max-width:128px !important;
-  align-self:center !important;
+  max-width:none !important;
+  align-self:stretch !important;
   display:flex !important;
   flex-direction:column !important;
   justify-content:center !important;
-  align-items:flex-end !important;
-  gap:7px !important;
+  align-items:center !important;
+  gap:8px !important;
   padding-top:0 !important;
 }
 
@@ -574,12 +575,12 @@ function injectInlineQtyStylesD9() {
 
 #productModal .qty-inline-d9{
   width:100% !important;
-  display:flex !important;
-  flex-direction:row !important;
+  display:grid !important;
+  grid-template-columns:44px 44px !important;
   align-items:center !important;
-  justify-content:flex-end !important;
-  gap:5px !important;
-  font-size:12px !important;
+  justify-content:center !important;
+  justify-items:center !important;
+  gap:8px !important;
   color:#6f8294 !important;
   white-space:nowrap !important;
   user-select:none !important;
@@ -588,38 +589,28 @@ function injectInlineQtyStylesD9() {
   position:static !important;
 }
 
-#productModal .qty-inline-d9 span:first-child{
-  font-weight:800 !important;
-  opacity:.86 !important;
-}
-
 #productModal .qty-inline-d9 strong{
-  min-width:18px !important;
-  text-align:center !important;
-  font-size:15px !important;
-  color:#173454 !important;
-  font-weight:950 !important;
-  line-height:1 !important;
+  display:none !important;
 }
 
 #productModal .qty-inline-btn-d9{
-  width:26px !important;
-  height:26px !important;
-  min-width:26px !important;
-  max-width:26px !important;
-  border-radius:999px !important;
-  border:1px solid rgba(36,137,190,.25) !important;
+  width:44px !important;
+  height:44px !important;
+  min-width:44px !important;
+  max-width:44px !important;
+  border-radius:13px !important;
+  border:1px solid rgba(36,137,190,.30) !important;
   background:#ffffff !important;
   color:#173454 !important;
-  font-size:19px !important;
+  font-size:28px !important;
   font-weight:950 !important;
-  line-height:24px !important;
+  line-height:42px !important;
   display:inline-flex !important;
   align-items:center !important;
   justify-content:center !important;
   padding:0 !important;
   margin:0 !important;
-  box-shadow:0 2px 7px rgba(21,91,145,.10) !important;
+  box-shadow:0 3px 9px rgba(21,91,145,.14) !important;
   position:static !important;
   transform:none !important;
 }
@@ -2197,6 +2188,33 @@ function cleanCategory(cat) {
     .trim();
 }
 
+function productCode(p) {
+  return String(p?.id || p?.codigo || p?.cod || p?.sku || "").trim();
+}
+
+function productMatchesTerm(p, term) {
+  const t = String(term || "").trim().toLowerCase();
+  if (!t) return true;
+  return [p?.nombre, p?.categoria, productCode(p)]
+    .some(v => String(v || "").toLowerCase().includes(t));
+}
+
+function productMetaLine(p, includePrice = true) {
+  const code = productCode(p);
+  const parts = [];
+  if (code) parts.push(`Cód. ${code}`);
+  if (includePrice) parts.push(`${money(productPrice(p))} c/u`);
+  return parts.join(" · ");
+}
+
+function itemMetaLine(item) {
+  const code = productCode(item);
+  const parts = [];
+  if (code) parts.push(`Cód. ${code}`);
+  parts.push(`${money(Number(item.precio || 0))} c/u`);
+  return parts.join(" · ");
+}
+
 
 function renderPriceProducts() {
   const box = $("#priceProductsList");
@@ -2209,7 +2227,7 @@ function renderPriceProducts() {
   if (term) {
     filtered = state.products
       .filter(productHasValidPrice)
-      .filter(p => p.nombre.toLowerCase().includes(term) && (!cat || p.categoria === cat))
+      .filter(p => productMatchesTerm(p, term) && (!cat || p.categoria === cat))
       .sort(sortByName)
       .slice(0, 500);
   } else if (cat) {
@@ -2234,7 +2252,7 @@ function renderPriceProducts() {
     <div class="price-row">
       <div class="price-row-main">
         <strong>${esc(p.nombre)}</strong>
-        <div class="option-meta">${esc(cleanCategory(p.categoria))}</div>
+        <div class="option-meta">${esc([productCode(p) ? `Cód. ${productCode(p)}` : "", cleanCategory(p.categoria)].filter(Boolean).join(" · "))}</div>
       </div>
       <div class="price-row-side">
         <strong>${money(productPrice(p))}</strong>
@@ -2277,9 +2295,18 @@ function renderCategories() {
     </button>`).join("");
 }
 
+function clearProductSearchD9(shouldRender = true) {
+  const input = $("#productSearch");
+  if (!input) return;
+  if (input.value) {
+    input.value = "";
+    if (shouldRender) renderProducts();
+  }
+}
+
 function selectCategory(category) {
   state.selectedCategory = category;
-  $("#productSearch").value = "";
+  clearProductSearchD9(false);
   renderCategories();
   renderProducts();
   renderQuickLabels();
@@ -2294,9 +2321,11 @@ function renderProducts() {
   let filtered = [];
 
   if (term) {
+    // Con búsqueda escrita, buscar globalmente en todo el catálogo.
+    // Sin búsqueda, se respeta la categoría seleccionada.
     filtered = state.products
       .filter(productHasValidPrice)
-      .filter(p => p.nombre.toLowerCase().includes(term) && (!cat || p.categoria === cat))
+      .filter(p => productMatchesTerm(p, term))
       .sort(sortByName)
       .slice(0, 500);
   } else if (cat) {
@@ -2312,22 +2341,25 @@ function renderProducts() {
 
   list.innerHTML = filtered.length
     ? filtered.map(p => {
-      const selected = state.cart.some(x => x.id === p.id);
+      const cartItem = state.cart.find(x => x.id === p.id);
+      const selected = !!cartItem;
+      const cantidad = Number(cartItem?.cantidad || 1);
+      const precio = Number(cartItem?.precio || productPrice(p) || 0);
+      const subtotal = cantidad * precio;
       return `
         <button class="product-item product-picker ${selected ? "is-selected" : ""}" data-toggle-product="${esc(p.id)}" type="button">
-          <div class="product-copy">
+          <div class="product-copy product-main-d9" ${selected ? 'data-no-toggle="true"' : ''}>
             <strong>${esc(p.nombre)}</strong>
-            <div class="option-meta">${esc(cleanCategory(p.categoria))}</div>
+            <div class="option-meta">${esc(productMetaLine(p))}</div>
+            ${term && cat && p.categoria !== cat ? `<div class="option-meta product-cross-category-d9">Cat. ${esc(cleanCategory(p.categoria))}</div>` : ""}
           </div>
-          <div class="product-side">
-            <div class="product-price">${money(productPrice(p))}</div>
+          <div class="product-side product-qty-zone-d9" ${selected ? 'data-no-toggle="true"' : ''}>
             ${selected ? `
               <div class="qty-inline-d9" data-no-toggle="true">
-                <span>Cant:</span>
-                <span class="qty-inline-btn-d9" data-product-qty="minus" data-id="${esc(p.id)}" role="button" tabindex="0">−</span>
-                <strong>${state.cart.find(x => x.id === p.id)?.cantidad || 1}</strong>
-                <span class="qty-inline-btn-d9" data-product-qty="plus" data-id="${esc(p.id)}" role="button" tabindex="0">+</span>
+                <span class="qty-inline-btn-d9" data-product-qty="minus" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Restar unidad">−</span>
+                <span class="qty-inline-btn-d9" data-product-qty="plus" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Sumar unidad">+</span>
               </div>
+              <div class="product-line-total-d9">x${cantidad} · ${money(subtotal)}</div>
             ` : `<div class="pick-state">Tocar para agregar</div>`}
           </div>
         </button>`;
@@ -2388,25 +2420,126 @@ function generateMessageText(payload = null) {
 
   if (!source.cliente || !source.carrito.length) return "Seleccioná cliente y productos.";
 
-  const clienteTexto = [
-    source.cliente?.nombre_real || source.cliente?.nombre || "",
-    source.cliente?.telefono || "",
-    source.cliente?.direccion || (source.cliente?.ciudad || "")
-  ].filter(Boolean).join(" | ");
+  const clienteTexto = source.cliente?.nombre_real || source.cliente?.nombre || "";
+  const unidadesTotales = source.carrito.reduce((acc, item) => acc + Number(item.cantidad || 0), 0);
 
   const lines = [
-    "Pedido:",
     `Cliente: ${clienteTexto}`,
     source.vendedor?.nombre ? `Usuario: ${source.vendedor.nombre}` : "",
     ""
-  ].filter(Boolean);
+  ].filter(line => line !== "");
 
-  source.carrito.forEach(item => {
-    lines.push(`- ${item.nombre} x${item.cantidad} = ${money(item.precio * item.cantidad)}`);
+  source.carrito.forEach((item, index) => {
+    const code = productCode(item);
+    lines.push(`${index + 1}) ${item.nombre}`);
+    lines.push(`   ${code ? `Cód: ${code} · ` : ""}Cant: ${Number(item.cantidad || 0)}`);
   });
 
-  lines.push("", `Total: ${money(source.total)}`);
+  lines.push("────────────────────");
+  lines.push(`Items: ${source.carrito.length} · Unidades: ${unidadesTotales}`);
+  lines.push(`TOTAL: ${money(source.total)}`);
   return lines.join("\n");
+}
+
+
+function ensureQtyModalD9() {
+  let modal = document.getElementById("qtyModal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "qtyModal";
+  modal.className = "modal hidden qty-modal-d9";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="modal-backdrop" data-close-modal="qty"></div>
+    <div class="modal-panel qty-panel-d9" role="dialog" aria-modal="true" aria-labelledby="qtyModalTitle">
+      <div class="modal-head-row qty-head-d9">
+        <div>
+          <h3 id="qtyModalTitle">Cantidad</h3>
+          <p id="qtyModalProduct" class="modal-text small-gap"></p>
+        </div>
+        <button class="ghost-x" data-close-modal="qty" type="button" aria-label="Cerrar">✕</button>
+      </div>
+      <label class="qty-input-label-d9" for="qtyModalInput">Ingresá cantidad</label>
+      <input id="qtyModalInput" class="qty-input-d9" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" autocomplete="off" />
+      <p class="qty-help-d9">0 elimina el producto del pedido.</p>
+      <div class="qty-actions-d9">
+        <button id="btnQtyCancel" class="secondary-btn" type="button">Cancelar</button>
+        <button id="btnQtyApply" class="primary-btn" type="button">Aplicar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  modal.querySelector("#btnQtyCancel")?.addEventListener("click", closeQtyModalD9);
+  modal.querySelector("#btnQtyApply")?.addEventListener("click", applyQtyModalD9);
+  modal.querySelector("#qtyModalInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") applyQtyModalD9();
+    if (e.key === "Escape") closeQtyModalD9();
+  });
+
+  return modal;
+}
+
+function openQtyModalD9(id) {
+  const item = state.cart.find(x => x.id === id);
+  if (!item) return;
+
+  const modal = ensureQtyModalD9();
+  state.qtyModalItemId = id;
+
+  const productEl = modal.querySelector("#qtyModalProduct");
+  const input = modal.querySelector("#qtyModalInput");
+
+  if (productEl) productEl.textContent = item.nombre || "Producto";
+  if (input) input.value = String(Number(item.cantidad || 1));
+
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+
+  setTimeout(() => {
+    if (!input) return;
+    input.focus({ preventScroll: true });
+    input.select();
+  }, 80);
+}
+
+function closeQtyModalD9() {
+  const modal = document.getElementById("qtyModal");
+  if (!modal) return;
+  state.qtyModalItemId = "";
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function applyQtyModalD9() {
+  const id = state.qtyModalItemId;
+  const input = document.getElementById("qtyModalInput");
+  if (!id || !input) return;
+
+  const raw = String(input.value || "").trim();
+  const qty = Math.floor(Number(raw.replace(",", ".")));
+
+  if (!Number.isFinite(qty) || qty < 0) {
+    toast("Ingresá una cantidad válida.");
+    input.focus();
+    input.select();
+    return;
+  }
+
+  const item = state.cart.find(x => x.id === id);
+  if (!item) return closeQtyModalD9();
+
+  if (qty <= 0) {
+    state.cart = state.cart.filter(x => x.id !== id);
+  } else {
+    item.cantidad = qty;
+    item.precio = productPrice(item);
+  }
+
+  closeQtyModalD9();
+  renderProducts();
+  renderQuickLabels();
+  renderCart();
 }
 
 function renderCart() {
@@ -2421,15 +2554,16 @@ function renderCart() {
         <div class="cart-top">
           <div>
             <strong>${esc(item.nombre)}</strong>
-            <div class="mini-text">${money(item.precio)} c/u</div>
+            <div class="mini-text">${esc(itemMetaLine(item))}</div>
           </div>
           <button class="remove-btn" data-remove-id="${esc(item.id)}" type="button">Quitar</button>
         </div>
-        <div class="qty-row">
+        <div class="qty-row qty-row-pro-d9">
           <button class="qty-btn" data-qty="minus" data-id="${esc(item.id)}" type="button">−</button>
           <div class="qty-value">${item.cantidad}</div>
           <button class="qty-btn" data-qty="plus" data-id="${esc(item.id)}" type="button">+</button>
-          <div class="product-price">${money(item.precio * item.cantidad)}</div>
+          <button class="qty-edit-btn-d9" data-edit-qty="${esc(item.id)}" type="button">👉Cant.✏️</button>
+          <div class="product-price cart-line-total-d9">${money(item.precio * item.cantidad)}</div>
         </div>
       </div>`).join("");
   }
@@ -2549,6 +2683,8 @@ function buildWebhookPayload(payload) {
     vendedor: payload?.vendedor?.nombre || "",
     cliente: clienteTexto,
     items: (payload?.carrito || []).map(item => ({
+      id: item.id || "",
+      id_producto: item.id || "",
       nombre: item.nombre,
       cantidad: Number(item.cantidad || 0),
       precio: Number(item.precio || 0)
@@ -2942,7 +3078,7 @@ function openOrderConfirmModal() {
     <div class="confirm-product-row-d9">
       <div>
         <strong>${esc(item.nombre)}</strong>
-        <span>x${Number(item.cantidad || 0)}</span>
+        <span>${esc(itemMetaLine(item))} · Cant: ${Number(item.cantidad || 0)}</span>
       </div>
       <b>${money(Number(item.precio || 0) * Number(item.cantidad || 0))}</b>
     </div>
@@ -3046,7 +3182,10 @@ function bind() {
   $("#sellerPass").addEventListener("keydown", (e) => { if (e.key === "Enter") loginSeller(); });
   $("#btnCloseLogin").addEventListener("click", closeLogin);
   $("#clientSearch").addEventListener("input", renderClients);
-  $("#productSearch").addEventListener("input", renderProducts);
+  const productSearchInputD9 = $("#productSearch");
+  productSearchInputD9.addEventListener("input", renderProducts);
+  productSearchInputD9.addEventListener("pointerdown", () => clearProductSearchD9(true));
+  productSearchInputD9.addEventListener("focus", () => clearProductSearchD9(true));
   $("#priceSearch").addEventListener("input", (e) => { state.priceSearch = e.target.value.trim().toLowerCase(); renderPriceProducts(); });
   $("#priceListSelect").addEventListener("change", (e) => { state.activePriceList = e.target.value; refreshPricesAcrossApp(); });
   const orderPriceSelect = $("#orderPriceListSelect");
@@ -3114,10 +3253,13 @@ function bind() {
     if (cat) selectCategory(cat.dataset.category);
 
     const toggle = ev.target.closest("[data-toggle-product]");
-    if (toggle) toggleProduct(toggle.dataset.toggleProduct);
+    if (toggle && !ev.target.closest("[data-no-toggle]")) toggleProduct(toggle.dataset.toggleProduct);
 
     const qty = ev.target.closest("[data-qty]");
     if (qty) updateQty(qty.dataset.id, qty.dataset.qty === "plus" ? 1 : -1);
+
+    const editQty = ev.target.closest("[data-edit-qty]");
+    if (editQty) openQtyModalD9(editQty.dataset.editQty);
 
     const remove = ev.target.closest("[data-remove-id]");
     if (remove) removeItem(remove.dataset.removeId);
