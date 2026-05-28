@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.1.12 (historial integrado fix)";
+const APP_VERSION = "v1.1.16 (reutilizar carga cliente)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -3025,21 +3025,82 @@ function renderHistory() {
   }).join('');
 }
 
+function findClientFromHistoryItemD9(item) {
+  const clientId = String(item?.cliente_id || "").trim();
+  const clientName = String(item?.cliente || "").trim();
+
+  if (clientId) {
+    const byId = state.clients.find(c => String(c.id || "").trim() === clientId);
+    if (byId) return byId;
+  }
+
+  if (clientName) {
+    const norm = clientName.toLowerCase();
+    const byName = state.clients.find(c =>
+      String(c.nombre || "").trim().toLowerCase() === norm ||
+      String(c.nombre_real || "").trim().toLowerCase() === norm
+    );
+    if (byName) return byName;
+
+    return {
+      id: clientId || `historial_${Date.now()}`,
+      nombre: clientName,
+      nombre_real: clientName,
+      telefono: "",
+      direccion: "",
+      lista_1: "lista_1",
+      historial: true
+    };
+  }
+
+  return null;
+}
+
+function hydrateHistoryCartItemD9(x) {
+  const id = String(x?.id || x?.id_producto || "").trim();
+  const cantidad = Number(x?.cantidad || 1);
+  const catalogProduct = id ? state.products.find(p => String(p.id || "").trim() === id) : null;
+
+  if (catalogProduct) {
+    return {
+      ...catalogProduct,
+      cantidad,
+      precio: productPrice(catalogProduct) || Number(x?.precio || 0)
+    };
+  }
+
+  return {
+    id,
+    nombre: x?.nombre || "Producto sin nombre",
+    cantidad,
+    precio: Number(x?.precio || 0)
+  };
+}
+
 function reuseHistoryItem(id) {
   const history = readJSON(STORAGE_KEYS.history, []);
   const item = history.find(x => x.id === id);
   if (!item) return toast("No encontré el pedido.");
 
-  state.cart = (item.items || []).map(x => ({
-    id: x.id,
-    nombre: x.nombre,
-    cantidad: Number(x.cantidad || 1),
-    precio: Number(x.precio || 0)
-  }));
+  const clientFromHistory = findClientFromHistoryItemD9(item);
+  if (clientFromHistory) {
+    state.selectedClient = clientFromHistory;
+    if (state.seller?.rol === "vendedor") {
+      state.activePriceList = clientFromHistory.lista_1 || "lista_1";
+      state.manualPriceOverride = false;
+    }
+  }
 
+  state.cart = (item.items || []).map(hydrateHistoryCartItemD9).filter(x => x.id || x.nombre);
+
+  renderSelectedClient();
+  renderOrderPriceListControls();
+  renderClients();
+  renderQuickLabels();
+  renderProducts();
   renderCart();
   showView("order");
-  toast("Pedido reutilizado.");
+  toast(clientFromHistory ? "Pedido y cliente reutilizados." : "Pedido reutilizado.");
 }
 
 function deleteHistoryItem(id) {
