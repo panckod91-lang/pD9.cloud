@@ -3386,3 +3386,259 @@ button:active,
 }
 .d9-confirm-cancel{background:#eef2f7;color:#334155;}
 .d9-confirm-ok{background:#dc2626;color:white;}
+
+
+/* D9 mostrador MVP */
+.mostrador-home-btn-d9 { border-color: rgba(245,158,11,.35); }
+.mostrador-products-list-d9 { margin-top: 12px; }
+.mostrador-product-d9{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:13px 14px; border-radius:16px; border:1px solid var(--line);
+  background:rgba(255,255,255,.055); color:var(--text); text-align:left; box-shadow:none; margin-bottom:8px;
+}
+.mostrador-product-d9 strong{display:block;font-size:.95rem;line-height:1.15;}
+.mostrador-product-d9 small{display:block;color:var(--muted);margin-top:4px;font-size:.78rem;}
+.mostrador-product-d9 b{white-space:nowrap;font-size:.92rem;}
+.mostrador-line-d9{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;margin-top:10px;}
+.mostrador-cart-item-d9 .qty-edit-btn-d9{justify-self:start;}
+
+
+/* D9 mostrador home protagonista */
+.mostrador-cta-main-d9{
+  background:linear-gradient(180deg,#38bdf8 0%, #0ea5e9 42%, #0284c7 100%) !important;
+  box-shadow:0 16px 26px rgba(14,165,233,.24) !important;
+}
+.mostrador-cta-main-d9 .cta-icon-vnext{
+  background:rgba(255,255,255,.14);
+  border-color:rgba(255,255,255,.42);
+}
+
+
+/* D9 v1.2.3 mostrador: flujo con selectores de pedido */
+.mostrador-picker-card-d9{ margin-top: 14px; }
+.mostrador-line-controls-d9{ display:grid; grid-template-columns:48px minmax(72px,auto) 48px 1fr; align-items:center; gap:10px; }
+.qty-step-btn-d9{ width:48px; height:48px; border:0; border-radius:14px; background:#fff; color:#173454; font-size:28px; font-weight:950; box-shadow:0 8px 20px rgba(23,52,84,.08); }
+.mostrador-qty-value-d9{ min-width:72px; height:48px; padding:0 12px; border:0; border-radius:14px; background:#eef8ff; color:#245775; font-size:20px; font-weight:900; }
+.mostrador-line-controls-d9 strong{ justify-self:end; font-size:22px; }
+@media(max-width:420px){ .mostrador-line-controls-d9{ grid-template-columns:44px minmax(62px,auto) 44px 1fr; gap:8px;} .qty-step-btn-d9{width:44px;height:44px;} .mostrador-qty-value-d9{height:44px;min-width:62px;font-size:18px;} }
+
+/* D9 v1.2.4 - selector producto mostrador con cantidad editable */
+#productModal #productList .product-picker.is-mostrador-selected-d9{
+  grid-template-columns:minmax(0, 1fr) 168px !important;
+}
+#productModal #productList .product-picker.is-mostrador-selected-d9 .product-qty-zone-d9{
+  min-width:168px !important;
+}
+#productModal #productList .product-picker .mostrador-product-qty-d9{
+  grid-template-columns:44px minmax(48px, 1fr) 44px !important;
+  gap:6px !important;
+  width:100% !important;
+}
+#productModal #productList .product-picker .qty-inline-value-d9{
+  width:auto !important;
+  max-width:none !important;
+  min-width:48px !important;
+  padding:0 8px !important;
+  font-size:18px !important;
+  background:#eaf6fd !important;
+  color:#173454 !important;
+}
+@media (max-width:390px){
+  #productModal #productList .product-picker.is-mostrador-selected-d9{
+    grid-template-columns:minmax(0, 1fr) 152px !important;
+  }
+  #productModal #productList .product-picker.is-mostrador-selected-d9 .product-qty-zone-d9{
+    min-width:152px !important;
+  }
+  #productModal #productList .product-picker .mostrador-product-qty-d9{
+    grid-template-columns:40px minmax(44px, 1fr) 40px !important;
+  }
+  #productModal #productList .product-picker .qty-inline-value-d9{
+    min-width:44px !important;
+    font-size:17px !important;
+  }
+}
+
+
+/* D9 v1.2.7 mostrador: etiqueta compacta sin desborde */
+.mostrador-cart-item-d9{ padding:18px 18px 16px; overflow:hidden; }
+.mostrador-cart-item-d9 .cart-item-top{ align-items:flex-start; gap:10px; }
+.mostrador-cart-item-d9 .cart-item-top > div{ min-width:0; }
+.mostrador-cart-item-d9 .remove-btn{ min-width:92px; height:58px; border-radius:18px; font-size:17px; font-weight:900; }
+.mostrador-cart-item-d9 .cart-meta{ font-size:18px; }
+.mostrador-line-controls-d9{
+  display:grid;
+  grid-template-columns:54px minmax(44px,auto) 54px minmax(92px,auto) minmax(92px,1fr);
+  align-items:center;
+  gap:8px;
+  margin-top:12px;
+  width:100%;
+  min-width:0;
+}
+.qty-step-btn-d9{ width:54px; height:54px; border-radius:16px; font-size:30px; }
+.mostrador-qty-number-d9{
+  min-width:44px;
+  height:54px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+  font-weight:850;
+  color:var(--ink);
+}
+.mostrador-qty-edit-manual-d9{
+  min-width:92px;
+  height:54px;
+  padding:0 12px;
+  border-radius:16px;
+  white-space:nowrap;
+}
+.mostrador-line-controls-d9 strong{
+  justify-self:end;
+  min-width:0;
+  max-width:100%;
+  font-size:25px;
+  font-weight:950;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+@media(max-width:420px){
+  .mostrador-cart-item-d9{ padding:16px 14px; }
+  .mostrador-cart-item-d9 .remove-btn{ min-width:86px; height:54px; }
+  .mostrador-line-controls-d9{ grid-template-columns:46px minmax(34px,auto) 46px minmax(82px,auto) minmax(78px,1fr); gap:6px; }
+  .qty-step-btn-d9{ width:46px; height:46px; border-radius:14px; font-size:28px; }
+  .mostrador-qty-number-d9{ min-width:34px; height:46px; font-size:18px; }
+  .mostrador-qty-edit-manual-d9{ min-width:82px; height:46px; padding:0 9px; border-radius:14px; font-size:15px; }
+  .mostrador-line-controls-d9 strong{ font-size:22px; }
+}
+
+
+/* D9 v1.2.8 mostrador: botón Quitar arriba a la derecha */
+.mostrador-cart-item-d9{
+  position:relative;
+  padding:18px 18px 16px;
+  overflow:hidden;
+}
+.mostrador-cart-item-d9 .cart-item-top{
+  display:block;
+  padding-right:118px;
+  min-height:66px;
+}
+.mostrador-cart-item-d9 .cart-item-top .remove-btn{
+  position:absolute;
+  top:18px;
+  right:18px;
+  min-width:92px;
+  height:58px;
+  border-radius:18px;
+  font-size:17px;
+  font-weight:900;
+  z-index:2;
+}
+.mostrador-cart-item-d9 .cart-title{
+  padding-right:0;
+}
+.mostrador-line-controls-d9{
+  margin-top:8px;
+}
+@media(max-width:420px){
+  .mostrador-cart-item-d9{ padding:16px 14px; }
+  .mostrador-cart-item-d9 .cart-item-top{
+    padding-right:104px;
+    min-height:62px;
+  }
+  .mostrador-cart-item-d9 .cart-item-top .remove-btn{
+    top:16px;
+    right:14px;
+    min-width:86px;
+    height:54px;
+  }
+}
+
+/* D9 v1.3.3 - Resincronización manual a PC */
+.history-resync-toolbar-d9{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:10px;
+  border:1px dashed rgba(37,99,235,.35);
+  background:#f8fbff;
+  border-radius:14px;
+}
+.history-select-line-d9{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  width:max-content;
+  max-width:100%;
+  font-size:12px;
+  font-weight:700;
+  color:#496079;
+  margin-bottom:4px;
+}
+.history-select-line-d9 input{
+  width:16px;
+  height:16px;
+  accent-color:#2563eb;
+}
+
+.history-debug-d9{margin:8px 0 10px 0;padding:8px 10px;border-radius:10px;background:#fff7d8;color:#12304f;font-size:.82rem;}
+
+
+/* D9 v1.3.9 - historial: botones compactos y sin romper etiquetas */
+.history-actions.history-actions-compact-d9{
+  display:grid;
+  grid-template-columns: minmax(118px, 1fr) minmax(96px, .85fr) 42px;
+  gap:8px;
+  align-items:center;
+  justify-content:stretch;
+  width:100%;
+  max-width:100%;
+  overflow:hidden;
+}
+.history-actions.history-actions-compact-d9 .history-action-btn,
+.history-actions.history-actions-compact-d9 .history-delete-btn{
+  width:100%;
+  min-width:0;
+  height:38px;
+  padding:7px 8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  border-radius:12px;
+}
+.history-actions.history-actions-compact-d9 .history-delete-btn{
+  min-width:42px;
+  padding:7px 0;
+}
+.history-action-main-d9{
+  font-weight:850;
+}
+.history-meta-line{
+  overflow-wrap:anywhere;
+}
+.history-resync-toolbar-d9{
+  max-width:100%;
+  overflow:hidden;
+}
+.history-resync-toolbar-d9 .history-action-btn{
+  width:100%;
+  max-width:100%;
+  min-height:38px;
+  white-space:normal;
+  line-height:1.15;
+}
+@media(max-width:380px){
+  .history-actions.history-actions-compact-d9{
+    grid-template-columns: 1fr 1fr 38px;
+    gap:6px;
+  }
+  .history-actions.history-actions-compact-d9 .history-action-btn{
+    font-size:11px;
+    padding:7px 6px;
+  }
+}

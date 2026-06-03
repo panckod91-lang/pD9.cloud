@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.1.16 (reutilizar carga cliente)";
+const APP_VERSION = "v1.3.11-dev (ID único tras envío WhatsApp)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -11,6 +11,7 @@ let isAppUpdateAvailableD9 = false;
 const STORAGE_KEYS = {
   seller: "d9_usuario",
   history: "d9_historial",
+  salesHistory: "d9_historial_ventas_mostrador",
   pending: "d9_pendientes",
   guestClient: "d9_invitado_cliente",
   versionLogged: "d9_version_logged"
@@ -40,15 +41,26 @@ const state = {
   guestClientDraft: null,
   selectedCategory: "",
   cart: [],
+  mostradorClient: null,
+  mostradorCategory: "",
+  clientPickerMode: "order",
+  categoryPickerMode: "order",
   currentView: "home",
   historyOpenId: null,
+  salesHistoryOpenId: null,
   isSending: false,
   isSyncing: false,
   manualPriceOverride: false,
   hasLoadedData: false,
   orderSendLockUntil: 0,
   lastOrderFingerprint: "",
-  qtyModalItemId: ""
+  qtyModalItemId: "",
+  qtyModalMode: "order",
+  mostradorSearch: "",
+  mostradorCart: [],
+  mostradorVentaDraftId: "",
+  mostradorVentaFingerprint: "",
+  productPickerMode: "order"
 };
 
 const bannerCarousel = {
@@ -63,6 +75,21 @@ const bannerCarousel = {
 
 const $ = (s) => document.querySelector(s);
 const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Number(v) || 0);
+
+const money2 = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(Number(v) || 0);
+function isMostradorD9() {
+  return String(state.seller?.rol || "").trim().toLowerCase() === "mostrador";
+}
+function parseDecimalD9(value) {
+  if (value === null || value === undefined) return 0;
+  const s = String(value).trim().replace(/\./g, "").replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+function fmtQtyD9(value) {
+  const n = Number(value) || 0;
+  return new Intl.NumberFormat("es-AR", { minimumFractionDigits: Number.isInteger(n) ? 0 : 3, maximumFractionDigits: 3 }).format(n);
+}
 
 function tapFeedbackD9() {
   try {
@@ -680,8 +707,9 @@ function bindSelectedProductNoToggleD9() {
     const selectedCard = e.target.closest?.("#productModal .product-picker.is-selected");
     if (!selectedCard) return;
 
-    // Los botones de cantidad tienen su propio handler en captura.
+    // Los botones de cantidad y el valor editable tienen su propio handler.
     if (e.target.closest?.("[data-product-qty]")) return;
+    if (e.target.closest?.("[data-mostrador-qty]")) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -1537,6 +1565,7 @@ function renderBannerWithTransition(newIndex, direction = 1) {
 
 function renderBanner(skipTimerReset = false) {
   const box = $("#bannerWrap");
+  if (isMostradorD9()) { if (box) { box.classList.add("hidden"); box.innerHTML = ""; } return; }
   if (!box) return;
 
   const rows = getBannerRows();
@@ -1971,7 +2000,8 @@ function renderQuickLabels() {
   if (clientSearch && isClient) clientSearch.value = "";
   const productHint = $("#productModalHint");
   if (productHint) {
-    const catLabel = state.selectedCategory ? cleanCategory(state.selectedCategory) : "Todas las categorías";
+    const activeProductCategory = state.productPickerMode === "mostrador" ? state.mostradorCategory : state.selectedCategory;
+    const catLabel = activeProductCategory ? cleanCategory(activeProductCategory) : "Todas las categorías";
     productHint.innerHTML = `
       <div class="modal-category-box-d9">
         <div class="modal-category-current-d9">
@@ -1987,7 +2017,7 @@ function renderQuickLabels() {
 function renderClients() {
   const term = $("#clientSearch").value.trim().toLowerCase();
   const list = $("#clientList");
-  const canBrowseClients = state.seller?.rol === "vendedor";
+  const canBrowseClients = ["vendedor", "mostrador"].includes(String(state.seller?.rol || "").toLowerCase());
 
   const base = canBrowseClients
     ? state.clients
@@ -2008,9 +2038,10 @@ function renderClients() {
     return;
   }
 
+  const activeClient = state.clientPickerMode === "mostrador" ? state.mostradorClient : state.selectedClient;
   list.innerHTML = filtered.length
     ? occasionalBtn + filtered.map(c => `
-      <button class="option-item option-button ${state.selectedClient?.id === c.id ? "is-selected" : ""}" data-client-id="${esc(c.id)}" type="button">
+      <button class="option-item option-button ${activeClient?.id === c.id ? "is-selected" : ""}" data-client-id="${esc(c.id)}" type="button">
         <strong>${esc(c.nombre)}</strong>
         <div class="option-meta">${esc(c.telefono || "Sin teléfono")} · ${esc(c.direccion || "Sin dirección")}</div>
       </button>`).join("")
@@ -2020,9 +2051,19 @@ function renderClients() {
 function selectClient(id) {
   const c = state.clients.find(x => x.id === id);
   if (!c) return;
+
+  if (state.clientPickerMode === "mostrador") {
+    state.mostradorClient = c;
+    renderClients();
+    renderMostradorD9();
+    closeModal("client");
+    toast("Cliente cargado en mostrador.");
+    return;
+  }
+
   const previousClientId = state.selectedClient?.id || "";
   state.selectedClient = c;
-  if (state.seller?.rol === "vendedor") {
+  if (["vendedor", "mostrador"].includes(String(state.seller?.rol || "").toLowerCase())) {
     const previousActive = state.activePriceList || "lista_1";
     const nextList = c.lista_1 || "lista_1";
     const changedClient = previousClientId && String(previousClientId) !== String(c.id);
@@ -2040,6 +2081,7 @@ function selectClient(id) {
   renderClients();
   renderQuickLabels();
   renderCart();
+  if (typeof renderMostradorD9 === "function") renderMostradorD9();
   closeModal("client");
 }
 
@@ -2103,9 +2145,8 @@ function saveOccasionalClient() {
 
   if (!nombre) return toast("Cargá al menos el nombre del cliente.");
 
-  const previousId = state.selectedClient?.id || "";
   const nextId = `ocasional_${Date.now()}`;
-  state.selectedClient = {
+  const occasionalClient = {
     id: nextId,
     nombre: `NUEVO | ${nombre}${telefono ? ' | ' + telefono : ''}${direccion ? ' | ' + direccion : ''}${ciudad ? ' | ' + ciudad : ''}`,
     nombre_real: nombre,
@@ -2115,6 +2156,19 @@ function saveOccasionalClient() {
     lista_1: lista,
     ocasional: true
   };
+
+  if (state.clientPickerMode === "mostrador") {
+    state.mostradorClient = occasionalClient;
+    closeModal("occasionalClient");
+    closeModal("client");
+    renderMostradorD9();
+    showView("mostrador");
+    toast("Cliente ocasional cargado en mostrador.");
+    return;
+  }
+
+  const previousId = state.selectedClient?.id || "";
+  state.selectedClient = occasionalClient;
   state.guestClientDraft = state.selectedClient;
   renderSellerBadge();
   if (!state.seller) {
@@ -2304,13 +2358,14 @@ function categoriesList() {
 function renderCategories() {
   const list = $("#categoryList");
   const cats = categoriesList();
+  const activeCategory = state.categoryPickerMode === "mostrador" ? state.mostradorCategory : state.selectedCategory;
   const allItem = `
-    <button class="option-item option-button ${!state.selectedCategory ? "is-selected" : ""}" data-category="" type="button">
+    <button class="option-item option-button ${!activeCategory ? "is-selected" : ""}" data-category="" type="button">
       <strong>Todas las categorías</strong>
       <div class="option-meta">Mostrar todos los productos activos</div>
     </button>`;
   list.innerHTML = allItem + cats.map(c => `
-    <button class="option-item option-button ${state.selectedCategory === c ? "is-selected" : ""}" data-category="${esc(c)}" type="button">
+    <button class="option-item option-button ${activeCategory === c ? "is-selected" : ""}" data-category="${esc(c)}" type="button">
       <strong>${esc(cleanCategory(c))}</strong>
     </button>`).join("");
 }
@@ -2325,24 +2380,34 @@ function clearProductSearchD9(shouldRender = true) {
 }
 
 function selectCategory(category) {
+  if (state.categoryPickerMode === "mostrador") {
+    state.mostradorCategory = category;
+    clearProductSearchD9(false);
+    renderCategories();
+    renderProducts();
+    renderMostradorD9();
+    closeModal("category");
+    return;
+  }
   state.selectedCategory = category;
   clearProductSearchD9(false);
   renderCategories();
   renderProducts();
   renderQuickLabels();
+  if (typeof renderMostradorD9 === "function") renderMostradorD9();
   closeModal("category");
 }
 
 function renderProducts() {
   const term = $("#productSearch").value.trim().toLowerCase();
-  const cat = state.selectedCategory;
+  const pickerMode = state.productPickerMode === "mostrador" ? "mostrador" : "order";
+  const cat = pickerMode === "mostrador" ? state.mostradorCategory : state.selectedCategory;
   const list = $("#productList");
+  const activeCart = pickerMode === "mostrador" ? state.mostradorCart : state.cart;
 
   let filtered = [];
 
   if (term) {
-    // Con búsqueda escrita, buscar globalmente en todo el catálogo.
-    // Sin búsqueda, se respeta la categoría seleccionada.
     filtered = state.products
       .filter(productHasValidPrice)
       .filter(p => productMatchesTerm(p, term))
@@ -2361,26 +2426,34 @@ function renderProducts() {
 
   list.innerHTML = filtered.length
     ? filtered.map(p => {
-      const cartItem = state.cart.find(x => x.id === p.id);
+      const cartItem = activeCart.find(x => String(x.id) === String(p.id));
       const selected = !!cartItem;
       const cantidad = Number(cartItem?.cantidad || 1);
       const precio = Number(cartItem?.precio || productPrice(p) || 0);
       const subtotal = cantidad * precio;
+      const qtyText = pickerMode === "mostrador" ? mostradorQtyTextD9(cantidad) : String(cantidad);
       return `
-        <button class="product-item product-picker ${selected ? "is-selected" : ""}" data-toggle-product="${esc(p.id)}" ${selected ? 'data-no-toggle="true"' : ''} type="button">
+        <button class="product-item product-picker ${selected ? "is-selected" : ""} ${selected && pickerMode === "mostrador" ? "is-mostrador-selected-d9" : ""}" data-toggle-product="${esc(p.id)}" ${selected ? 'data-no-toggle="true"' : ''} type="button">
           <div class="product-copy product-main-d9" ${selected ? 'data-no-toggle="true"' : ''}>
             <strong>${esc(p.nombre)}</strong>
             <div class="option-meta">${esc(productMetaLine(p))}</div>
             ${term && cat && p.categoria !== cat ? `<div class="option-meta product-cross-category-d9">Cat. ${esc(cleanCategory(p.categoria))}</div>` : ""}
           </div>
           <div class="product-side product-qty-zone-d9" ${selected ? 'data-no-toggle="true"' : ''}>
-            ${selected ? `
+            ${selected ? (pickerMode === "mostrador" ? `
+              <div class="qty-inline-d9 mostrador-product-qty-d9" data-no-toggle="true">
+                <span class="qty-inline-btn-d9" data-product-qty="minus" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Restar">−</span>
+                <span class="qty-inline-btn-d9 qty-inline-value-d9" data-mostrador-qty="${esc(p.id)}" role="button" tabindex="0" aria-label="Editar cantidad">${esc(qtyText)}</span>
+                <span class="qty-inline-btn-d9" data-product-qty="plus" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Sumar">+</span>
+              </div>
+              <div class="product-line-total-d9">${money(subtotal)}</div>
+            ` : `
               <div class="qty-inline-d9" data-no-toggle="true">
                 <span class="qty-inline-btn-d9" data-product-qty="minus" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Restar unidad">−</span>
                 <span class="qty-inline-btn-d9" data-product-qty="plus" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Sumar unidad">+</span>
               </div>
               <div class="product-line-total-d9">x${cantidad} · ${money(subtotal)}</div>
-            ` : `<div class="pick-state">Tocar para agregar</div>`}
+            `) : `<div class="pick-state">Tocar para agregar</div>`}
           </div>
         </button>`;
     }).join("")
@@ -2388,6 +2461,19 @@ function renderProducts() {
 }
 
 function toggleProduct(id) {
+  if (state.productPickerMode === "mostrador") {
+    const existing = state.mostradorCart.find(x => String(x.id) === String(id));
+    if (existing) {
+      state.mostradorCart = state.mostradorCart.filter(x => String(x.id) !== String(id));
+    } else {
+      const p = state.products.find(x => String(x.id) === String(id));
+      if (!p) return;
+      state.mostradorCart.push({ id: p.id, nombre: p.nombre, precio: productPrice(p), cantidad: 1 });
+    }
+    renderProducts();
+    renderMostradorD9();
+    return;
+  }
   const existing = state.cart.find(x => x.id === id);
   if (existing) {
     state.cart = state.cart.filter(x => x.id !== id);
@@ -2402,6 +2488,16 @@ function toggleProduct(id) {
 }
 
 function updateQty(id, delta) {
+  if (state.productPickerMode === "mostrador") {
+    const item = state.mostradorCart.find(x => String(x.id) === String(id));
+    if (!item) return;
+    item.cantidad = Number(item.cantidad || 0) + delta;
+    asegurarPrecioMostradorD9(item);
+    if (item.cantidad <= 0) state.mostradorCart = state.mostradorCart.filter(x => String(x.id) !== String(id));
+    renderProducts();
+    renderMostradorD9();
+    return;
+  }
   const item = state.cart.find(x => x.id === id);
   if (!item) return;
   item.cantidad += delta;
@@ -2490,7 +2586,7 @@ function ensureQtyModalD9() {
         <button class="ghost-x" data-close-modal="qty" type="button" aria-label="Cerrar">✕</button>
       </div>
       <label class="qty-input-label-d9" for="qtyModalInput">Ingresá cantidad</label>
-      <input id="qtyModalInput" class="qty-input-d9" type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" autocomplete="off" />
+      <input id="qtyModalInput" class="qty-input-d9" type="text" inputmode="decimal" min="0" step="any" autocomplete="off" />
       <p class="qty-help-d9">0 elimina el producto del pedido.</p>
       <div class="qty-actions-d9">
         <button id="btnQtyCancel" class="secondary-btn" type="button">Cancelar</button>
@@ -2509,18 +2605,20 @@ function ensureQtyModalD9() {
   return modal;
 }
 
-function openQtyModalD9(id) {
-  const item = state.cart.find(x => x.id === id);
+function openQtyModalD9(id, mode = "order") {
+  const isMostrador = mode === "mostrador";
+  const item = (isMostrador ? state.mostradorCart : state.cart).find(x => String(x.id) === String(id));
   if (!item) return;
 
   const modal = ensureQtyModalD9();
   state.qtyModalItemId = id;
+  state.qtyModalMode = isMostrador ? "mostrador" : "order";
 
   const productEl = modal.querySelector("#qtyModalProduct");
   const input = modal.querySelector("#qtyModalInput");
 
   if (productEl) productEl.textContent = item.nombre || "Producto";
-  if (input) input.value = String(Number(item.cantidad || 1));
+  if (input) input.value = isMostrador ? mostradorQtyTextD9(item.cantidad || 1) : String(Number(item.cantidad || 1));
 
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
@@ -2536,6 +2634,7 @@ function closeQtyModalD9() {
   const modal = document.getElementById("qtyModal");
   if (!modal) return;
   state.qtyModalItemId = "";
+  state.qtyModalMode = "order";
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
 }
@@ -2546,7 +2645,8 @@ function applyQtyModalD9() {
   if (!id || !input) return;
 
   const raw = String(input.value || "").trim();
-  const qty = Math.floor(Number(raw.replace(",", ".")));
+  const isMostrador = state.qtyModalMode === "mostrador";
+  const qty = isMostrador ? parseDecimalD9(raw) : Math.floor(Number(raw.replace(",", ".")));
 
   if (!Number.isFinite(qty) || qty < 0) {
     toast("Ingresá una cantidad válida.");
@@ -2555,21 +2655,28 @@ function applyQtyModalD9() {
     return;
   }
 
-  const item = state.cart.find(x => x.id === id);
+  const list = isMostrador ? state.mostradorCart : state.cart;
+  const item = list.find(x => String(x.id) === String(id));
   if (!item) return closeQtyModalD9();
 
   if (qty <= 0) {
-    state.cart = state.cart.filter(x => x.id !== id);
+    if (isMostrador) state.mostradorCart = state.mostradorCart.filter(x => String(x.id) !== String(id));
+    else state.cart = state.cart.filter(x => String(x.id) !== String(id));
   } else {
     item.cantidad = qty;
-    item.precio = productPrice(item);
+    if (isMostrador) asegurarPrecioMostradorD9(item);
+    else item.precio = productPrice(item);
   }
 
   closeQtyModalD9();
   renderProducts();
-  renderQuickLabels();
-  renderCart();
+  if (isMostrador) renderMostradorD9();
+  else {
+    renderQuickLabels();
+    renderCart();
+  }
 }
+
 
 function renderCart() {
   const box = $("#cartList");
@@ -2719,7 +2826,10 @@ function buildWebhookPayload(payload) {
       precio: Number(item.precio || 0)
     })),
     total: Number(payload?.total || 0),
-    fecha: payload?.fecha || new Date().toISOString()
+    // Se manda para futuras versiones del script. El script actual puede ignorarlo.
+    fecha: payload?.fecha || new Date().toISOString(),
+    fecha_original: payload?.fecha || "",
+    resync_pc: payload?.resync_pc === true
   };
 }
 
@@ -2742,7 +2852,78 @@ async function sendToEndpoint(url, sendPayload) {
     return { ok: false, status: r.status, error: data?.error || raw || "Error HTTP", endpoint: url };
   }
 
-  return { ok: !!data?.ok, data, endpoint: url };
+  // Blindaje D9: no alcanza con que el fetch termine.
+  // Solo consideramos enviado si el backend responde JSON con ok:true.
+  if (!data || data.ok !== true) {
+    return { ok: false, status: r.status, error: data?.error || raw || "La PC no confirmó el pedido", data, endpoint: url };
+  }
+
+  return { ok: true, data, endpoint: url };
+}
+
+function getPedidoIdFromPcRowD9(p) {
+  if (!p || typeof p !== "object") return "";
+
+  // La hoja real puede venir como "ID comp.", normalizado por Apps Script como "id_comp.".
+  // También soportamos variantes sin punto, nombres nuevos/viejos y diferencias de mayúsculas.
+  const directKeys = [
+    "pedido_id", "pedidoid", "id_pedido", "id_comp", "id_comp.",
+    "id_compra", "id_compra.", "id", "venta_id"
+  ];
+
+  for (const k of directKeys) {
+    if (p[k]) return String(p[k]).trim();
+  }
+
+  // Fallback más robusto: normaliza claves quitando puntos, espacios y símbolos.
+  for (const [k, v] of Object.entries(p)) {
+    if (!v) continue;
+    const key = String(k || "")
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
+    if (key === "id_comp" || key === "id_compra" || key === "pedido_id" || key === "id_pedido") {
+      return String(v).trim();
+    }
+    if ((key.includes("pedido") || (key.includes("id") && key.includes("comp"))) && v) {
+      return String(v).trim();
+    }
+  }
+
+  return "";
+}
+
+function delayD9(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function verifyPedidoInPcD9(pedidoId, attempts = 3) {
+  const id = String(pedidoId || "").trim();
+  if (!id) return { ok: false, error: "Pedido sin ID para verificar" };
+
+  let lastError = "La PC no confirmó que el pedido haya quedado cargado";
+
+  for (let intento = 1; intento <= attempts; intento++) {
+    try {
+      const r = await fetch(`${getApiBaseD9()}?action=list_pedidos&_=${Date.now()}`, { cache: "no-store" });
+      const data = await r.json();
+      if (!r.ok || data?.ok !== true || !Array.isArray(data.pedidos)) {
+        lastError = data?.error || "La PC no devolvió lista de pedidos";
+      } else {
+        const exists = data.pedidos.some(p => getPedidoIdFromPcRowD9(p) === id);
+        if (exists) return { ok: true };
+        lastError = "La PC no confirmó que el pedido haya quedado cargado";
+      }
+    } catch (err) {
+      lastError = `No pude verificar en PC: ${String(err)}`;
+    }
+
+    if (intento < attempts) await delayD9(700 * intento);
+  }
+
+  return { ok: false, error: lastError };
 }
 
 async function trySendToWebhook(payload) {
@@ -2753,13 +2934,46 @@ async function trySendToWebhook(payload) {
   const sendPayload = buildWebhookPayload(payload);
   let lastError = null;
 
+  async function verifyAfterSendProblemD9(endpoint, errorText) {
+    // Caso real detectado: Apps Script puede escribir en PC, pero el navegador perder
+    // la confirmación del POST (Failed to fetch / redirect / conexión gris).
+    // Antes de declarar "No llegó a PC", verificamos por ID.
+    try {
+      const verify = await verifyPedidoInPcD9(sendPayload.pedido_id, 3);
+      if (verify?.ok) {
+        return {
+          ok: true,
+          endpoint,
+          data: {
+            ok: true,
+            duplicated: true,
+            pedido_id: sendPayload.pedido_id,
+            verified_after_error: true,
+            message: "El pedido ya estaba cargado en PC. Se corrigió el estado local."
+          }
+        };
+      }
+      return { ok: false, error: verify?.error || errorText || "No confirmado en PC", endpoint };
+    } catch (verifyErr) {
+      return { ok: false, error: errorText || String(verifyErr), endpoint };
+    }
+  }
+
   for (const endpoint of WEBHOOK_ENDPOINTS) {
     try {
       const result = await sendToEndpoint(endpoint, sendPayload);
-      if (result?.ok) return result;
-      lastError = result || { ok: false, error: `Fallo en ${endpoint}`, endpoint };
+      if (result?.ok) {
+        const verify = await verifyPedidoInPcD9(sendPayload.pedido_id);
+        if (verify.ok) return result;
+        lastError = { ok: false, error: verify.error || "No confirmado en PC", endpoint, data: result.data };
+      } else {
+        // Aunque el POST haya vuelto raro/no confirmado, puede haber escrito en PC.
+        lastError = await verifyAfterSendProblemD9(endpoint, result?.error || `Fallo en ${endpoint}`);
+        if (lastError?.ok) return lastError;
+      }
     } catch (error) {
-      lastError = { ok: false, error: String(error), endpoint };
+      lastError = await verifyAfterSendProblemD9(endpoint, String(error));
+      if (lastError?.ok) return lastError;
     }
   }
 
@@ -2768,15 +2982,22 @@ async function trySendToWebhook(payload) {
 
 function saveHistory(payload, status = "enviado", error = "") {
   const history = readJSON(STORAGE_KEYS.history, []);
-  history.unshift({
-    id: `${payload.fecha}_${payload.cliente?.id || payload.cliente?.nombre_real || payload.cliente?.nombre || "pedido"}_${Math.random().toString(36).slice(2, 8)}`,
+  const pedidoId = String(payload?.pedido_id || payload?.pedidoId || "").trim();
+  const existingIndex = pedidoId ? history.findIndex(x => String(x.pedido_id || "").trim() === pedidoId) : -1;
+  const entry = {
+    id: pedidoId || `${payload.fecha}_${payload.cliente?.id || payload.cliente?.nombre_real || payload.cliente?.nombre || "pedido"}_${Math.random().toString(36).slice(2, 8)}`,
+    pedido_id: pedidoId,
     fecha: payload.fecha,
     vendedor: payload.vendedor?.nombre || "",
+    vendedor_id: payload.vendedor?.id || "",
     cliente: payload.cliente?.nombre_real || payload.cliente?.nombre || "",
     cliente_id: payload.cliente?.id || "",
+    cliente_data: payload.cliente || null,
     detalle: payload.detalle,
     total: payload.total,
     status,
+    pc_status: status === "ok" ? "cargado" : "pendiente",
+    whatsapp_status: "enviado",
     items: (payload.carrito || []).map(x => ({
       id: x.id,
       nombre: x.nombre,
@@ -2785,16 +3006,348 @@ function saveHistory(payload, status = "enviado", error = "") {
       subtotal: Number(x.precio || 0) * Number(x.cantidad || 0)
     })),
     error
-  });
+  };
+  if (existingIndex >= 0) history[existingIndex] = { ...history[existingIndex], ...entry };
+  else history.unshift(entry);
   saveJSON(STORAGE_KEYS.history, history.slice(0, 300));
   renderHistory();
+  renderMostradorRoleD9();
+  renderMostradorD9();
 }
 
 function savePendingPayload(payload) {
   const pending = readJSON(STORAGE_KEYS.pending, []);
+  const pedidoId = String(payload?.pedido_id || payload?.pedidoId || "").trim();
+  if (pedidoId && pending.some(x => String(x?.pedido_id || x?.pedidoId || "").trim() === pedidoId)) {
+    renderPendingBadge();
+    return;
+  }
   pending.push(payload);
   saveJSON(STORAGE_KEYS.pending, pending);
   renderPendingBadge();
+}
+
+function updateHistoryStatusByPedidoIdD9(pedidoId, status, error = "") {
+  const id = String(pedidoId || "").trim();
+  if (!id) return;
+  const history = readJSON(STORAGE_KEYS.history, []);
+  let changed = false;
+  const next = history.map(item => {
+    if (String(item.pedido_id || item.id || "").trim() !== id) return item;
+    changed = true;
+    return { ...item, status, pc_status: status === "ok" ? "cargado" : "pendiente", error };
+  });
+  if (changed) {
+    saveJSON(STORAGE_KEYS.history, next);
+    renderHistory();
+  }
+}
+
+function looksLikePedidoIdD9(value) {
+  const v = String(value || "").trim();
+  // Formato normal actual: vendedorId-CODIGO8, ej: 3-ZWKPU34J o 10-RH7738G6.
+  if (/^\d{1,4}-[A-Z0-9]{6,12}$/i.test(v)) return true;
+  // Fallback para historiales viejos ya guardados con otro formato local.
+  // No genera ID nuevo: si existe un ID local estable, lo reutilizamos para que no duplique al segundo intento.
+  if (/^[A-Za-z0-9_-]{6,40}$/.test(v) && !v.includes(" ")) return true;
+  return false;
+}
+
+function getHistoryPedidoIdD9(item) {
+  const pedidoId = String(item?.pedido_id || item?.pedidoId || item?.id_pedido || "").trim();
+  if (pedidoId) return pedidoId;
+  const id = String(item?.id || "").trim();
+  if (looksLikePedidoIdD9(id)) return id;
+  return "";
+}
+
+
+function hashManualPedidoIdD9(value) {
+  const text = String(value || "manual");
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36).toUpperCase().slice(0, 8).padStart(6, "0");
+}
+
+function inferVendedorIdFromHistoryD9(item) {
+  const direct = String(item?.vendedor_id || item?.vendedorId || "").trim();
+  if (direct) return direct;
+
+  // Algunos historiales viejos guardaban algo tipo fecha_5_xxxxx.
+  const rawId = String(item?.id || "").trim();
+  const parts = rawId.split("_");
+  const maybe = parts.find(part => /^\d{1,4}$/.test(part));
+  if (maybe) return maybe;
+
+  return String(state?.seller?.id || "0").trim();
+}
+
+function getManualPedidoIdD9(item) {
+  // ID estable: no es el ID comp. original, pero permite cargar manual sin duplicar al segundo intento.
+  const base = String(item?.id || `${item?.fecha || ""}_${item?.cliente || ""}_${item?.total || ""}` || Date.now()).trim();
+  const vendedorId = inferVendedorIdFromHistoryD9(item) || "0";
+  return `MAN-${vendedorId}-${hashManualPedidoIdD9(base)}`;
+}
+
+function updateHistoryItemByLocalIdD9(localId, patch) {
+  const id = String(localId || "").trim();
+  if (!id) return;
+  const history = readJSON(STORAGE_KEYS.history, []);
+  let changed = false;
+  const next = history.map(item => {
+    const itemId = String(item.id || item.pedido_id || item.pedidoId || "").trim();
+    if (itemId !== id) return item;
+    changed = true;
+    return { ...item, ...patch };
+  });
+  if (changed) {
+    saveJSON(STORAGE_KEYS.history, next);
+    renderHistory();
+    renderPendingBadge();
+  }
+}
+
+function buildManualPayloadFromHistoryItemD9(item) {
+  const items = Array.isArray(item?.items) ? item.items : [];
+  if (!items.length) {
+    return { ok: false, error: "Este registro no tiene productos completos para cargar manualmente." };
+  }
+
+  const pedidoId = getManualPedidoIdD9(item);
+  const vendedorId = inferVendedorIdFromHistoryD9(item);
+  const clienteData = item?.cliente_data || {
+    id: item?.cliente_id || "",
+    nombre: item?.cliente || "",
+    nombre_real: item?.cliente || ""
+  };
+
+  return {
+    ok: true,
+    pedido_id: pedidoId,
+    fecha: item?.fecha || new Date().toISOString(),
+    vendedor: { id: vendedorId || "", nombre: item?.vendedor || state.seller?.nombre || "" },
+    cliente: clienteData,
+    carrito: items.map(x => ({
+      id: x.id || x.id_producto || "",
+      nombre: x.nombre || "",
+      cantidad: Number(x.cantidad || 0),
+      precio: Number(x.precio || 0)
+    })),
+    total: Number(item?.total || 0),
+    detalle: item?.detalle || items.map(x => `${x.nombre || "Producto"} x${x.cantidad || 0}`).join(" | "),
+    resync_pc: true,
+    carga_manual_pc: true
+  };
+}
+
+async function manualLoadHistoryItemsToPcD9(ids) {
+  const selectedIds = (Array.isArray(ids) ? ids : [ids]).map(String).filter(Boolean);
+  if (!selectedIds.length) return toast("Seleccioná al menos un pedido.");
+  if (!navigator.onLine) return toast("Sin conexión. Probá cuando tengas internet.");
+
+  const history = readJSON(STORAGE_KEYS.history, []);
+  const selected = history.filter(item => selectedIds.includes(String(item.id || item.pedido_id || item.pedidoId || "")));
+  if (!selected.length) return toast("No encontré esos pedidos en historial.");
+
+  const msg = selected.length === 1
+    ? "Este pedido no tiene ID original. Se cargará manualmente en PC con un ID nuevo estable (MAN-...). ¿Continuar?"
+    : `${selected.length} pedidos se cargarán manualmente en PC con ID nuevo estable (MAN-...). ¿Continuar?`;
+  if (!confirm(msg)) return;
+
+  let ok = 0;
+  let already = 0;
+  let fail = 0;
+
+  for (const item of selected) {
+    const localId = String(item.id || item.pedido_id || item.pedidoId || "").trim();
+    const payload = buildManualPayloadFromHistoryItemD9(item);
+    if (!payload?.ok) {
+      fail++;
+      if (localId) updateHistoryItemByLocalIdD9(localId, { status: "pendiente", pc_status: "pendiente", error: payload?.error || "No se pudo cargar manualmente" });
+      continue;
+    }
+
+    try {
+      const exists = await verifyPedidoInPcD9(payload.pedido_id, 2);
+      if (exists?.ok) {
+        already++;
+        updateHistoryItemByLocalIdD9(localId, {
+          pedido_id: payload.pedido_id,
+          status: "ok",
+          pc_status: "cargado",
+          error: "Carga manual: ya recibido previamente"
+        });
+        continue;
+      }
+
+      const res = await trySendToWebhook(payload);
+      if (res?.ok) {
+        ok++;
+        updateHistoryItemByLocalIdD9(localId, {
+          pedido_id: payload.pedido_id,
+          vendedor_id: payload.vendedor?.id || item.vendedor_id || "",
+          status: "ok",
+          pc_status: "cargado",
+          error: res?.data?.duplicated ? "Carga manual: ya recibido previamente" : "Cargado manualmente en PC"
+        });
+      } else {
+        fail++;
+        updateHistoryItemByLocalIdD9(localId, {
+          pedido_id: payload.pedido_id,
+          vendedor_id: payload.vendedor?.id || item.vendedor_id || "",
+          status: "pendiente",
+          pc_status: "pendiente",
+          error: res?.error || "No llegó a PC"
+        });
+        savePendingPayload(payload);
+      }
+    } catch (err) {
+      fail++;
+      updateHistoryItemByLocalIdD9(localId, {
+        pedido_id: payload.pedido_id,
+        status: "pendiente",
+        pc_status: "pendiente",
+        error: String(err)
+      });
+      savePendingPayload(payload);
+    }
+  }
+
+  renderPendingBadge();
+  if ((ok || already) && !fail) {
+    const parts = [];
+    if (ok) parts.push(ok === 1 ? "1 cargado manualmente" : `${ok} cargados manualmente`);
+    if (already) parts.push(already === 1 ? "1 ya estaba en PC" : `${already} ya estaban en PC`);
+    toast(parts.join(" · "));
+  } else if ((ok || already) && fail) {
+    toast(`OK ${ok + already}. Fallaron ${fail}.`);
+  } else {
+    toast("No se pudo cargar manualmente en PC.");
+  }
+}
+
+
+function debugHistoryItemD9(item, payloadResult = null) {
+  const rawId = String(item?.id || "").trim();
+  const pedidoId = getHistoryPedidoIdD9(item);
+  const items = Array.isArray(item?.items) ? item.items : [];
+  const carrito = payloadResult?.ok && Array.isArray(payloadResult.carrito) ? payloadResult.carrito : [];
+  const keys = item && typeof item === "object" ? Object.keys(item).slice(0, 30).join(", ") : "sin objeto";
+  return [
+    "DEBUG REENVIAR A PC",
+    `ID detectado: ${pedidoId || "NO"}`,
+    `item.id: ${rawId || "NO"}`,
+    `item.pedido_id: ${item?.pedido_id || "NO"}`,
+    `item.pedidoId: ${item?.pedidoId || "NO"}`,
+    `items en historial: ${items.length}`,
+    `carrito armado: ${carrito.length}`,
+    `cliente: ${item?.cliente || "NO"}`,
+    `vendedor: ${item?.vendedor || "NO"}`,
+    `vendedor_id: ${item?.vendedor_id || "NO"}`,
+    `total: ${item?.total || "NO"}`,
+    `endpoint(s): ${(Array.isArray(WEBHOOK_ENDPOINTS) ? WEBHOOK_ENDPOINTS.length : 0)}`,
+    `claves: ${keys}`,
+    payloadResult?.ok ? "payload: OK" : `payload error: ${payloadResult?.error || "NO"}`
+  ].join("\n");
+}
+
+function showResyncDebugD9(item, payloadResult = null, stage = "inicio") {
+  const text = `${stage.toUpperCase()}\n${debugHistoryItemD9(item, payloadResult)}`;
+  console.log(text, { item, payloadResult, stage });
+  try {
+    alert(text);
+  } catch (_) {
+    toast(text.split("\n").slice(0, 3).join(" · "));
+  }
+}
+
+function buildPayloadFromHistoryItemD9(item) {
+  const pedidoId = getHistoryPedidoIdD9(item);
+  if (!pedidoId) {
+    return { ok: false, error: "Este registro no tiene ID original. Usá Reutilizar o cargalo manualmente para evitar duplicados." };
+  }
+  const clienteData = item?.cliente_data || {
+    id: item?.cliente_id || "",
+    nombre: item?.cliente || "",
+    nombre_real: item?.cliente || ""
+  };
+  return {
+    ok: true,
+    pedido_id: pedidoId,
+    fecha: item?.fecha || new Date().toISOString(),
+    vendedor: { id: item?.vendedor_id || state.seller?.id || "", nombre: item?.vendedor || state.seller?.nombre || "" },
+    cliente: clienteData,
+    carrito: (item?.items || []).map(x => ({ id: x.id || "", nombre: x.nombre || "", cantidad: Number(x.cantidad || 0), precio: Number(x.precio || 0) })),
+    total: Number(item?.total || 0),
+    detalle: item?.detalle || "",
+    resync_pc: true
+  };
+}
+
+async function resyncHistoryItemsToPcD9(ids) {
+  const selectedIds = (Array.isArray(ids) ? ids : [ids]).map(String).filter(Boolean);
+  if (!selectedIds.length) return toast("Seleccioná al menos un pedido.");
+  if (!navigator.onLine) return toast("Sin conexión. Probá cuando tengas internet.");
+
+  const history = readJSON(STORAGE_KEYS.history, []);
+  const selected = history.filter(item => selectedIds.includes(String(item.id || item.pedido_id || item.pedidoId || "")));
+  if (!selected.length) return toast("No encontré esos pedidos en historial.");
+
+  let ok = 0;
+  let already = 0;
+  let fail = 0;
+  for (const item of selected) {
+    const payload = buildPayloadFromHistoryItemD9(item);
+    if (!payload?.ok) {
+      fail++;
+      toast(payload?.error || "No pude armar el pedido para reenviar.");
+      continue;
+    }
+    if (!payload.carrito.length) {
+      fail++;
+      updateHistoryStatusByPedidoIdD9(payload.pedido_id, "pendiente", "Registro sin detalle de productos");
+      toast("No pude reenviar: el historial no tiene productos completos.");
+      continue;
+    }
+
+    try {
+      // Primero verificamos. Si ya está en PC, NO hacemos POST y evitamos duplicados.
+      const exists = await verifyPedidoInPcD9(payload.pedido_id);
+      if (exists?.ok) {
+        already++;
+        updateHistoryStatusByPedidoIdD9(payload.pedido_id, "ok", "Ya recibido previamente");
+        continue;
+      }
+
+      const res = await trySendToWebhook(payload);
+      if (res?.ok) {
+        ok++;
+        updateHistoryStatusByPedidoIdD9(payload.pedido_id, "ok", res?.data?.duplicated ? "Ya recibido previamente" : "Reenviado a PC");
+      } else {
+        fail++;
+        updateHistoryStatusByPedidoIdD9(payload.pedido_id, "pendiente", res?.error || "No llegó a PC");
+        savePendingPayload(payload);
+      }
+    } catch (err) {
+      fail++;
+      updateHistoryStatusByPedidoIdD9(payload.pedido_id, "pendiente", String(err));
+      savePendingPayload(payload);
+    }
+  }
+  renderPendingBadge();
+  if ((ok || already) && !fail) {
+    const parts = [];
+    if (ok) parts.push(ok === 1 ? "1 reenviado" : `${ok} reenviados`);
+    if (already) parts.push(already === 1 ? "1 ya estaba en PC" : `${already} ya estaban en PC`);
+    toast(parts.join(" · "));
+  } else if ((ok || already) && fail) {
+    toast(`OK ${ok + already}. Fallaron ${fail}.`);
+  } else {
+    toast("No se pudo reenviar a PC. Quedó pendiente.");
+  }
 }
 
 async function sendOrder() {
@@ -2846,6 +3399,9 @@ async function sendOrder() {
         if (!res || !res.ok) {
           savePendingPayload(payload);
           saveHistory(payload, "pendiente", res?.error || "No pude confirmar el envío");
+          // IMPORTANTE: el pedido ya salió por WhatsApp y quedó guardado con su ID.
+          // Limpiamos el borrador para que el próximo pedido NO reutilice el mismo ID.
+          clearDraftPedidoIdD9();
           renderPendingBadge();
           console.warn("Pedido pendiente:", res?.error);
         } else {
@@ -2857,6 +3413,8 @@ async function sendOrder() {
       .catch(err => {
         savePendingPayload(payload);
         saveHistory(payload, "pendiente", String(err));
+        // También en error total: el próximo pedido debe nacer con ID nuevo.
+        clearDraftPedidoIdD9();
         renderPendingBadge();
         console.error("Error total, guardado local:", err);
       });
@@ -2934,10 +3492,13 @@ async function syncPending() {
         const result = await trySendToWebhook(item);
         if (result.ok) {
           sentCount++;
+          updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "ok", result?.data?.duplicated ? "Ya estaba cargado en PC" : "Cargado en PC");
         } else {
+          updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "pendiente", result?.error || "No llegó a PC");
           remaining.push(item);
         }
-      } catch {
+      } catch (err) {
+        updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "pendiente", String(err));
         remaining.push(item);
       }
     }
@@ -2979,13 +3540,23 @@ function renderHistory() {
   }
 
   list.className = "history-list";
-  list.innerHTML = history.map(item => {
+  const toolbarHtml = `
+    <div class="history-resync-toolbar-d9" data-no-toggle>
+      <button class="history-action-btn" id="btnResyncSelectedHistoryD9" type="button">🔁 Reenviar seleccionados a PC</button>
+      <button class="history-action-btn" id="btnManualLoadSelectedHistoryD9" type="button">📝 Cargar manual seleccionados</button>
+      <span class="mini-text">Para pedidos que salieron por WhatsApp pero no llegaron a la PC.</span>
+    </div>`;
+  list.innerHTML = toolbarHtml + history.map(item => {
     const itemId = item.id || `${item.fecha}_${item.cliente}_${item.total}`;
     const isOpen = state.historyOpenId === itemId;
     const items = Array.isArray(item.items) ? item.items : [];
+    const debugId = getHistoryPedidoIdD9(item);
+    const debugHtml = `
+          <div class="mini-text history-debug-d9"><strong>ID interno:</strong> ${esc(debugId || 'NO ENCONTRADO')} · items: ${items.length} · vend_id: ${esc(item.vendedor_id || 'NO')}</div>`;
     const detailHtml = items.length
       ? `
         <div class="history-detail ${isOpen ? '' : 'hidden'}" id="detail-${esc(itemId)}">
+          ${debugHtml}
           ${items.map(prod => `
             <div class="history-product-row">
               <div class="history-product-main">
@@ -3000,17 +3571,21 @@ function renderHistory() {
         </div>`
       : `
         <div class="history-detail ${isOpen ? '' : 'hidden'}" id="detail-${esc(itemId)}">
+          ${debugHtml}
           <div class="mini-text">${esc(item.detalle || 'Sin detalle cargado.')}</div>
         </div>`;
 
+    const pcText = item.pc_status === "cargado" || item.status === "ok" ? "Cargado en PC" : "No llegó a PC";
     return `
       <div class="history-item ${isOpen ? 'is-open' : ''}" data-history-id="${esc(itemId)}" role="button" tabindex="0">
         <div class="history-head-row">
           <div class="history-copy">
+            <label class="history-select-line-d9" data-no-toggle><input type="checkbox" class="history-select-d9" data-history-select="${esc(itemId)}"> <span>Seleccionar</span></label>
             <strong>${esc(item.cliente)}</strong>
             <div class="mini-text">${new Date(item.fecha).toLocaleString("es-AR")}</div>
-            <div class="mini-text history-meta-line">${esc(item.vendedor)} · ${esc(item.status || "")}${item.error ? ' · ' + esc(item.error) : ''}</div>
-            <div class="history-actions" data-no-toggle>
+            <div class="mini-text history-meta-line">${esc(item.vendedor)} · WhatsApp enviado · ${esc(pcText)}${item.error ? ' · ' + esc(item.error) : ''}</div>
+            <div class="history-actions history-actions-compact-d9" data-no-toggle>
+              ${pcText === "Cargado en PC" ? '' : (debugId ? `<button class="history-action-btn history-action-main-d9" data-resync-history="${esc(itemId)}" type="button">🔁 Reenviar a PC</button>` : `<button class="history-action-btn history-action-main-d9" data-manual-load-history="${esc(itemId)}" type="button">📝 Cargar manual</button>`)}
               <button class="history-action-btn" data-reuse-history="${esc(itemId)}" type="button">↻ Reutilizar</button>
               <button class="history-delete-btn" data-delete-history="${esc(itemId)}" type="button" aria-label="Borrar pedido del historial">🗑️</button>
             </div>
@@ -3025,82 +3600,21 @@ function renderHistory() {
   }).join('');
 }
 
-function findClientFromHistoryItemD9(item) {
-  const clientId = String(item?.cliente_id || "").trim();
-  const clientName = String(item?.cliente || "").trim();
-
-  if (clientId) {
-    const byId = state.clients.find(c => String(c.id || "").trim() === clientId);
-    if (byId) return byId;
-  }
-
-  if (clientName) {
-    const norm = clientName.toLowerCase();
-    const byName = state.clients.find(c =>
-      String(c.nombre || "").trim().toLowerCase() === norm ||
-      String(c.nombre_real || "").trim().toLowerCase() === norm
-    );
-    if (byName) return byName;
-
-    return {
-      id: clientId || `historial_${Date.now()}`,
-      nombre: clientName,
-      nombre_real: clientName,
-      telefono: "",
-      direccion: "",
-      lista_1: "lista_1",
-      historial: true
-    };
-  }
-
-  return null;
-}
-
-function hydrateHistoryCartItemD9(x) {
-  const id = String(x?.id || x?.id_producto || "").trim();
-  const cantidad = Number(x?.cantidad || 1);
-  const catalogProduct = id ? state.products.find(p => String(p.id || "").trim() === id) : null;
-
-  if (catalogProduct) {
-    return {
-      ...catalogProduct,
-      cantidad,
-      precio: productPrice(catalogProduct) || Number(x?.precio || 0)
-    };
-  }
-
-  return {
-    id,
-    nombre: x?.nombre || "Producto sin nombre",
-    cantidad,
-    precio: Number(x?.precio || 0)
-  };
-}
-
 function reuseHistoryItem(id) {
   const history = readJSON(STORAGE_KEYS.history, []);
   const item = history.find(x => x.id === id);
   if (!item) return toast("No encontré el pedido.");
 
-  const clientFromHistory = findClientFromHistoryItemD9(item);
-  if (clientFromHistory) {
-    state.selectedClient = clientFromHistory;
-    if (state.seller?.rol === "vendedor") {
-      state.activePriceList = clientFromHistory.lista_1 || "lista_1";
-      state.manualPriceOverride = false;
-    }
-  }
+  state.cart = (item.items || []).map(x => ({
+    id: x.id,
+    nombre: x.nombre,
+    cantidad: Number(x.cantidad || 1),
+    precio: Number(x.precio || 0)
+  }));
 
-  state.cart = (item.items || []).map(hydrateHistoryCartItemD9).filter(x => x.id || x.nombre);
-
-  renderSelectedClient();
-  renderOrderPriceListControls();
-  renderClients();
-  renderQuickLabels();
-  renderProducts();
   renderCart();
   showView("order");
-  toast(clientFromHistory ? "Pedido y cliente reutilizados." : "Pedido reutilizado.");
+  toast("Pedido reutilizado.");
 }
 
 function deleteHistoryItem(id) {
@@ -3156,6 +3670,8 @@ function showD9Confirm({ message, detail = "", okText = "Aceptar", cancelText = 
 function toggleHistoryItem(id) {
   state.historyOpenId = state.historyOpenId === id ? null : id;
   renderHistory();
+  renderMostradorRoleD9();
+  renderMostradorD9();
 }
 
 function exportHistory() {
@@ -3312,6 +3828,7 @@ function bind() {
     if (insideCategoryBtn) {
       e.preventDefault();
       e.stopPropagation();
+      state.categoryPickerMode = state.productPickerMode === "mostrador" ? "mostrador" : "order";
       renderCategories();
       const categoryModal = document.getElementById("categoryModal");
       if (categoryModal) {
@@ -3323,9 +3840,11 @@ function bind() {
     }
   });
 
-  $("#btnGoOrder").addEventListener("click", () => showView("order"));
+  $("#btnGoOrder").addEventListener("click", () => { state.productPickerMode = "order"; showView("order"); });
   $("#btnGoPrices").addEventListener("click", () => { renderPriceListControls(); renderPriceProducts(); showView("prices"); });
   $("#btnGoHistory").addEventListener("click", () => { renderHistory(); showView("history"); });
+  document.addEventListener("click", (ev) => { const b = ev.target.closest("#btnGoMostrador"); if (b) { renderMostradorD9(); showView("mostrador"); } });
+  document.addEventListener("click", (ev) => { const b = ev.target.closest("#btnGoSalesHistoryD9"); if (b) { renderSalesHistoryD9(); showView("sales-history-d9"); } });
   $("#sellerBadge").addEventListener("click", () => openLogin(false));
   $("#btnPancko").addEventListener("click", () => {
     if (isAppUpdateAvailableD9) {
@@ -3373,6 +3892,7 @@ function bind() {
   $("#btnRestoreHistory")?.addEventListener("click", openRestoreHistory);
   $("#restoreHistoryFile")?.addEventListener("change", restoreHistoryFromFile);
   $("#btnOpenClients").addEventListener("click", () => {
+    state.clientPickerMode = "order";
     if (state.seller?.rol === "cliente") return;
     if (!state.seller) {
       openOccasionalClientModal();
@@ -3382,6 +3902,7 @@ function bind() {
     openModal("client");
   });
   $("#btnOpenCategories").addEventListener("click", () => {
+    state.categoryPickerMode = "order";
     if (!state.selectedClient && !state.seller?.rol) {
       toast("Primero cargá los datos del comprador.");
       openOccasionalClientModal();
@@ -3391,16 +3912,57 @@ function bind() {
     openModal("category");
   });
   $("#btnOpenProducts").addEventListener("click", () => {
+    state.productPickerMode = "order";
+    state.categoryPickerMode = "order";
     if (!state.selectedClient && !state.seller?.rol) {
       toast("Primero cargá los datos del comprador.");
       openOccasionalClientModal();
       return;
     }
+    state.productPickerMode = "order";
     renderProducts();
     openModal("product");
   });
 
   document.addEventListener("click", (ev) => {
+    if (ev.target.closest("#btnMostradorOpenClients")) {
+      state.clientPickerMode = "mostrador";
+      renderClients();
+      openModal("client");
+      return;
+    }
+    if (ev.target.closest("#btnMostradorOpenCategories")) {
+      state.categoryPickerMode = "mostrador";
+      renderCategories();
+      openModal("category");
+      return;
+    }
+    if (ev.target.closest("#btnMostradorOpenProducts")) {
+      state.productPickerMode = "mostrador";
+      state.categoryPickerMode = "mostrador";
+      renderProducts();
+      openModal("product");
+      return;
+    }
+  });
+
+  document.addEventListener("input", (ev) => {
+    if (ev.target && ev.target.id === "mostradorSearch") { state.mostradorSearch = ev.target.value.trim().toLowerCase(); renderMostradorD9(); }
+  });
+
+  document.addEventListener("click", (ev) => {
+    const addMost = ev.target.closest("[data-mostrador-add]");
+    if (addMost) { addMostradorProductD9(addMost.dataset.mostradorAdd); return; }
+    const deltaMost = ev.target.closest("[data-mostrador-delta]");
+    if (deltaMost) { updateMostradorQtyDeltaD9(deltaMost.dataset.mostradorDelta, Number(deltaMost.dataset.delta || 0)); return; }
+    const qtyMost = ev.target.closest("[data-mostrador-qty]");
+    if (qtyMost) { editMostradorQtyD9(qtyMost.dataset.mostradorQty); return; }
+    const remMost = ev.target.closest("[data-mostrador-remove]");
+    if (remMost) { state.mostradorCart = state.mostradorCart.filter(x => String(x.id) !== String(remMost.dataset.mostradorRemove)); renderMostradorD9(); return; }
+    if (ev.target.closest("#btnMostradorClear")) { resetMostradorD9(); return; }
+    if (ev.target.closest("#btnMostradorPrint")) { printMostradorD9(); return; }
+    if (ev.target.closest("#btnMostradorWhatsApp")) { whatsappMostradorD9(); return; }
+
     const back = ev.target.closest("[data-back]");
     if (back) showView(back.dataset.back);
 
@@ -3428,6 +3990,37 @@ function bind() {
     const remove = ev.target.closest("[data-remove-id]");
     if (remove) removeItem(remove.dataset.removeId);
 
+    const resyncSelectedHistory = ev.target.closest("#btnResyncSelectedHistoryD9");
+    if (resyncSelectedHistory) {
+      ev.stopPropagation();
+      const ids = Array.from(document.querySelectorAll(".history-select-d9:checked")).map(x => x.dataset.historySelect);
+      resyncHistoryItemsToPcD9(ids);
+      return;
+    }
+
+
+    const manualLoadSelectedHistory = ev.target.closest("#btnManualLoadSelectedHistoryD9");
+    if (manualLoadSelectedHistory) {
+      ev.stopPropagation();
+      const ids = Array.from(document.querySelectorAll(".history-select-d9:checked")).map(x => x.dataset.historySelect);
+      manualLoadHistoryItemsToPcD9(ids);
+      return;
+    }
+
+    const manualLoadHistory = ev.target.closest("[data-manual-load-history]");
+    if (manualLoadHistory) {
+      ev.stopPropagation();
+      manualLoadHistoryItemsToPcD9(manualLoadHistory.dataset.manualLoadHistory);
+      return;
+    }
+
+    const resyncHistory = ev.target.closest("[data-resync-history]");
+    if (resyncHistory) {
+      ev.stopPropagation();
+      resyncHistoryItemsToPcD9(resyncHistory.dataset.resyncHistory);
+      return;
+    }
+
     const reuseHistory = ev.target.closest("[data-reuse-history]");
     if (reuseHistory) {
       ev.stopPropagation();
@@ -3444,6 +4037,23 @@ function bind() {
 
     const historyItem = ev.target.closest("[data-history-id]");
     if (historyItem) toggleHistoryItem(historyItem.dataset.historyId);
+
+    const reuseSales = ev.target.closest("[data-reuse-sales-history]");
+    if (reuseSales) {
+      ev.stopPropagation();
+      reuseSalesHistoryD9(reuseSales.dataset.reuseSalesHistory);
+      return;
+    }
+
+    const deleteSales = ev.target.closest("[data-delete-sales-history]");
+    if (deleteSales) {
+      ev.stopPropagation();
+      deleteSalesHistoryD9(deleteSales.dataset.deleteSalesHistory);
+      return;
+    }
+
+    const salesHistoryItem = ev.target.closest("[data-sales-history-id]");
+    if (salesHistoryItem) toggleSalesHistoryD9(salesHistoryItem.dataset.salesHistoryId);
 
     const bannerDot = ev.target.closest("[data-banner-slide]");
     if (bannerDot) {
@@ -3514,6 +4124,561 @@ function hydrateSeller() {
   return true;
 }
 
+
+function mostradorTotalD9() {
+  return state.mostradorCart.reduce((sum, item) => sum + (Number(item.cantidad) || 0) * (Number(item.precio) || 0), 0);
+}
+function renderMostradorQuickLabelsD9() {
+  const client = document.getElementById("mostradorClientLabel");
+  const category = document.getElementById("mostradorCategoryLabel");
+  const products = document.getElementById("mostradorProductsLabel");
+  if (client) client.textContent = state.mostradorClient
+    ? (state.mostradorClient.ocasional ? (state.mostradorClient.nombre_real || state.mostradorClient.nombre || "Cliente nuevo / ocasional") : state.mostradorClient.nombre)
+    : "Seleccionar cliente";
+  if (category) category.textContent = state.mostradorCategory ? cleanCategory(state.mostradorCategory) : "Todas las categorías";
+  if (products) products.textContent = state.mostradorCart.length ? `${state.mostradorCart.length} productos seleccionados` : "Seleccionar productos";
+}
+
+function mostradorQtyTextD9(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return "0";
+  return String(n).replace(".", ",");
+}
+
+function mostradorPrecioActualD9(item) {
+  const precioGuardado = Number(item?.precio || 0);
+  if (Number.isFinite(precioGuardado) && precioGuardado > 0) return precioGuardado;
+  const prod = state.products.find(p => String(p.id) === String(item?.id));
+  return Number(productPrice(prod) || 0);
+}
+
+function asegurarPrecioMostradorD9(item) {
+  if (!item) return 0;
+  const precio = mostradorPrecioActualD9(item);
+  item.precio = precio;
+  return precio;
+}
+
+function renderMostradorD9() {
+  const cartBox = $("#mostradorCartList");
+  const totalEl = $("#mostradorTotal");
+  if (!cartBox || !totalEl) return;
+  renderMostradorQuickLabelsD9();
+
+  if (!state.mostradorCart.length) {
+    cartBox.className = "cart-list empty-state";
+    cartBox.textContent = "Todavía no agregaste productos.";
+  } else {
+    cartBox.className = "cart-list";
+    cartBox.innerHTML = state.mostradorCart.map(item => {
+      const precio = asegurarPrecioMostradorD9(item);
+      const cantidadTxt = mostradorQtyTextD9(item.cantidad);
+      const subtotal = Number(item.cantidad || 0) * Number(precio || 0);
+      return `
+      <div class="cart-item mostrador-cart-item-d9">
+        <div class="cart-item-top">
+          <div>
+            <strong>${esc(item.nombre)}</strong>
+            <div class="cart-meta">${esc(cantidadTxt)} × ${money(precio)}</div>
+          </div>
+          <button class="remove-btn" data-mostrador-remove="${esc(item.id)}" type="button">Quitar</button>
+        </div>
+        <div class="mostrador-line-d9 mostrador-line-controls-d9">
+          <button class="qty-step-btn-d9" data-mostrador-delta="${esc(item.id)}" data-delta="-1" type="button">−</button>
+          <span class="mostrador-qty-number-d9">${esc(cantidadTxt)}</span>
+          <button class="qty-step-btn-d9" data-mostrador-delta="${esc(item.id)}" data-delta="1" type="button">+</button>
+          <button class="qty-edit-btn-d9 mostrador-qty-edit-manual-d9" data-mostrador-qty="${esc(item.id)}" type="button">✏️ Cant.</button>
+          <strong>${money(subtotal)}</strong>
+        </div>
+      </div>`;
+    }).join("");
+  }
+  totalEl.textContent = money(mostradorTotalD9());
+}
+
+function updateMostradorQtyDeltaD9(id, delta) {
+  const item = state.mostradorCart.find(x => String(x.id) === String(id));
+  if (!item) return;
+  item.cantidad = Number(item.cantidad || 0) + Number(delta || 0);
+  asegurarPrecioMostradorD9(item);
+  if (item.cantidad <= 0) state.mostradorCart = state.mostradorCart.filter(x => String(x.id) !== String(id));
+  renderMostradorD9();
+  if (state.productPickerMode === "mostrador") renderProducts();
+}
+
+function addMostradorProductD9(id) {
+  const p = state.products.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const current = state.mostradorCart.find(x => String(x.id) === String(id));
+  if (current) {
+    current.cantidad = (Number(current.cantidad) || 0) + 1;
+  } else {
+    state.mostradorCart.push({ id: p.id, nombre: p.nombre, precio: productPrice(p), cantidad: 1 });
+  }
+  renderMostradorD9();
+  if (state.productPickerMode === "mostrador") renderProducts();
+}
+function editMostradorQtyD9(id) {
+  openQtyModalD9(id, "mostrador");
+}
+
+function resetMostradorD9() {
+  if (!state.mostradorCart.length || confirm("¿Limpiar venta mostrador?")) {
+    state.mostradorCart = [];
+    state.mostradorVentaDraftId = "";
+    state.mostradorVentaFingerprint = "";
+    renderMostradorD9();
+  }
+}
+
+
+function mostradorFingerprintD9() {
+  const clienteObj = state.mostradorClient || {};
+  const items = state.mostradorCart.map(item => ({
+    id: String(item.id || ""),
+    nombre: String(item.nombre || ""),
+    cantidad: Number(item.cantidad || 0),
+    precio: Number(item.precio || 0)
+  }));
+  return JSON.stringify({
+    usuario_id: String(state.seller?.id || ""),
+    cliente_id: String(clienteObj.id || ""),
+    cliente: String(clienteObj.nombre_real || clienteObj.nombre || "Consumidor final"),
+    items
+  });
+}
+
+function ensureMostradorVentaIdD9() {
+  const fp = mostradorFingerprintD9();
+  if (!state.mostradorVentaDraftId || state.mostradorVentaFingerprint !== fp) {
+    state.mostradorVentaDraftId = `VM-${state.seller?.id || "0"}-${Date.now().toString(36).toUpperCase()}`;
+    state.mostradorVentaFingerprint = fp;
+  }
+  return state.mostradorVentaDraftId;
+}
+
+function buildMostradorPayloadD9() {
+  const now = new Date();
+  const clienteObj = state.mostradorClient || {};
+  const clienteNombre = clienteObj.nombre_real || clienteObj.nombre || "Consumidor final";
+  const ventaId = ensureMostradorVentaIdD9();
+  const items = state.mostradorCart.map(item => {
+    const cantidad = Number(item.cantidad || 0);
+    const precio = Number(item.precio || 0);
+    return {
+      id: item.id || "",
+      id_producto: item.id || "",
+      nombre: item.nombre || "",
+      cantidad,
+      precio,
+      precio_unitario: precio,
+      subtotal: cantidad * precio
+    };
+  });
+  const total = items.reduce((sum, x) => sum + Number(x.subtotal || 0), 0);
+  return {
+    action: "guardar_venta_mostrador",
+    tipo: "mostrador",
+    venta_id: ventaId,
+    fecha: now.toISOString(),
+    fecha_txt: now.toLocaleString("es-AR"),
+    usuario_id: state.seller?.id || "",
+    usuario: state.seller?.nombre || "Mostrador",
+    rol: state.seller?.rol || "mostrador",
+    cliente_id: clienteObj.id || "",
+    cliente: clienteNombre,
+    telefono: clienteObj.telefono || "",
+    direccion: clienteObj.direccion || "",
+    items,
+    total_venta: total,
+    total,
+    fingerprint: state.mostradorVentaFingerprint || mostradorFingerprintD9()
+  };
+}
+
+function saveMostradorHistoryD9(payload, status = "local", error = "", options = {}) {
+  const history = readJSON(STORAGE_KEYS.salesHistory, []);
+  const id = payload.venta_id || `VM_LOCAL_${Date.now()}`;
+  const existingIndex = history.findIndex(x => String(x.id || x.venta_id || "") === String(id));
+  const prev = existingIndex >= 0 ? history[existingIndex] : {};
+  const entry = {
+    ...prev,
+    id,
+    venta_id: payload.venta_id || prev.venta_id || "",
+    fecha: payload.fecha || prev.fecha || new Date().toISOString(),
+    fecha_txt: payload.fecha_txt || prev.fecha_txt || new Date().toLocaleString("es-AR"),
+    usuario: payload.usuario || prev.usuario || state.seller?.nombre || "Mostrador",
+    cliente: payload.cliente || prev.cliente || "Consumidor final",
+    cliente_id: payload.cliente_id || prev.cliente_id || "",
+    telefono: payload.telefono || prev.telefono || "",
+    direccion: payload.direccion || prev.direccion || "",
+    total: Number(payload.total_venta || payload.total || prev.total || 0),
+    status,
+    error,
+    saved_sheet: Boolean(options.saved_sheet || prev.saved_sheet || false),
+    fingerprint: payload.fingerprint || prev.fingerprint || "",
+    items: (payload.items || prev.items || []).map(x => ({
+      id: x.id || x.id_producto || "",
+      id_producto: x.id_producto || x.id || "",
+      nombre: x.nombre || "",
+      cantidad: Number(x.cantidad || 0),
+      precio: Number(x.precio || x.precio_unitario || 0),
+      subtotal: Number(x.subtotal || 0)
+    }))
+  };
+
+  if (existingIndex >= 0) {
+    history[existingIndex] = entry;
+  } else {
+    history.unshift(entry);
+  }
+
+  saveJSON(STORAGE_KEYS.salesHistory, history.slice(0, 200));
+  renderSalesHistoryD9();
+  renderMostradorRoleD9();
+  return entry;
+}
+
+function ventaMostradorYaGuardadaEnSheetD9(ventaId) {
+  const history = readJSON(STORAGE_KEYS.salesHistory, []);
+  const item = history.find(x => String(x.id || x.venta_id || "") === String(ventaId));
+  return Boolean(item?.saved_sheet);
+}
+
+async function persistMostradorVentaD9(motivo = "local") {
+  if (!state.mostradorCart.length) return null;
+  const payload = buildMostradorPayloadD9();
+  const statusBase = motivo === "whatsapp" ? "enviado" : motivo === "impresion" ? "impreso" : "local";
+  saveMostradorHistoryD9(payload, statusBase, motivo === "whatsapp" ? "WhatsApp abierto" : "", { saved_sheet: false });
+
+  if (ventaMostradorYaGuardadaEnSheetD9(payload.venta_id)) {
+    return { ok: true, already_saved: true, payload };
+  }
+
+  if (!navigator.onLine) {
+    saveMostradorHistoryD9(payload, "pendiente", "Sin conexión", { saved_sheet: false });
+    return { ok: false, pending: true, payload };
+  }
+
+  try {
+    const res = await sendMostradorVentaToSheetD9(payload);
+    if (res?.ok) {
+      saveMostradorHistoryD9(payload, statusBase, "", { saved_sheet: true });
+      return { ok: true, payload, res };
+    }
+    saveMostradorHistoryD9(payload, "pendiente", res?.error || "No se confirmó en Sheet", { saved_sheet: false });
+    console.warn("Venta mostrador pendiente:", res?.error || res);
+    return { ok: false, payload, res };
+  } catch (err) {
+    saveMostradorHistoryD9(payload, "pendiente", String(err), { saved_sheet: false });
+    console.warn("Venta mostrador pendiente:", err);
+    return { ok: false, payload, error: err };
+  }
+}
+
+
+async function sendMostradorVentaToSheetD9(payload) {
+  const apiBase = getApiBaseD9();
+  const body = JSON.stringify(payload);
+
+  async function tryPost(options) {
+    const r = await fetch(`${apiBase}?action=guardar_venta_mostrador`, {
+      method: "POST",
+      cache: "no-store",
+      redirect: "follow",
+      ...options
+    });
+    const text = await r.text();
+    try { return JSON.parse(text); } catch { return { ok: false, raw: text }; }
+  }
+
+  try {
+    const res = await tryPost({
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body
+    });
+    if (res?.ok) return res;
+  } catch (_) {}
+
+  return tryPost({
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: `payload=${encodeURIComponent(body)}`
+  });
+}
+
+function renderSalesHistoryD9() {
+  const list = document.getElementById("salesHistoryListD9");
+  if (!list) return;
+  const history = readJSON(STORAGE_KEYS.salesHistory, []);
+  if (!history.length) {
+    list.className = "history-list empty-state";
+    list.innerHTML = "Sin ventas guardadas todavía.";
+    return;
+  }
+  list.className = "history-list";
+  const toolbarHtml = `
+    <div class="history-resync-toolbar-d9" data-no-toggle>
+      <button class="history-action-btn" id="btnResyncSelectedHistoryD9" type="button">🔁 Reenviar seleccionados a PC</button>
+      <span class="mini-text">Para pedidos que salieron por WhatsApp pero no llegaron a la PC.</span>
+    </div>`;
+  list.innerHTML = toolbarHtml + history.map(item => {
+    const id = item.id || item.venta_id || "";
+    const isOpen = state.salesHistoryOpenId === id;
+    const detalle = (item.items || []).map(prod => `
+      <div class="history-product-row">
+        <div class="history-product-main">
+          <strong>${esc(prod.nombre || "")}</strong>
+          <small>${esc(fmtQtyD9(prod.cantidad))} × ${esc(money(prod.precio))}</small>
+        </div>
+        <div class="history-product-side">
+          <strong>${esc(money(prod.subtotal || (Number(prod.cantidad||0)*Number(prod.precio||0))))}</strong>
+        </div>
+      </div>`).join("");
+    return `
+      <div class="history-item ${isOpen ? 'is-open' : ''}" data-sales-history-id="${esc(id)}" role="button" tabindex="0">
+        <div class="history-head-row">
+          <div class="history-copy">
+            <strong>${esc(item.cliente || "Consumidor final")}</strong>
+            <div class="mini-text">${esc(new Date(item.fecha || Date.now()).toLocaleString("es-AR"))} · ${esc(item.usuario || "Mostrador")}</div>
+            <div class="mini-text history-meta-line">${esc(item.status || "local")}${item.error ? ' · ' + esc(item.error) : ''}</div>
+            <div class="history-actions" data-no-toggle>
+              <button class="history-reuse-btn" data-reuse-sales-history="${esc(id)}" type="button" aria-label="Reutilizar venta">↻ Reutilizar</button>
+              <button class="history-delete-btn" data-delete-sales-history="${esc(id)}" type="button" aria-label="Borrar venta del historial">🗑️ Borrar</button>
+            </div>
+          </div>
+          <div class="history-side">
+            <strong>${esc(money(item.total || 0))}</strong>
+            <div class="history-toggle">${isOpen ? '▲' : '▼'}</div>
+          </div>
+        </div>
+        <div class="history-detail ${isOpen ? '' : 'hidden'}">
+          <div class="history-detail-summary">${(item.items || []).length} productos · Total ${esc(money(item.total || 0))}</div>
+          ${detalle}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function toggleSalesHistoryD9(id) {
+  state.salesHistoryOpenId = state.salesHistoryOpenId === id ? null : id;
+  renderSalesHistoryD9();
+}
+
+function reuseSalesHistoryD9(id) {
+  const history = readJSON(STORAGE_KEYS.salesHistory, []);
+  const sale = history.find(x => String(x.id || x.venta_id || "") === String(id));
+  if (!sale) return toast("No encontré esa venta.");
+
+  const clienteId = String(sale.cliente_id || "").trim();
+  const clienteNombre = String(sale.cliente || "").trim();
+  const found = state.clients.find(c =>
+    (clienteId && String(c.id || "") === clienteId) ||
+    (clienteNombre && String(c.nombre || "").trim().toLowerCase() === clienteNombre.toLowerCase())
+  );
+
+  state.mostradorClient = found || {
+    id: clienteId || `ocasional_${Date.now()}`,
+    nombre: clienteNombre || "Consumidor final",
+    nombre_real: clienteNombre || "Consumidor final",
+    telefono: sale.telefono || "",
+    direccion: sale.direccion || "",
+    ciudad: "",
+    ocasional: true
+  };
+
+  state.mostradorCart = (sale.items || []).map(x => ({
+    id: x.id_producto || x.id || "",
+    nombre: x.nombre || "",
+    precio: Number(x.precio || 0),
+    cantidad: Number(x.cantidad || 0)
+  })).filter(x => x.nombre && Number(x.cantidad) > 0);
+
+  state.mostradorVentaDraftId = "";
+  state.mostradorVentaFingerprint = "";
+  state.salesHistoryOpenId = null;
+  renderMostradorD9();
+  showView("mostrador");
+  toast("Venta reutilizada. Revisá y enviá/impimí como nueva.");
+}
+
+function deleteSalesHistoryD9(id) {
+  showConfirmD9({
+    title: "Distribuidora 9 dice:",
+    message: "¿Borrar esta venta del historial local?",
+    okText: "Borrar",
+    cancelText: "Cancelar",
+    danger: true,
+    onOk: () => {
+      const history = readJSON(STORAGE_KEYS.salesHistory, []);
+      saveJSON(STORAGE_KEYS.salesHistory, history.filter(x => (x.id || x.venta_id) !== id));
+      if (state.salesHistoryOpenId === id) state.salesHistoryOpenId = null;
+      renderSalesHistoryD9();
+      toast("Venta eliminada del historial local.");
+    }
+  });
+}
+
+function buildMostradorTextD9() {
+  const fecha = new Date().toLocaleString("es-AR");
+  const operador = state.seller?.nombre || "Mostrador";
+  const cliente = state.mostradorClient?.nombre_real || state.mostradorClient?.nombre || "Consumidor final";
+  const lines = [
+    "REMITO INTERNO / MOSTRADOR",
+    `Fecha: ${fecha}`,
+    `Operador: ${operador}`,
+    `Cliente: ${cliente}`,
+    "────────────────────"
+  ];
+  state.mostradorCart.forEach((item, i) => {
+    const total = (Number(item.cantidad)||0) * (Number(item.precio)||0);
+    lines.push(`${i+1}) ${item.nombre}`);
+    lines.push(`   Cant/Peso: ${fmtQtyD9(item.cantidad)} · Unit: ${money(item.precio)} · Total: ${money(total)}`);
+  });
+  lines.push("────────────────────");
+  lines.push(`TOTAL: ${money(mostradorTotalD9())}`);
+  lines.push("Comprobante no oficial");
+  return lines.join("\n");
+}
+function whatsappMostradorD9() {
+  if (!state.mostradorCart.length) return toast("Agregá productos.");
+  const payload = buildMostradorPayloadD9();
+  const phone = onlyDigits(state.seller?.wasap_report || getDefaultWhatsAppD9());
+  const text = buildMostradorTextD9();
+  const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+
+  persistMostradorVentaD9("whatsapp");
+}
+
+function printMostradorD9() {
+  if (!state.mostradorCart.length) return toast("Agregá productos.");
+  persistMostradorVentaD9("impresion");
+  const rows = state.mostradorCart.map(item => {
+    const total = (Number(item.cantidad)||0) * (Number(item.precio)||0);
+    return `<tr><td>${esc(item.nombre)}</td><td>${esc(fmtQtyD9(item.cantidad))}</td><td>${esc(money(item.precio))}</td><td>${esc(money(total))}</td></tr>`;
+  }).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Mostrador</title><style>
+    @page{size:A4;margin:12mm} body{font-family:Arial,sans-serif;color:#111;font-size:13px} h1{font-size:20px;margin:0 0 4px} .muted{color:#555;margin-bottom:12px} table{width:100%;border-collapse:collapse} th,td{border-bottom:1px solid #ddd;padding:6px 4px;text-align:left} th{font-size:11px;text-transform:uppercase} td:nth-child(2),td:nth-child(3),td:nth-child(4),th:nth-child(2),th:nth-child(3),th:nth-child(4){text-align:right;white-space:nowrap}.total{font-size:18px;font-weight:800;text-align:right;margin-top:12px}.foot{font-size:11px;color:#666;margin-top:14px}</style></head><body>
+    <h1>Remito interno / mostrador</h1><div class="muted">Fecha: ${esc(new Date().toLocaleString("es-AR"))} · Operador: ${esc(state.seller?.nombre || "Mostrador")} · Cliente: ${esc(state.mostradorClient?.nombre_real || state.mostradorClient?.nombre || "Consumidor final")}</div>
+    <table><thead><tr><th>Producto</th><th>Cant/Peso</th><th>Unit.</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="total">TOTAL: ${esc(money(mostradorTotalD9()))}</div><div class="foot">Comprobante no oficial</div>
+    <script>window.print();<\/script></body></html>`;
+  const win = window.open("", "_blank");
+  if (!win) return toast("El navegador bloqueó la impresión.");
+  win.document.open(); win.document.write(html); win.document.close();
+}
+function setupMostradorHomeD9() {
+  const homeView = document.querySelector("#view-home");
+  const orderBtn = document.getElementById("btnGoOrder");
+  if (!homeView || !orderBtn || document.getElementById("btnGoMostrador")) return;
+
+  const btn = document.createElement("button");
+  btn.id = "btnGoMostrador";
+  btn.className = "cta-main-vnext mostrador-cta-main-d9 hidden";
+  btn.type = "button";
+  btn.innerHTML = `
+    <span class="cta-icon-vnext">🏪</span>
+    <span class="cta-copy-vnext">
+      <strong>VENTA MOSTRADOR</strong>
+      <small>Remito interno y comprobante</small>
+    </span>
+    <span class="cta-arrow-vnext">›</span>
+  `;
+  homeView.insertBefore(btn, orderBtn);
+}
+
+function setupMostradorHistoryHomeD9() {
+  const grid = document.querySelector(".home-grid-vnext");
+  if (!grid || document.getElementById("btnGoSalesHistoryD9")) return;
+  const btn = document.createElement("button");
+  btn.id = "btnGoSalesHistoryD9";
+  btn.className = "action-card-vnext hidden";
+  btn.type = "button";
+  btn.innerHTML = `
+    <span class="action-head-vnext">
+      <span class="icon-wrap-vnext cyan">🧾</span>
+      <span class="title-group-vnext">
+        <strong>Historial ventas</strong>
+        <small>Ventas mostrador locales</small>
+      </span>
+    </span>
+    <span class="go-vnext">›</span>
+  `;
+  const userBtn = document.getElementById("btnChangeSeller");
+  grid.insertBefore(btn, userBtn || grid.firstChild);
+}
+
+function setupSalesHistoryViewD9() {
+  const main = document.querySelector("main");
+  if (!main || document.getElementById("view-sales-history-d9")) return;
+  const sec = document.createElement("section");
+  sec.id = "view-sales-history-d9";
+  sec.className = "view";
+  sec.innerHTML = `
+    <div class="view-head history-head-d9">
+      <button class="back-btn history-home-d9 home-red-d9" data-back="home" type="button" aria-label="Volver al inicio">🏠</button>
+      <div class="history-title-d9">
+        <h2>Historial ventas</h2>
+        <p class="subhead">Ventas de mostrador guardadas en este celular.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div id="salesHistoryListD9" class="history-list empty-state">Sin ventas guardadas todavía.</div>
+    </div>
+  `;
+  main.appendChild(sec);
+}
+
+function setupMostradorViewD9() {
+  const main = document.querySelector("main");
+  if (!main || document.getElementById("view-mostrador")) return;
+  const sec = document.createElement("section");
+  sec.id = "view-mostrador";
+  sec.className = "view";
+  sec.innerHTML = `
+    <div class="view-head history-head-d9">
+      <button class="back-btn history-home-d9 home-red-d9" data-back="home" type="button">🏠</button>
+      <div class="history-title-d9"><h2>Venta mostrador</h2><p class="subhead">Remito interno y comprobante.</p></div>
+    </div>
+
+    <div class="card quick-grid-card mostrador-picker-card-d9">
+      <button id="btnMostradorOpenClients" class="picker-btn" type="button">
+        <span class="picker-label">Cliente</span>
+        <strong id="mostradorClientLabel">Seleccionar cliente</strong>
+      </button>
+
+      <button id="btnMostradorOpenCategories" class="picker-btn" type="button">
+        <span class="picker-label">Categoría</span>
+        <strong id="mostradorCategoryLabel">Todas las categorías</strong>
+      </button>
+
+      <button id="btnMostradorOpenProducts" class="picker-btn" type="button">
+        <span class="picker-label">Productos</span>
+        <strong id="mostradorProductsLabel">Seleccionar productos</strong>
+      </button>
+    </div>
+
+    <div class="card section-block">
+      <div class="section-title-row between"><h3>Comprobante</h3><button id="btnMostradorClear" class="link-btn danger" type="button">Limpiar</button></div>
+      <div id="mostradorCartList" class="cart-list empty-state">Todavía no agregaste productos.</div>
+      <div class="summary-box compact-summary"><div class="summary-row total"><span>Total</span><strong id="mostradorTotal">$ 0</strong></div></div>
+      <div class="actions-stack"><button id="btnMostradorPrint" class="primary-btn" type="button">Imprimir</button><button id="btnMostradorWhatsApp" class="secondary-btn" type="button">Enviar WhatsApp</button></div>
+    </div>`;
+  main.appendChild(sec);
+}
+
+function renderMostradorRoleD9() {
+  setupMostradorHomeD9();
+  setupMostradorHistoryHomeD9();
+  setupMostradorViewD9();
+  setupSalesHistoryViewD9();
+  const on = isMostradorD9();
+  document.getElementById("btnGoMostrador")?.classList.toggle("hidden", !on);
+  document.getElementById("btnGoSalesHistoryD9")?.classList.toggle("hidden", !on);
+  document.getElementById("bannerWrap")?.classList.toggle("hidden", on);
+  if (on) renderSalesHistoryD9();
+}
+
 function renderAll() {
   renderTop();
   renderNetwork();
@@ -3533,6 +4698,8 @@ function renderAll() {
   renderPriceListControls();
   renderPriceProducts();
   renderHistory();
+  renderMostradorRoleD9();
+  renderMostradorD9();
 }
 
 
