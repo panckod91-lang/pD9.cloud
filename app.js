@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.3.11-dev (ID único tras envío WhatsApp)";
+const APP_VERSION = "v1.3.12-dev (ID fuerte anti-colisión)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -2758,20 +2758,59 @@ function releaseOrderSendLock(delayMs = 1800) {
 
 
 
-function generarPedidoIdD9(vendedorId) {
+function randomCryptoD9(length = 3) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  let out = "";
+
+  try {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    for (let i = 0; i < length; i++) {
+      out += chars[bytes[i] % chars.length];
+    }
+    return out;
+  } catch (_) {
+    for (let i = 0; i < length; i++) {
+      out += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return out;
   }
-  return `${vendedorId || "0"}-${code}`;
+}
+
+function nextLocalCounterD9(scope, ownerId) {
+  const safeScope = String(scope || "PED").replace(/[^A-Z0-9_]/gi, "_").toUpperCase();
+  const safeOwner = String(ownerId || "0").replace(/[^A-Z0-9_-]/gi, "_").toUpperCase();
+  const key = `d9_counter_${safeScope}_${safeOwner}`;
+  const current = Number(localStorage.getItem(key) || 0);
+  const next = Number.isFinite(current) ? current + 1 : 1;
+  localStorage.setItem(key, String(next));
+  return next.toString(36).toUpperCase();
+}
+
+function isLegacyPedidoIdD9(value) {
+  const v = String(value || "").trim();
+  // Formato viejo vulnerable a colisión: vendedor-random8, ej. 3-6VMPKGK2.
+  return /^\d{1,4}-[A-Z0-9]{8}$/i.test(v);
+}
+
+function generarPedidoIdD9(vendedorId) {
+  const vend = String(vendedorId || "0").replace(/[^A-Z0-9_-]/gi, "").toUpperCase() || "0";
+  const counter = nextLocalCounterD9("PED", vend);
+  const ts = Date.now().toString(36).toUpperCase();
+  const rnd = randomCryptoD9(3);
+
+  // Formato compacto anti-colisión:
+  // vendedor-contadorLocal-timestampBase36-randomCrypto
+  // Ej: 3-3K-MF8K2P9Q-R7K
+  return `${vend}-${counter}-${ts}-${rnd}`;
 }
 
 function getDraftPedidoIdD9(vendedorId) {
   const key = "d9_draft_pedido_id";
   let pedidoId = localStorage.getItem(key);
 
-  if (!pedidoId) {
+  // Si quedó un borrador viejo con el formato vulnerable, se renueva solo.
+  if (!pedidoId || isLegacyPedidoIdD9(pedidoId)) {
     pedidoId = generarPedidoIdD9(vendedorId);
     localStorage.setItem(key, pedidoId);
   }
@@ -2781,6 +2820,16 @@ function getDraftPedidoIdD9(vendedorId) {
 
 function clearDraftPedidoIdD9() {
   localStorage.removeItem("d9_draft_pedido_id");
+}
+
+function regeneratePedidoIdForPayloadD9(payload) {
+  const vendedorId = payload?.vendedor?.id || payload?.vendedor_id || state.seller?.id || "0";
+  const nuevoId = generarPedidoIdD9(vendedorId);
+  if (payload && typeof payload === "object") {
+    payload.pedido_id = nuevoId;
+    payload.pedidoId = nuevoId;
+  }
+  return nuevoId;
 }
 
 
@@ -2849,7 +2898,7 @@ async function sendToEndpoint(url, sendPayload) {
   }
 
   if (!r.ok) {
-    return { ok: false, status: r.status, error: data?.error || raw || "Error HTTP", endpoint: url };
+    return { ok: false, status: r.status, error: data?.error || raw || "Error HTTP", data, endpoint: url };
   }
 
   // Blindaje D9: no alcanza con que el fetch termine.
@@ -2931,8 +2980,9 @@ async function trySendToWebhook(payload) {
     return { ok: false, error: "Webhook no configurado" };
   }
 
-  const sendPayload = buildWebhookPayload(payload);
+  let sendPayload = buildWebhookPayload(payload);
   let lastError = null;
+  let collisionRetryDone = false;
 
   async function verifyAfterSendProblemD9(endpoint, errorText) {
     // Caso real detectado: Apps Script puede escribir en PC, pero el navegador perder
@@ -2961,15 +3011,33 @@ async function trySendToWebhook(payload) {
 
   for (const endpoint of WEBHOOK_ENDPOINTS) {
     try {
-      const result = await sendToEndpoint(endpoint, sendPayload);
+      let result = await sendToEndpoint(endpoint, sendPayload);
+
+      // Defensa anti-colisión:
+      // si el backend avisa que el ID ya existe pero pertenece a otro pedido,
+      // regeneramos ID una sola vez y reenviamos. No lo marcamos como "ya cargado".
+      if (!result?.ok && result?.data?.error_code === "ERROR_COLISION_ID" && !collisionRetryDone) {
+        collisionRetryDone = true;
+        const oldId = sendPayload.pedido_id;
+        const newId = regeneratePedidoIdForPayloadD9(payload);
+        sendPayload = buildWebhookPayload(payload);
+        console.warn(`[D9] Colisión de ID detectada (${oldId}). Reintentando con ${newId}.`);
+        result = await sendToEndpoint(endpoint, sendPayload);
+      }
+
       if (result?.ok) {
         const verify = await verifyPedidoInPcD9(sendPayload.pedido_id);
         if (verify.ok) return result;
         lastError = { ok: false, error: verify.error || "No confirmado en PC", endpoint, data: result.data };
       } else {
         // Aunque el POST haya vuelto raro/no confirmado, puede haber escrito en PC.
-        lastError = await verifyAfterSendProblemD9(endpoint, result?.error || `Fallo en ${endpoint}`);
-        if (lastError?.ok) return lastError;
+        // Si el backend confirmó colisión, NO verificamos por el ID viejo porque pertenece a otro pedido.
+        if (result?.data?.error_code === "ERROR_COLISION_ID") {
+          lastError = { ok: false, error: result?.error || "ID repetido con otro pedido. Reenviá para generar ID nuevo.", endpoint, data: result.data };
+        } else {
+          lastError = await verifyAfterSendProblemD9(endpoint, result?.error || `Fallo en ${endpoint}`);
+          if (lastError?.ok) return lastError;
+        }
       }
     } catch (error) {
       lastError = await verifyAfterSendProblemD9(endpoint, String(error));
@@ -4248,10 +4316,18 @@ function mostradorFingerprintD9() {
   });
 }
 
+function generarVentaMostradorIdD9(usuarioId) {
+  const user = String(usuarioId || "0").replace(/[^A-Z0-9_-]/gi, "").toUpperCase() || "0";
+  const counter = nextLocalCounterD9("VM", user);
+  const ts = Date.now().toString(36).toUpperCase();
+  const rnd = randomCryptoD9(3);
+  return `VM-${user}-${counter}-${ts}-${rnd}`;
+}
+
 function ensureMostradorVentaIdD9() {
   const fp = mostradorFingerprintD9();
   if (!state.mostradorVentaDraftId || state.mostradorVentaFingerprint !== fp) {
-    state.mostradorVentaDraftId = `VM-${state.seller?.id || "0"}-${Date.now().toString(36).toUpperCase()}`;
+    state.mostradorVentaDraftId = generarVentaMostradorIdD9(state.seller?.id || "0");
     state.mostradorVentaFingerprint = fp;
   }
   return state.mostradorVentaDraftId;

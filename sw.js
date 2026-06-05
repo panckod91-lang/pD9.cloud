@@ -1,4 +1,4 @@
-const CACHE_NAME = "d9-dev-cache-v46-verify-after-post-error";
+const CACHE_NAME = "d9-dev-cache-v47-id-fuerte-anticolision";
 const URLS = [
   "./",
   "./index.html",
