@@ -3642,3 +3642,12 @@ button:active,
     padding:7px 6px;
   }
 }
+
+/* D9 v1.3.13 - pedidos anulados */
+.history-item-anulado-d9 {
+  opacity: .82;
+  filter: grayscale(.25);
+}
+.history-item-anulado-d9 .history-meta-line {
+  font-weight: 800;
+}

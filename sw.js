@@ -1,4 +1,4 @@
-const CACHE_NAME = "d9-dev-cache-v47-id-fuerte-anticolision";
+const CACHE_NAME = "d9-dev-cache-v52-fix-decimal-punto-coma";
 const URLS = [
   "./",
   "./index.html",

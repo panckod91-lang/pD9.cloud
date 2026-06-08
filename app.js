@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.3.12-dev (ID fuerte anti-colisión)";
+const APP_VERSION = "v1.3.19-dev (Fix decimal punto/coma)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -82,7 +82,28 @@ function isMostradorD9() {
 }
 function parseDecimalD9(value) {
   if (value === null || value === undefined) return 0;
-  const s = String(value).trim().replace(/\./g, "").replace(",", ".");
+
+  let s = String(value)
+    .trim()
+    .replace(/\s/g, "")
+    .replace(/\$/g, "");
+
+  if (!s) return 0;
+
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+
+  if (hasComma && hasDot) {
+    // Formato argentino: 1.234,56
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    // Decimal con coma: 0,5
+    s = s.replace(",", ".");
+  } else {
+    // Decimal con punto: 0.5
+    // No removemos el punto, porque en cantidad es más probable que sea decimal manual.
+  }
+
   const n = Number(s);
   return Number.isFinite(n) ? n : 0;
 }
@@ -1965,7 +1986,21 @@ function priceLabel(key) {
 
 function productPrice(product) {
   const key = getActivePriceList();
-  return parseD9Number(product?.precios?.[key] || 0);
+  let source = product;
+
+  // D9: al reutilizar desde historial el item trae id/nombre/precio,
+  // pero no trae el objeto completo con precios por lista.
+  // Si existe en catálogo, usamos el catálogo para recalcular según cliente/lista.
+  const itemId = String(product?.id || product?.id_producto || product?.producto_id || "").trim();
+  if ((!source?.precios || typeof source.precios !== "object") && itemId && Array.isArray(state.products)) {
+    source = state.products.find(p => String(p.id || "").trim() === itemId) || source;
+  }
+
+  const byList = parseD9Number(source?.precios?.[key] || 0);
+  if (byList > 0) return byList;
+
+  // Fallback defensivo: nunca pisar con 0 un precio que venía guardado en historial.
+  return parseD9Number(product?.precio || product?.price || product?.precio_unitario || 0);
 }
 
 function renderQuickLabels() {
@@ -2452,7 +2487,7 @@ function renderProducts() {
                 <span class="qty-inline-btn-d9" data-product-qty="minus" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Restar unidad">−</span>
                 <span class="qty-inline-btn-d9" data-product-qty="plus" data-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Sumar unidad">+</span>
               </div>
-              <div class="product-line-total-d9">x${cantidad} · ${money(subtotal)}</div>
+              <div class="product-line-total-d9">x${fmtQtyD9(cantidad)} · ${money(subtotal)}</div>
             `) : `<div class="pick-state">Tocar para agregar</div>`}
           </div>
         </button>`;
@@ -2558,11 +2593,11 @@ function generateMessageText(payload = null) {
 
   source.carrito.forEach((item, index) => {
     lines.push(`${index + 1}) ${item.nombre}`);
-    lines.push(`   · Cant: ${Number(item.cantidad || 0)}`);
+    lines.push(`   · Cant: ${fmtQtyD9(item.cantidad || 0)}`);
   });
 
   lines.push("────────────────────");
-  lines.push(`Items: ${source.carrito.length} · Unidades: ${unidadesTotales}`);
+  lines.push(`Items: ${source.carrito.length} · Unidades: ${fmtQtyD9(unidadesTotales)}`);
   return lines.join("\n");
 }
 
@@ -2646,7 +2681,7 @@ function applyQtyModalD9() {
 
   const raw = String(input.value || "").trim();
   const isMostrador = state.qtyModalMode === "mostrador";
-  const qty = isMostrador ? parseDecimalD9(raw) : Math.floor(Number(raw.replace(",", ".")));
+  const qty = parseDecimalD9(raw);
 
   if (!Number.isFinite(qty) || qty < 0) {
     toast("Ingresá una cantidad válida.");
@@ -2696,14 +2731,14 @@ function renderCart() {
         </div>
         <div class="qty-row qty-row-pro-d9">
           <button class="qty-btn" data-qty="minus" data-id="${esc(item.id)}" type="button">−</button>
-          <div class="qty-value">${item.cantidad}</div>
+          <div class="qty-value">${fmtQtyD9(item.cantidad)}</div>
           <button class="qty-btn" data-qty="plus" data-id="${esc(item.id)}" type="button">+</button>
           <button class="qty-edit-btn-d9" data-edit-qty="${esc(item.id)}" type="button">👉Cant.✏️</button>
           <div class="product-price cart-line-total-d9">${money(item.precio * item.cantidad)}</div>
         </div>
       </div>`).join("");
   }
-  $("#summaryItems").textContent = state.cart.reduce((acc, item) => acc + item.cantidad, 0);
+  $("#summaryItems").textContent = fmtQtyD9(state.cart.reduce((acc, item) => acc + Number(item.cantidad || 0), 0));
   $("#summaryTotal").textContent = money(cartTotal());
   const previewEl = $("#messagePreview");
   if (previewEl) previewEl.textContent = generateMessageText();
@@ -2727,6 +2762,36 @@ function buildOrderFingerprint(payload) {
     items,
     Number(payload?.total || 0)
   ].join("||");
+}
+
+
+function getRecentOrderSendsD9() {
+  const raw = readJSON("d9_recent_order_sends", []);
+  return Array.isArray(raw) ? raw : [];
+}
+
+function cleanupRecentOrderSendsD9(ttlMs = 120000) {
+  const now = Date.now();
+  const clean = getRecentOrderSendsD9().filter(x => x && x.fp && Number(x.until || 0) > now);
+  saveJSON("d9_recent_order_sends", clean.slice(-20));
+  return clean;
+}
+
+function isRecentOrderFingerprintBlockedD9(payload, ttlMs = 120000) {
+  if (!payload) return false;
+  const fp = buildOrderFingerprint(payload);
+  const now = Date.now();
+  const recent = cleanupRecentOrderSendsD9(ttlMs);
+  return recent.some(x => x.fp === fp && Number(x.until || 0) > now);
+}
+
+function markRecentOrderFingerprintD9(payload, ttlMs = 120000) {
+  if (!payload) return;
+  const fp = buildOrderFingerprint(payload);
+  const now = Date.now();
+  const recent = cleanupRecentOrderSendsD9(ttlMs).filter(x => x.fp !== fp);
+  recent.push({ fp, at: now, until: now + ttlMs });
+  saveJSON("d9_recent_order_sends", recent.slice(-20));
 }
 
 function isOrderSendLocked(payload = null) {
@@ -3121,6 +3186,102 @@ function looksLikePedidoIdD9(value) {
   return false;
 }
 
+
+function isHistoryItemAnuladoD9(item) {
+  const estado = String(item?.estado || item?.pc_estado || "").trim().toUpperCase();
+  return estado === "ANULADO" || estado === "ANULADO_VENDEDOR" || estado.includes("ANULADO");
+}
+
+function setHistoryItemAnuladoD9(itemId, pedidoId, message = "ANULADO_VENDEDOR") {
+  const history = readJSON(STORAGE_KEYS.history, []);
+  const targetItemId = String(itemId || "").trim();
+  const targetPedidoId = String(pedidoId || "").trim();
+
+  const updated = history.map(item => {
+    const localId = String(item.id || item.pedido_id || item.pedidoId || "").trim();
+    const localPedidoId = String(item.pedido_id || item.pedidoId || "").trim();
+    const match = (targetPedidoId && localPedidoId === targetPedidoId) || (targetItemId && localId === targetItemId);
+    if (!match) return item;
+    return {
+      ...item,
+      estado: "ANULADO_VENDEDOR",
+      pc_estado: "ANULADO_VENDEDOR",
+      status: "ok",
+      pc_status: "cargado",
+      error: message || "Anulado en PC"
+    };
+  });
+
+  saveJSON(STORAGE_KEYS.history, updated);
+}
+
+function buildActionUrlD9(endpoint, action) {
+  const url = String(endpoint || "").trim();
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}action=${encodeURIComponent(action)}`;
+}
+
+async function postD9Action(action, payload = {}) {
+  if (!Array.isArray(WEBHOOK_ENDPOINTS) || !WEBHOOK_ENDPOINTS.length) {
+    return { ok: false, error: "Webhook no configurado" };
+  }
+
+  let last = null;
+  for (const endpoint of WEBHOOK_ENDPOINTS) {
+    try {
+      const result = await sendToEndpoint(buildActionUrlD9(endpoint, action), { ...payload, action });
+      if (result?.ok) return result;
+      last = result;
+    } catch (err) {
+      last = { ok: false, error: String(err), endpoint };
+    }
+  }
+  return last || { ok: false, error: "No se pudo completar la acción" };
+}
+
+async function anularHistoryPedidoD9(id) {
+  const history = readJSON(STORAGE_KEYS.history, []);
+  const item = history.find(x => String(x.id || x.pedido_id || x.pedidoId || "") === String(id));
+  if (!item) return toast("No encontré el pedido en historial.");
+
+  const pedidoId = getHistoryPedidoIdD9(item);
+  if (!pedidoId) return toast("No encontré el ID interno del pedido.");
+
+  if (isHistoryItemAnuladoD9(item)) {
+    toast("Ese pedido ya figura anulado.");
+    return;
+  }
+
+  const pcText = item.pc_status === "cargado" || item.status === "ok" ? "Cargado en PC" : "No llegó a PC";
+  if (pcText !== "Cargado en PC") {
+    toast("Solo se pueden anular pedidos cargados en PC.");
+    return;
+  }
+
+  showD9Confirm({
+    message: "¿Anular este pedido en PC?",
+    detail: "No se borra de Sheets: se marca como ANULADO_VENDEDOR y queda como registro administrativo.",
+    okText: "Anular",
+    cancelText: "Cancelar",
+    onOk: async () => {
+      const res = await postD9Action("anular_pedido", {
+        pedido_id: pedidoId,
+        vendedor_id: item.vendedor_id || state.seller?.id || "",
+        vendedor: item.vendedor || state.seller?.nombre || ""
+      });
+
+      if (!res?.ok || res?.data?.ok !== true) {
+        toast(res?.data?.error || res?.error || "No se pudo anular en PC.");
+        return;
+      }
+
+      setHistoryItemAnuladoD9(id, pedidoId, "Anulado en PC");
+      renderHistory();
+      toast(`Pedido anulado en PC (${res.data.filas || 0} filas).`);
+    }
+  });
+}
+
 function getHistoryPedidoIdD9(item) {
   const pedidoId = String(item?.pedido_id || item?.pedidoId || item?.id_pedido || "").trim();
   if (pedidoId) return pedidoId;
@@ -3425,7 +3586,16 @@ async function sendOrder() {
   const payload = buildOrderPayload();
 
   if (isOrderSendLocked(payload)) return;
-  lockOrderSend(payload, 6000);
+
+  // D9 v1.3.17: candado persistente por huella de pedido.
+  // Evita que el mismo cliente + mismos productos + mismo total se cargue dos veces
+  // si Android vuelve de WhatsApp, se repite un tap, o queda un reintento viejo dando vueltas.
+  if (isRecentOrderFingerprintBlockedD9(payload, 120000)) {
+    toast("Este mismo pedido ya se envió hace instantes. Esperá un momento para repetirlo.");
+    return;
+  }
+
+  lockOrderSend(payload, 15000);
 
   const sendBtn = $("#btnSend");
   const pendingBtn = $("#btnSyncPending");
@@ -3461,6 +3631,8 @@ async function sendOrder() {
       toast("Falta WhatsApp destino en confi.");
       return;
     }
+
+    markRecentOrderFingerprintD9(payload, 120000);
 
     trySendToWebhook(payload)
       .then(res => {
@@ -3508,7 +3680,7 @@ async function sendOrder() {
       confirmBtn.textContent = "Confirmar y enviar";
     }
 
-    releaseOrderSendLock(2200);
+    releaseOrderSendLock(5000);
   }
 }
 
@@ -3516,6 +3688,10 @@ async function sendOrder() {
 function savePendingNow() {
   if (validateOrder() !== true) return;
   const payload = buildOrderPayload();
+  if (isRecentOrderFingerprintBlockedD9(payload, 120000)) {
+    toast("Este mismo pedido ya fue enviado hace instantes. No lo guardo duplicado.");
+    return;
+  }
   savePendingPayload(payload);
   saveHistory(payload, "pendiente");
   clearDraftPedidoIdD9();
@@ -3644,16 +3820,22 @@ function renderHistory() {
         </div>`;
 
     const pcText = item.pc_status === "cargado" || item.status === "ok" ? "Cargado en PC" : "No llegó a PC";
+    const isAnulado = isHistoryItemAnuladoD9(item);
+    const estadoText = isAnulado ? " · ANULADO" : "";
+    const anularBtn = (pcText === "Cargado en PC" && !isAnulado)
+      ? `<button class="history-action-btn" data-anular-history="${esc(itemId)}" type="button">⛔ Anular</button>`
+      : "";
     return `
-      <div class="history-item ${isOpen ? 'is-open' : ''}" data-history-id="${esc(itemId)}" role="button" tabindex="0">
+      <div class="history-item ${isOpen ? 'is-open' : ''} ${isAnulado ? 'history-item-anulado-d9' : ''}" data-history-id="${esc(itemId)}" role="button" tabindex="0">
         <div class="history-head-row">
           <div class="history-copy">
             <label class="history-select-line-d9" data-no-toggle><input type="checkbox" class="history-select-d9" data-history-select="${esc(itemId)}"> <span>Seleccionar</span></label>
             <strong>${esc(item.cliente)}</strong>
             <div class="mini-text">${new Date(item.fecha).toLocaleString("es-AR")}</div>
-            <div class="mini-text history-meta-line">${esc(item.vendedor)} · WhatsApp enviado · ${esc(pcText)}${item.error ? ' · ' + esc(item.error) : ''}</div>
+            <div class="mini-text history-meta-line">${esc(item.vendedor)} · WhatsApp enviado · ${esc(pcText)}${estadoText}${item.error ? ' · ' + esc(item.error) : ''}</div>
             <div class="history-actions history-actions-compact-d9" data-no-toggle>
               ${pcText === "Cargado en PC" ? '' : (debugId ? `<button class="history-action-btn history-action-main-d9" data-resync-history="${esc(itemId)}" type="button">🔁 Reenviar a PC</button>` : `<button class="history-action-btn history-action-main-d9" data-manual-load-history="${esc(itemId)}" type="button">📝 Cargar manual</button>`)}
+              ${anularBtn}
               <button class="history-action-btn" data-reuse-history="${esc(itemId)}" type="button">↻ Reutilizar</button>
               <button class="history-delete-btn" data-delete-history="${esc(itemId)}" type="button" aria-label="Borrar pedido del historial">🗑️</button>
             </div>
@@ -3784,7 +3966,11 @@ function restoreHistoryFromFile(ev) {
 
 
 function resetTransientUI() {
-  state.isSending = false;
+  // No liberamos el candado de envío si todavía está vigente.
+  // Al volver desde WhatsApp Android dispara pageshow/focus y antes podía habilitar doble envío.
+  if (!(state.orderSendLockUntil && Date.now() < state.orderSendLockUntil)) {
+    state.isSending = false;
+  }
   state.isSyncing = false;
   const sendBtn = $("#btnSend");
   const syncBtn = $("#btnSyncPending");
@@ -3868,18 +4054,47 @@ function closeOrderConfirmModal() {
 
 function confirmOrderAndSend() {
   const confirmBtn = $("#btnConfirmOrderSend");
-  if (state.isSending || (state.orderSendLockUntil && Date.now() < state.orderSendLockUntil) || confirmBtn?.disabled) return;
+
+  // D9 v1.3.17:
+  // No cerramos el modal antes de llamar sendOrder(). En Android/Chrome,
+  // cerrar/cambiar DOM antes del window.open podía cortar el gesto de usuario
+  // y dejar el botón sin abrir WhatsApp.
+  if (state.isSending || (state.orderSendLockUntil && Date.now() < state.orderSendLockUntil)) return;
 
   if (confirmBtn) {
     confirmBtn.disabled = true;
     confirmBtn.textContent = "Enviando...";
   }
 
-  closeOrderConfirmModal();
   sendOrder();
+  window.setTimeout(closeOrderConfirmModal, 120);
+}
+
+
+function bindOrderConfirmDelegatedD9() {
+  if (window.__d9OrderConfirmDelegatedV16) return;
+  window.__d9OrderConfirmDelegatedV16 = true;
+
+  document.addEventListener("click", (ev) => {
+    const btn = ev.target.closest && ev.target.closest("#btnConfirmOrderSend");
+    if (!btn) return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
+
+    confirmOrderAndSend();
+  }, true);
 }
 
 function bind() {
+  bindOrderConfirmDelegatedD9();
+
+  // D9: bind() se llama desde init y también desde observadores/renderizados.
+  // Sin este candado se acumulaban listeners y un solo tap podía enviar el pedido dos veces.
+  if (window.__d9MainBindDone) return;
+  window.__d9MainBindDone = true;
+
   document.addEventListener("pointerdown", (ev) => {
     const target = ev.target.closest("button, .action-card-vnext, .status-pill-vnext, [data-view], [data-back]");
     if (!target) return;
@@ -3954,7 +4169,7 @@ function bind() {
   $("#btnClearCart").addEventListener("click", clearCart);
   $("#btnSend").addEventListener("click", openOrderConfirmModal);
   $("#btnCancelOrderConfirm")?.addEventListener("click", closeOrderConfirmModal);
-  $("#btnConfirmOrderSend")?.addEventListener("click", confirmOrderAndSend);
+  // D9 v1.3.17: confirmación vinculada por listener delegado anti-render.
   $("#btnSavePending").addEventListener("click", savePendingNow);
   $("#btnExportHistory").addEventListener("click", exportHistory);
   $("#btnRestoreHistory")?.addEventListener("click", openRestoreHistory);
@@ -4093,6 +4308,13 @@ function bind() {
     if (reuseHistory) {
       ev.stopPropagation();
       reuseHistoryItem(reuseHistory.dataset.reuseHistory);
+      return;
+    }
+
+    const anularHistory = ev.target.closest("[data-anular-history]");
+    if (anularHistory) {
+      ev.stopPropagation();
+      anularHistoryPedidoD9(anularHistory.dataset.anularHistory);
       return;
     }
 
@@ -4911,17 +5133,5 @@ async function init() {
     renderNetwork();
   }
 }
-document.addEventListener("click", (e) => {
-
-  // Botón EDITAR
-  if (e.target.id === "btnCancelOrderConfirm") {
-    closeOrderConfirmModal();
-  }
-
-  // Botón CONFIRMAR
-  if (e.target.id === "btnConfirmOrderSend") {
-    confirmOrderAndSend();
-  }
-
-});
+// D9 v1.3.17: Confirmar y enviar usa listener delegado y abre WhatsApp antes de cerrar modal.
 init();
