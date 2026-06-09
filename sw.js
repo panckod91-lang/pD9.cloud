@@ -1,15 +1,14 @@
-const CACHE_NAME = "d9-dev-cache-v52-fix-decimal-punto-coma";
+const CACHE_NAME = "d9-prod-cache-v2-manifest-icons-d9";
 const URLS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./manifest.json",
-  "./icons/icon.svg",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/icon-maskable-512.png",
-  "./icons/logo_d9.png"
+  "./manifest.json?v=d9-prod-v2",
+  "./icons/logo_d9.png",
+  "./icons/d9-icon-192-v2.png",
+  "./icons/d9-icon-512-v2.png",
+  "./icons/d9-maskable-512-v2.png"
 ];
 
 self.addEventListener("install", event => {
