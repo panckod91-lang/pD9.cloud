@@ -1,10 +1,10 @@
-const CACHE_NAME = "d9-prod-cache-v2-manifest-icons-d9";
+const CACHE_NAME = "d9-prod-cache-v3-install-button";
 const URLS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./manifest.json?v=d9-prod-v2",
+  "./manifest.json?v=d9-prod-v3",
   "./icons/logo_d9.png",
   "./icons/d9-icon-192-v2.png",
   "./icons/d9-icon-512-v2.png",
