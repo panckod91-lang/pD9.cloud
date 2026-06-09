@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.3.19-dev (Fix decimal punto/coma)";
+const APP_VERSION = "v1.3.20-prod (boton instalar app)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -16,6 +16,10 @@ const STORAGE_KEYS = {
   guestClient: "d9_invitado_cliente",
   versionLogged: "d9_version_logged"
 };
+let d9DeferredInstallPrompt = null;
+let d9InstallPromptReady = false;
+let d9InstallSetupDone = false;
+
 const CACHE_KEYS = {
   config: "d9_cache_config",
   users: "d9_cache_users",
@@ -1818,6 +1822,108 @@ function onlyDigitsText(value = "") {
   return String(value || "").replace(/\D/g, "");
 }
 
+
+function isD9StandaloneMode() {
+  return !!(
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    window.navigator?.standalone === true
+  );
+}
+
+function setupInstallPromptD9() {
+  if (d9InstallSetupDone) return;
+  d9InstallSetupDone = true;
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    d9DeferredInstallPrompt = event;
+    d9InstallPromptReady = true;
+    refreshInstallCardD9();
+    console.log("[D9] Instalación PWA disponible.");
+  });
+
+  window.addEventListener("appinstalled", () => {
+    d9DeferredInstallPrompt = null;
+    d9InstallPromptReady = false;
+    try { localStorage.setItem("d9_installed_at", new Date().toISOString()); } catch (_) {}
+    refreshInstallCardD9();
+    if (typeof toast === "function") toast("App instalada.");
+    console.log("[D9] App instalada.");
+  });
+
+  document.addEventListener("click", (event) => {
+    const btn = event.target.closest?.("#btnInstallAppD9");
+    if (!btn) return;
+    event.preventDefault();
+    installAppD9();
+  });
+}
+
+async function installAppD9() {
+  if (isD9StandaloneMode()) {
+    if (typeof toast === "function") toast("La app ya está instalada.");
+    refreshInstallCardD9();
+    return;
+  }
+
+  if (!d9DeferredInstallPrompt) {
+    if (typeof toast === "function") toast("Chrome todavía no habilitó la instalación.");
+    refreshInstallCardD9();
+    return;
+  }
+
+  const promptEvent = d9DeferredInstallPrompt;
+  d9DeferredInstallPrompt = null;
+  d9InstallPromptReady = false;
+
+  try {
+    await promptEvent.prompt();
+    const choice = await promptEvent.userChoice;
+    console.log("[D9] Resultado instalación PWA:", choice?.outcome || choice);
+  } catch (err) {
+    console.warn("[D9] No se pudo abrir el prompt de instalación:", err);
+    if (typeof toast === "function") toast("No se pudo abrir la instalación.");
+  } finally {
+    refreshInstallCardD9();
+  }
+}
+
+function buildInstallAppCardD9() {
+  const installed = isD9StandaloneMode();
+  const ready = !!d9DeferredInstallPrompt && d9InstallPromptReady && !installed;
+
+  if (installed) {
+    return `
+      <div id="companyInstallBoxD9" class="company-install-d9 is-installed">
+        <div>
+          <span>Instalación</span>
+          <strong>✅ App instalada</strong>
+          <small>D9 ya está lista para abrir desde el inicio del celular.</small>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div id="companyInstallBoxD9" class="company-install-d9 ${ready ? "is-ready" : "is-waiting"}">
+      <div>
+        <span>Instalación</span>
+        <strong>${ready ? "Instalar D9 en este celular" : "Instalar en el celular"}</strong>
+        <small>${ready ? "Crea el ícono de la app y abre D9 como aplicación." : "Si Chrome no habilita el botón, usá menú ⋮ → Agregar a pantalla principal."}</small>
+      </div>
+      <button id="btnInstallAppD9" type="button" class="company-install-btn-d9">
+        ${ready ? "📲 Instalar app" : "📲 Revisar instalación"}
+      </button>
+    </div>
+  `;
+}
+
+function refreshInstallCardD9() {
+  const box = document.getElementById("companyInstallBoxD9");
+  if (!box) return;
+  box.outerHTML = buildInstallAppCardD9();
+}
+
 function renderCompanyInfo() {
   const box = $("#companyContent");
   if (!box) return;
@@ -1891,6 +1997,8 @@ function renderCompanyInfo() {
     `;
   }
 
+
+  html += buildInstallAppCardD9();
 
   const supportName = state.support?.["chip_info"] || state.support?.["chip info"] || "M.J.S.";
   const supportVersion = state.support?.["version"] || state.support?.["versión"] || APP_VERSION;
@@ -5091,6 +5199,7 @@ function setupAutoRefreshD9() {
 }
 
 async function init() {
+  setupInstallPromptD9();
   enableTickerTouchD9();
   injectOrderConfirmStylesD9();
   injectPriceListCleanStickyD9();
