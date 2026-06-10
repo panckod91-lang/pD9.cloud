@@ -17,7 +17,7 @@
 <meta name="twitter:title" content="Distribuidora 9 - Pedidos" />
 <meta name="twitter:description" content="Tomá pedidos rápido y fácil." />
 <meta name="twitter:image" content="https://pd9-cloud.pages.dev/og-d9.jpg" />
-  <link rel="manifest" href="manifest.json?v=d9-prod-v3" />
+  <link rel="manifest" href="manifest.json?v=d9-prod-v4" />
   <link rel="icon" href="icons/d9-icon-192-v2.png" type="image/png" />
   <link rel="apple-touch-icon" href="icons/d9-icon-192-v2.png" />
   <link rel="stylesheet" href="styles.css" />
@@ -27,7 +27,7 @@
     <header class="hero-header-vnext">
       <div class="brand-left-vnext">
         <button id="btnCompanyInfo" class="logo-badge-vnext logo-btn-d9 logo-btn" type="button" aria-label="Ver información de la empresa">
-  <img src="icons/logo_d9.png" onerror="this.onerror=null;this.src='icons/logo_d9.png';" alt="Logo D9" />
+  <img src="icons/logo_d9.png" onerror="this.onerror=null;this.src='icons/d9-icon-192-v2.png';" alt="Logo D9" />
 </button>
         <div class="brand-copy-vnext">
           <h1 id="appTitle">Distribuidora 9</h1>
@@ -98,12 +98,12 @@
             <span class="go-vnext">›</span>
           </button>
 
-          <div id="btnSyncPending" class="action-card-vnext pending-card-vnext pending-info-card-vnext" data-title="Pendientes" data-sub="Registros pendientes de envío">
+          <div id="btnSyncPending" class="action-card-vnext pending-card-vnext pending-info-card-vnext" data-title="Pendientes y en espera" data-sub="Pendientes de envío y borradores">
             <span class="action-head-vnext">
               <span class="icon-wrap-vnext warm">📋</span>
               <span class="title-group-vnext">
-                <strong id="pendingInfoTitle">Sin pendientes</strong>
-                <small id="pendingInfoText">Pedidos sincronizados</small>
+                <strong id="pendingInfoTitle">Pendientes y en espera</strong>
+                <small id="pendingInfoText">Sin pendientes ni borradores</small>
               </span>
             </span>
             <span class="pending-count-vnext hidden">0</span>
@@ -183,8 +183,13 @@
             <div class="summary-row total"><span>Total</span><strong id="summaryTotal">$ 0</strong></div>
           </div>
 
+          <div class="order-note-box-d9 hidden-preview-section">
+            <label for="orderNoteGeneralD9">Nota general del pedido</label>
+            <textarea id="orderNoteGeneralD9" rows="2" maxlength="280" placeholder="Ej: entregar mañana, surtido especial, aclaración general..."></textarea>
+          </div>
+
           <div class="actions-stack">
-            <button id="btnSavePending" class="secondary-btn" data-title="Guardar pendiente" type="button">Guardar pendiente</button>
+            <button id="btnSaveDraftD9" class="secondary-btn" data-title="Guardar borrador" type="button">Guardar borrador</button>
             <button id="btnSend" class="primary-btn" data-title="Enviar pedido" type="button">Enviar pedido</button>
           </div>
         </div>
@@ -199,6 +204,7 @@
     <h2>Lista de precios</h2>
     <p class="subhead">Consultar productos.</p>
   </div>
+  <button id="btnSharePricePdfD9" class="price-share-btn-d9" type="button" aria-label="Compartir lista de precios">📤 PDF</button>
 </div>
 
         <div class="card section-block">
@@ -239,6 +245,20 @@
         </div>
       </section>
 
+      <section id="view-pending" class="view">
+        <div class="view-head history-head-d9">
+          <button class="back-btn history-home-d9 home-red-d9" data-back="home" type="button" aria-label="Volver al inicio">🏠</button>
+          <div class="history-title-d9">
+            <h2>Pendientes y en espera</h2>
+            <p class="subhead">Pendientes automáticos y borradores guardados.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div id="pendingWorkListD9" class="history-list empty-state">Sin pendientes ni borradores.</div>
+        </div>
+      </section>
+
       <section id="view-support" class="view">
         <div class="view-head">
           <button class="back-btn home-red-d9" data-back="home" type="button" aria-label="Volver al inicio">🏠</button>
@@ -261,7 +281,7 @@
     <div class="modal-backdrop" data-close-modal="company"></div>
     <div class="modal-panel company-panel-d9">
       <div class="company-head-d9">
-        <img src="icons/logo_d9.png" onerror="this.onerror=null;this.src='icons/logo_d9.png';" alt="Logo D9" />
+        <img src="icons/logo_d9.png" onerror="this.onerror=null;this.src='icons/d9-icon-192-v2.png';" alt="Logo D9" />
         <div>
           <div class="company-kicker-d9">Institucional</div>
           <h3>Distribuidora 9</h3>

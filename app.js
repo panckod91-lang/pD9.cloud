@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.3.20-prod (boton instalar app)";
+const APP_VERSION = "v1.4.2-prod (logs depurados)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -13,8 +13,11 @@ const STORAGE_KEYS = {
   history: "d9_historial",
   salesHistory: "d9_historial_ventas_mostrador",
   pending: "d9_pendientes",
+  drafts: "d9_borradores_en_espera",
   guestClient: "d9_invitado_cliente",
-  versionLogged: "d9_version_logged"
+  versionLogged: "d9_version_logged",
+  logsQueue: "d9_app_logs_queue",
+  deviceId: "d9_device_id"
 };
 let d9DeferredInstallPrompt = null;
 let d9InstallPromptReady = false;
@@ -45,6 +48,7 @@ const state = {
   guestClientDraft: null,
   selectedCategory: "",
   cart: [],
+  orderNoteGeneral: "",
   mostradorClient: null,
   mostradorCategory: "",
   clientPickerMode: "order",
@@ -190,6 +194,169 @@ function getVersionDateD9() {
     hour12: false
   });
 }
+
+
+const D9_LOG_MAX_QUEUE = 120;
+const D9_LOG_DETAIL_MAX = 420;
+const D9_SESSION_ID = `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+let d9LogsFlushRunning = false;
+
+function makeClientDeviceIdD9() {
+  const rnd = Math.random().toString(36).slice(2, 10).toUpperCase();
+  return `dev_${Date.now().toString(36).toUpperCase()}_${rnd}`;
+}
+
+function getDeviceIdD9() {
+  let id = localStorage.getItem(STORAGE_KEYS.deviceId);
+  if (!id) {
+    id = makeClientDeviceIdD9();
+    localStorage.setItem(STORAGE_KEYS.deviceId, id);
+  }
+  return id;
+}
+
+function shortLogDetailD9(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.slice(0, D9_LOG_DETAIL_MAX);
+  try {
+    return JSON.stringify(value).slice(0, D9_LOG_DETAIL_MAX);
+  } catch (_) {
+    return String(value).slice(0, D9_LOG_DETAIL_MAX);
+  }
+}
+
+function pedidoClienteLogD9(payloadOrData) {
+  const c = payloadOrData?.cliente || {};
+  return c.nombre_real || c.nombre || payloadOrData?.cliente_nombre || payloadOrData?.clienteName || "";
+}
+
+function safePedidoFingerprintD9(payload) {
+  try {
+    if (!payload) return "";
+    return buildOrderFingerprint(payload);
+  } catch (_) {
+    return "";
+  }
+}
+
+function buildAppLogPayloadD9(evento, data = {}) {
+  const payload = data.payload || data.pedido || data.order || null;
+  const vendedorObj = payload?.vendedor || {};
+  const seller = state.seller || {};
+  const vendedorId = String(data.vendedor_id || vendedorObj.id || seller.id || "").trim();
+  const vendedor = String(data.vendedor || vendedorObj.nombre || seller.nombre || "").trim();
+  const pedidoId = String(data.pedido_id || data.pedidoId || payload?.pedido_id || payload?.pedidoId || "").trim();
+  const cliente = String(data.cliente || pedidoClienteLogD9(payload) || "").trim();
+  const totalRaw = data.total ?? payload?.total ?? "";
+  const total = totalRaw === "" || totalRaw === null || typeof totalRaw === "undefined" ? "" : Number(totalRaw) || 0;
+
+  return {
+    action: "log_evento",
+    fecha_local: getVersionDateD9(),
+    vendedor_id: vendedorId,
+    vendedor,
+    device_id: getDeviceIdD9(),
+    session_id: D9_SESSION_ID,
+    app_version: APP_VERSION,
+    evento: String(evento || "EVENTO").trim().toUpperCase(),
+    pedido_id: pedidoId,
+    cliente,
+    total,
+    fingerprint: String(data.fingerprint || safePedidoFingerprintD9(payload) || "").slice(0, 280),
+    online: navigator.onLine ? "si" : "no",
+    resultado: String(data.resultado || data.status || "").slice(0, 80),
+    detalle: shortLogDetailD9(data.detalle ?? data.detail ?? data.error ?? "")
+  };
+}
+
+function getQueuedLogsD9() {
+  const rows = readJSON(STORAGE_KEYS.logsQueue, []);
+  return Array.isArray(rows) ? rows : [];
+}
+
+function saveQueuedLogsD9(rows) {
+  saveJSON(STORAGE_KEYS.logsQueue, Array.isArray(rows) ? rows.slice(-D9_LOG_MAX_QUEUE) : []);
+}
+
+function enqueueAppLogD9(payload) {
+  const queue = getQueuedLogsD9();
+  queue.push(payload);
+  saveQueuedLogsD9(queue);
+}
+
+async function postAppLogPayloadD9(payload) {
+  const apiBase = getApiBaseD9();
+  const body = JSON.stringify(payload);
+
+  async function tryPost(options) {
+    const r = await fetch(`${apiBase}?action=log_evento`, {
+      method: "POST",
+      cache: "no-store",
+      redirect: "follow",
+      ...options
+    });
+    const text = await r.text();
+    let data = null;
+    try {
+      data = JSON.parse(text);
+    } catch (_) {
+      throw new Error("Respuesta no JSON del log: " + text.slice(0, 160));
+    }
+    if (data?.ok === true) return data;
+    throw new Error(data?.error || text.slice(0, 160) || "log_evento no confirmado");
+  }
+
+  try {
+    return await tryPost({
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body
+    });
+  } catch (firstErr) {
+    return await tryPost({
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
+      body: "payload=" + encodeURIComponent(body)
+    });
+  }
+}
+
+function logAppEventD9(evento, data = {}) {
+  const payload = buildAppLogPayloadD9(evento, data);
+  if (!navigator.onLine) {
+    enqueueAppLogD9(payload);
+    return;
+  }
+
+  postAppLogPayloadD9(payload)
+    .then(() => {
+      if (getQueuedLogsD9().length) flushAppLogsD9();
+    })
+    .catch(err => {
+      console.warn("[D9] log_evento quedó en cola:", evento, err);
+      enqueueAppLogD9(payload);
+    });
+}
+
+async function flushAppLogsD9() {
+  if (d9LogsFlushRunning || !navigator.onLine) return;
+  const queue = getQueuedLogsD9();
+  if (!queue.length) return;
+
+  d9LogsFlushRunning = true;
+  const remaining = [];
+  try {
+    for (const row of queue) {
+      try {
+        await postAppLogPayloadD9(row);
+      } catch (err) {
+        remaining.push(row);
+      }
+    }
+    saveQueuedLogsD9(remaining);
+  } finally {
+    d9LogsFlushRunning = false;
+  }
+}
+
 
 async function postVersionLogD9(payload) {
   const apiBase = getApiBaseD9();
@@ -1468,7 +1635,10 @@ function renderSellerBadge() {
 
 function renderPendingBadge() {
   const pending = readJSON(STORAGE_KEYS.pending, []);
-  const count = pending.length;
+  const drafts = readJSON(STORAGE_KEYS.drafts, []);
+  const pendingCount = pending.length;
+  const draftCount = drafts.length;
+  const totalCount = pendingCount + draftCount;
   const el = $("#pendingBadge");
   const card = $("#btnSyncPending");
   const cardCount = document.querySelector(".pending-count-vnext");
@@ -1476,29 +1646,44 @@ function renderPendingBadge() {
   const cardSub = $("#pendingInfoText");
 
   if (card) {
-    card.classList.toggle("has-pending", count > 0);
+    card.classList.toggle("has-pending", totalCount > 0);
     card.classList.remove("syncing");
   }
 
   if (cardCount) {
-    if (!count) {
+    if (!totalCount) {
       cardCount.classList.add("hidden");
     } else {
       cardCount.classList.remove("hidden");
-      cardCount.textContent = String(count);
+      cardCount.textContent = String(totalCount);
     }
   }
 
-  if (cardTitle) cardTitle.textContent = count ? `${count} pendiente${count === 1 ? "" : "s"}` : "Sin pendientes";
-  if (cardSub) cardSub.textContent = count ? "Se enviarán con conexión" : "Pedidos sincronizados";
+  if (cardTitle) {
+    if (pendingCount && draftCount) cardTitle.textContent = "Pendientes y en espera";
+    else if (pendingCount) cardTitle.textContent = "Pendientes de envío";
+    else if (draftCount) cardTitle.textContent = "Borradores en espera";
+    else cardTitle.textContent = "Pendientes y en espera";
+  }
+  if (cardSub) {
+    if (pendingCount && draftCount) {
+      cardSub.textContent = `${pendingCount} pendiente${pendingCount === 1 ? "" : "s"} de envío · ${draftCount} borrador${draftCount === 1 ? "" : "es"}`;
+    } else if (pendingCount) {
+      cardSub.textContent = `${pendingCount} pendiente${pendingCount === 1 ? "" : "s"} automático${pendingCount === 1 ? "" : "s"}`;
+    } else if (draftCount) {
+      cardSub.textContent = `${draftCount} borrador${draftCount === 1 ? "" : "es"} en espera`;
+    } else {
+      cardSub.textContent = "Sin pendientes ni borradores";
+    }
+  }
 
   if (!el) return;
-  if (!count) {
+  if (!totalCount) {
     el.classList.add("hidden");
     return;
   }
   el.classList.remove("hidden");
-  el.textContent = `${count} pendiente${count === 1 ? "" : "s"}`;
+  el.textContent = String(totalCount);
 }
 
 function getBannerRows() {
@@ -1706,7 +1891,7 @@ function renderSupport() {
   const s = state.support || {};
   updateSupportChip();
 
-  const nombre = esc(s.nombre || "M.J.S. Desarrollo APPs");
+  const nombre = esc(s.nombre || "M.J.S. APPs");
   const whatsappValue = s.whatsapp ? esc(s.whatsapp) : "-";
   const whatsappHref = s.whatsapp ? `https://wa.me/${onlyDigits(s.whatsapp)}` : "";
   const emailValue = s.email ? esc(s.email) : "-";
@@ -1821,7 +2006,6 @@ function closeLogin() {
 function onlyDigitsText(value = "") {
   return String(value || "").replace(/\D/g, "");
 }
-
 
 function isD9StandaloneMode() {
   return !!(
@@ -2479,6 +2663,417 @@ function renderPriceProducts() {
   `).join("");
 }
 
+
+function getPriceListFilteredProductsD9() {
+  const term = String(state.priceSearch || "").trim().toLowerCase();
+  const cat = state.priceCategory || "";
+  return (state.products || [])
+    .filter(productHasValidPrice)
+    .filter(p => (!term || productMatchesTerm(p, term)) && (!cat || p.categoria === cat))
+    .sort((a, b) => {
+      const ca = cleanCategory(a.categoria || "");
+      const cb = cleanCategory(b.categoria || "");
+      if (!cat && ca !== cb) return ca.localeCompare(cb, "es", { sensitivity: "base", numeric: true });
+      return sortByName(a, b);
+    });
+}
+
+function pdfAsciiD9(value) {
+  return String(value ?? "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/ñ/g, "n").replace(/Ñ/g, "N")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function pdfEscD9(value) {
+  return pdfAsciiD9(value).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function pdfMoneyD9(value) {
+  return pdfAsciiD9(money(Number(value || 0)));
+}
+
+function pdfWrapD9(text, maxChars) {
+  const words = pdfAsciiD9(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  words.forEach(w => {
+    if (!line) { line = w; return; }
+    if ((line + " " + w).length <= maxChars) line += " " + w;
+    else { lines.push(line); line = w; }
+  });
+  if (line) lines.push(line);
+  return lines.length ? lines : [""];
+}
+
+function pdfTextD9(txt, x, y, size = 9, font = "F1") {
+  return `BT /${font} ${size} Tf ${x.toFixed(2)} ${y.toFixed(2)} Td (${pdfEscD9(txt)}) Tj ET\n`;
+}
+
+function pdfTextRightD9(txt, xRight, y, size = 9, font = "F1") {
+  const s = pdfAsciiD9(txt);
+  const approx = s.length * size * 0.48;
+  return pdfTextD9(s, xRight - approx, y, size, font);
+}
+
+function pdfLineD9(x1, y1, x2, y2) {
+  return `${x1.toFixed(2)} ${y1.toFixed(2)} m ${x2.toFixed(2)} ${y2.toFixed(2)} l S\n`;
+}
+
+async function loadPdfLogoJpegD9() {
+  try {
+    const src = "icons/logo_d9.png";
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = src;
+    });
+
+    function makeJpeg(size, alpha = 1, quality = 0.88) {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, size, size);
+      const scale = Math.min(size / img.width, size / img.height) * 0.92;
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      ctx.globalAlpha = 1;
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      return atob(dataUrl.split(",")[1] || "");
+    }
+
+    const size = 160;
+    const watermarkSize = 520;
+    return {
+      data: makeJpeg(size, 1, 0.88),
+      width: size,
+      height: size,
+      watermarkData: makeJpeg(watermarkSize, 0.08, 0.82),
+      watermarkWidth: watermarkSize,
+      watermarkHeight: watermarkSize
+    };
+  } catch (err) {
+    console.warn("No se pudo cargar logo real para PDF:", err);
+    return null;
+  }
+}
+
+function buildPriceListPdfBlobD9(products, logoImage) {
+  const pageW = 595.28;
+  const pageH = 841.89;
+  const margin = 36;
+  const topY = 742;
+  const bottomY = 54;
+  const xCode = 42;
+  const xName = 102;
+  const xPrice = 552;
+  const pages = [];
+  let page = [];
+  let y = topY;
+  let rowIndex = 0;
+  const generated = new Date();
+  const fecha = generated.toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" });
+  const enviadaPor = pdfAsciiD9(state.seller?.nombre || state.seller?.usuario || "D9");
+  const term = String(state.priceSearch || "").trim();
+  const selectedCat = state.priceCategory || "";
+  const cleanTerm = pdfAsciiD9(term).toUpperCase();
+  let titleExtra = "Lista completa";
+  if (selectedCat && term) {
+    titleExtra = `${cleanCategory(selectedCat)} · Filtro: ${cleanTerm}`;
+  } else if (selectedCat) {
+    titleExtra = cleanCategory(selectedCat);
+  } else if (term) {
+    titleExtra = `Resultados filtrados: ${cleanTerm}`;
+  }
+  const maxNameChars = 54;
+  const rowLineH = 9;
+  const rowMinH = 14;
+  const rowPadTop = 3;
+  const rowPadBottom = 3;
+  const headerH = 27;
+  const columnsH = 15;
+  const pageBodyH = topY - bottomY;
+
+  function newPage() {
+    if (page.length) pages.push(page);
+    page = [];
+    y = topY;
+    rowIndex = 0;
+  }
+
+  function remainingH() {
+    return y - bottomY;
+  }
+
+  function ensureSpace(h) {
+    if (remainingH() < h && page.length) newPage();
+  }
+
+  function rowInfo(p) {
+    const nameLines = pdfWrapD9(p.nombre || "", maxNameChars).slice(0, 3);
+    const rowH = Math.max(rowMinH, nameLines.length * rowLineH + rowPadTop + rowPadBottom);
+    return { nameLines, rowH };
+  }
+
+  function categoryHeight(group) {
+    return headerH + columnsH + group.items.reduce((sum, p) => sum + rowInfo(p).rowH, 0);
+  }
+
+  function addCategoryHeader(cat, repeated = false) {
+    const label = cleanCategory(cat || "Sin categoria").toUpperCase() + (repeated ? " (CONT.)" : "");
+    ensureSpace(headerH + columnsH + rowMinH);
+    const catBarY = y - 18;
+    page.push(`0.87 0.95 0.99 rg ${margin.toFixed(2)} ${catBarY.toFixed(2)} ${(pageW-margin*2).toFixed(2)} 18 re f\n`);
+    page.push(`0.10 0.45 0.78 rg ${margin.toFixed(2)} ${catBarY.toFixed(2)} 4 18 re f\n`);
+    page.push(`0.02 0.16 0.30 rg ` + pdfTextD9(label, xCode + 8, y - 13, 10, "F2"));
+    y -= headerH;
+    addColumns();
+    rowIndex = 0;
+  }
+
+  function addColumns() {
+    page.push(`0.10 0.24 0.38 rg ` + pdfTextD9("Cod", xCode, y, 8, "F2"));
+    page.push(pdfTextD9("Articulo", xName, y, 8, "F2"));
+    page.push(pdfTextRightD9("Precio final con IVA", xPrice, y, 8, "F2"));
+    page.push(`0.70 0.78 0.84 RG ` + pdfLineD9(margin, y - 5, pageW - margin, y - 5));
+    y -= columnsH;
+  }
+
+  function addRow(p) {
+    const { nameLines, rowH } = rowInfo(p);
+    if (remainingH() < rowH) {
+      newPage();
+      return false;
+    }
+
+    const rowTop = y;
+    const rowBottom = y - rowH;
+    if (rowIndex % 2 === 0) {
+      page.push(`0.965 0.970 0.978 rg ${margin.toFixed(2)} ${rowBottom.toFixed(2)} ${(pageW-margin*2).toFixed(2)} ${rowH.toFixed(2)} re f\n`);
+    }
+
+    const code = productCode(p) || "";
+    const baseY = rowTop - rowPadTop - 8;
+    page.push(`0 0 0 rg ` + pdfTextD9(code, xCode, baseY, 8));
+    nameLines.forEach((ln, i) => page.push(pdfTextD9(ln, xName, baseY - (i * rowLineH), 8)));
+    page.push(pdfTextRightD9(pdfMoneyD9(productPrice(p)), xPrice, baseY, 8, "F2"));
+    page.push(`0.91 0.94 0.96 RG ` + pdfLineD9(margin, rowBottom, pageW - margin, rowBottom));
+    y -= rowH;
+    rowIndex++;
+    return true;
+  }
+
+  function groupProducts(list) {
+    if (selectedCat) {
+      return [{ cat: cleanCategory(selectedCat || list[0]?.categoria || "Sin categoria"), items: list }];
+    }
+    const groups = [];
+    let current = null;
+    list.forEach(p => {
+      const cat = cleanCategory(p.categoria || "Sin categoria");
+      if (!current || current.cat !== cat) {
+        current = { cat, items: [] };
+        groups.push(current);
+      }
+      current.items.push(p);
+    });
+    return groups;
+  }
+
+  const groups = groupProducts(products);
+
+  function renderCategoryGroup(group) {
+    addCategoryHeader(group.cat, false);
+    for (let i = 0; i < group.items.length; i++) {
+      if (!addRow(group.items[i])) {
+        addCategoryHeader(group.cat, true);
+        addRow(group.items[i]);
+      }
+    }
+  }
+
+  const pendingGroups = groups.filter(g => g.items && g.items.length);
+
+  function findFillerGroupIndex(maxH) {
+    if (selectedCat || maxH <= 0) return -1;
+    // Busca una categoría posterior que entre completa en el hueco actual.
+    // No usa categorías gigantes como relleno porque esas siempre arrancan mejor en página nueva.
+    let bestIdx = -1;
+    let bestH = 0;
+    for (let i = 1; i < pendingGroups.length; i++) {
+      const h = categoryHeight(pendingGroups[i]);
+      if (h <= pageBodyH && h <= maxH && h > bestH) {
+        bestIdx = i;
+        bestH = h;
+      }
+    }
+    return bestIdx;
+  }
+
+  while (pendingGroups.length) {
+    const group = pendingGroups[0];
+    const fullH = categoryHeight(group);
+    const isHuge = fullH > pageBodyH;
+    const rem = remainingH();
+
+    // Tetris real: si la categoría que sigue no entra en el hueco actual
+    // —sea chica o gigante— intentamos rellenar con otra categoría posterior que sí entre completa.
+    if (!selectedCat && page.length && rem > 0 && fullH > rem) {
+      const fillerIndex = findFillerGroupIndex(rem);
+      if (fillerIndex > 0) {
+        const [filler] = pendingGroups.splice(fillerIndex, 1);
+        renderCategoryGroup(filler);
+        continue;
+      }
+      newPage();
+      continue;
+    }
+
+    if (page.length && isHuge) {
+      newPage();
+    }
+
+    pendingGroups.shift();
+    renderCategoryGroup(group);
+  }
+
+
+  if (page.length) pages.push(page);
+  if (!pages.length) pages.push([pdfTextD9("Sin productos para listar.", margin, topY, 10)]);
+
+  let logoImageId = null;
+  let logoWatermarkImageId = null;
+
+  function pageHeader(pageNum, total) {
+    let s = "";
+    s += `0.95 0.98 1 rg 28 774 539 44 re f\n`;
+    s += `0.38 0.74 0.91 RG 28 774 539 44 re S\n`;
+    if (logoImageId) {
+      s += `q 34 0 0 34 42 782 cm /ImLogo Do Q\n`;
+    } else {
+      s += `0.10 0.45 0.78 rg 42 786 34 22 re f\n`;
+      s += `1 1 1 rg ` + pdfTextD9("D9", 49, 793, 14, "F2");
+    }
+    s += `0.02 0.16 0.30 rg ` + pdfTextD9("DISTRIBUIDORA D9", 88, 800, 16, "F2");
+    s += `0.25 0.38 0.48 rg ` + pdfTextD9("Lista de precios - " + titleExtra, 88, 784, 9);
+    s += pdfTextRightD9("Generada: " + fecha, 552, 802, 8);
+    s += pdfTextRightD9("Enviada por: " + enviadaPor, 552, 788, 8);
+    return s;
+  }
+
+  function pageWatermark() {
+    let s = "";
+    if (logoWatermarkImageId) {
+      // Logo real gigante, preaclarado en canvas para compatibilidad entre visores PDF.
+      s += `q 330 0 0 330 132 250 cm /ImLogoW Do Q
+`;
+    } else {
+      s += `0.94 0.98 1 rg ` + pdfTextD9("D9", 214, 392, 148, "F2");
+      s += `0 0 0 rg `;
+    }
+    return s;
+  }
+
+
+  function pageFooter(pageNum, total) {
+    let s = "";
+    s += `0.70 0.78 0.84 RG ` + pdfLineD9(margin, 38, pageW - margin, 38);
+    s += `0.35 0.45 0.52 rg ` + pdfTextD9("Precios sujetos a modificacion sin previo aviso.", margin, 24, 7);
+    s += pdfTextRightD9(`Pagina ${pageNum} de ${total}`, pageW - margin, 24, 7);
+    return s;
+  }
+
+  const objects = [];
+  function obj(content) { objects.push(content); return objects.length; }
+  const catalogId = obj("<< /Type /Catalog /Pages 2 0 R >>");
+  const pagesKids = [];
+  const pagesId = 2;
+  objects.push("");
+  const font1Id = obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+  const font2Id = obj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+
+  if (logoImage && logoImage.data) {
+    logoImageId = obj(`<< /Type /XObject /Subtype /Image /Width ${Number(logoImage.width || 160)} /Height ${Number(logoImage.height || 160)} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logoImage.data.length} >>\nstream\n${logoImage.data}\nendstream`);
+  }
+  if (logoImage && logoImage.watermarkData) {
+    logoWatermarkImageId = obj(`<< /Type /XObject /Subtype /Image /Width ${Number(logoImage.watermarkWidth || 520)} /Height ${Number(logoImage.watermarkHeight || 520)} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logoImage.watermarkData.length} >>\nstream\n${logoImage.watermarkData}\nendstream`);
+  }
+
+  const pageStreams = pages.map((body, i) => pageHeader(i + 1, pages.length) + pageWatermark() + body.join("") + pageFooter(i + 1, pages.length));
+  pageStreams.forEach(stream => {
+    const contentId = objects.length + 2;
+    const xObjectEntries = [];
+    if (logoImageId) xObjectEntries.push(`/ImLogo ${logoImageId} 0 R`);
+    if (logoWatermarkImageId) xObjectEntries.push(`/ImLogoW ${logoWatermarkImageId} 0 R`);
+    const xObjects = xObjectEntries.length ? `/XObject << ${xObjectEntries.join(" ")} >>` : "";
+    const pageId = obj(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageW.toFixed(2)} ${pageH.toFixed(2)}] /Resources << /ProcSet [/PDF /Text /ImageC] /Font << /F1 ${font1Id} 0 R /F2 ${font2Id} 0 R >> ${xObjects} >> /Contents ${contentId} 0 R >>`);
+    pagesKids.push(`${pageId} 0 R`);
+    obj(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+  });
+  objects[pagesId - 1] = `<< /Type /Pages /Kids [${pagesKids.join(" ")}] /Count ${pagesKids.length} >>`;
+
+  let pdf = "%PDF-1.4\n% D9\n";
+  const offsets = [0];
+  objects.forEach((content, idx) => {
+    offsets.push(pdf.length);
+    pdf += `${idx + 1} 0 obj\n${content}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i <= objects.length; i++) pdf += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  const bytes = new Uint8Array(pdf.length);
+  for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 0xff;
+  const filename = `D9-lista-precios-${generated.toISOString().slice(0,10)}.pdf`;
+  return { blob: new Blob([bytes], { type: "application/pdf" }), filename };
+}
+
+async function sharePriceListPdfD9() {
+  const products = getPriceListFilteredProductsD9();
+  if (!products.length) {
+    toast("No hay productos para compartir.");
+    return;
+  }
+
+  try {
+    toast("Armando PDF...");
+    const logoImage = await loadPdfLogoJpegD9();
+    const { blob, filename } = buildPriceListPdfBlobD9(products, logoImage);
+    const file = new File([blob], filename, { type: "application/pdf" });
+    const shareData = {
+      title: "Lista de precios D9",
+      text: "Lista de precios actualizada de Distribuidora D9.",
+      files: [file]
+    };
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share(shareData);
+      toast("Lista lista para compartir.");
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 15000);
+    toast("PDF descargado. Compartilo desde Descargas.");
+  } catch (err) {
+    console.error("No se pudo compartir PDF", err);
+    toast("No se pudo generar/compartir el PDF.");
+  }
+}
+
 function refreshPricesAcrossApp() {
   state.cart = state.cart.map(item => ({ ...item, precio: productPrice(item) }));
   renderQuickLabels();
@@ -2660,9 +3255,48 @@ function removeItem(id) {
 
 function clearCart() {
   state.cart = [];
+  clearOrderNoteGeneralD9(false);
   renderProducts();
   renderQuickLabels();
   renderCart();
+}
+
+function getItemNoteD9(item) {
+  return String(item?.nota_item || item?.nota || "").trim();
+}
+
+function setItemNoteD9(id, value) {
+  const item = state.cart.find(x => String(x.id) === String(id));
+  if (!item) return;
+  const note = String(value || "").trim();
+  if (note) item.nota_item = note;
+  else delete item.nota_item;
+  renderCart();
+}
+
+function editItemNoteD9(id) {
+  const item = state.cart.find(x => String(x.id) === String(id));
+  if (!item) return toast("No encontré ese producto.");
+  const current = getItemNoteD9(item);
+  const value = window.prompt(`Nota para ${item.nombre || "producto"}:`, current);
+  if (value === null) return;
+  setItemNoteD9(id, value);
+}
+
+function setOrderNoteGeneralD9(value) {
+  state.orderNoteGeneral = String(value || "").trim();
+}
+
+function clearOrderNoteGeneralD9(render = true) {
+  state.orderNoteGeneral = "";
+  const input = document.getElementById("orderNoteGeneralD9");
+  if (input) input.value = "";
+  if (render) renderCart();
+}
+
+function syncOrderNoteInputD9() {
+  const input = document.getElementById("orderNoteGeneralD9");
+  if (input && input.value !== state.orderNoteGeneral) input.value = state.orderNoteGeneral || "";
 }
 
 function cartTotal() {
@@ -2702,7 +3336,15 @@ function generateMessageText(payload = null) {
   source.carrito.forEach((item, index) => {
     lines.push(`${index + 1}) ${item.nombre}`);
     lines.push(`   · Cant: ${fmtQtyD9(item.cantidad || 0)}`);
+    const note = getItemNoteD9(item);
+    if (note) lines.push(`   · Nota: ${note}`);
   });
+
+  const notaPedido = String(source.nota_pedido || source.notaPedido || state.orderNoteGeneral || "").trim();
+  if (notaPedido) {
+    lines.push("────────────────────");
+    lines.push(`Nota pedido: ${notaPedido}`);
+  }
 
   lines.push("────────────────────");
   lines.push(`Items: ${source.carrito.length} · Unidades: ${fmtQtyD9(unidadesTotales)}`);
@@ -2835,17 +3477,23 @@ function renderCart() {
             <strong>${esc(item.nombre)}</strong>
             <div class="mini-text">${esc(itemMetaLine(item))}</div>
           </div>
-          <button class="remove-btn" data-remove-id="${esc(item.id)}" type="button">Quitar</button>
+          <button class="remove-btn cart-trash-btn-d9" data-remove-id="${esc(item.id)}" type="button" title="Quitar producto" aria-label="Quitar producto">🗑️</button>
         </div>
         <div class="qty-row qty-row-pro-d9">
           <button class="qty-btn" data-qty="minus" data-id="${esc(item.id)}" type="button">−</button>
           <div class="qty-value">${fmtQtyD9(item.cantidad)}</div>
           <button class="qty-btn" data-qty="plus" data-id="${esc(item.id)}" type="button">+</button>
-          <button class="qty-edit-btn-d9" data-edit-qty="${esc(item.id)}" type="button">👉Cant.✏️</button>
-          <div class="product-price cart-line-total-d9">${money(item.precio * item.cantidad)}</div>
+          <button class="qty-edit-btn-d9" data-edit-qty="${esc(item.id)}" type="button">Cant.</button>
+          <button class="qty-edit-btn-d9 note-item-btn-d9 ${getItemNoteD9(item) ? 'has-note-d9' : ''}" data-edit-note-d9="${esc(item.id)}" type="button" title="Nota del producto" aria-label="Nota del producto">📝</button>
         </div>
+        <div class="cart-subtotal-row-d9">
+          <span>Subtotal</span>
+          <strong class="product-price cart-line-total-d9">${money(item.precio * item.cantidad)}</strong>
+        </div>
+        ${getItemNoteD9(item) ? `<div class="cart-item-note-d9">${esc(getItemNoteD9(item))}</div>` : ""}
       </div>`).join("");
   }
+  syncOrderNoteInputD9();
   $("#summaryItems").textContent = fmtQtyD9(state.cart.reduce((acc, item) => acc + Number(item.cantidad || 0), 0));
   $("#summaryTotal").textContent = money(cartTotal());
   const previewEl = $("#messagePreview");
@@ -2860,7 +3508,8 @@ function buildOrderFingerprint(payload) {
       String(item.id || ""),
       String(item.nombre || ""),
       Number(item.cantidad || 0),
-      Number(item.precio || 0)
+      Number(item.precio || 0),
+      getItemNoteD9(item)
     ].join(":"))
     .join("|");
 
@@ -2868,7 +3517,8 @@ function buildOrderFingerprint(payload) {
     payload?.vendedor?.id || "",
     cliente.id || cliente.nombre_real || cliente.nombre || "",
     items,
-    Number(payload?.total || 0)
+    Number(payload?.total || 0),
+    String(payload?.nota_pedido || payload?.notaPedido || "").trim()
   ].join("||");
 }
 
@@ -3015,9 +3665,10 @@ function buildOrderPayload() {
     fecha: new Date().toISOString(),
     vendedor: state.seller,
     cliente: state.selectedClient,
-    carrito: state.cart.map(x => ({ id: x.id, nombre: x.nombre, cantidad: x.cantidad, precio: x.precio })),
+    carrito: state.cart.map(x => ({ id: x.id, nombre: x.nombre, cantidad: x.cantidad, precio: x.precio, nota_item: getItemNoteD9(x) })),
     total: cartTotal(),
-    detalle: state.cart.map(x => `${x.nombre} x${x.cantidad}`).join(" | ")
+    nota_pedido: String(state.orderNoteGeneral || "").trim(),
+    detalle: state.cart.map(x => `${x.nombre} x${x.cantidad}${getItemNoteD9(x) ? ` (${getItemNoteD9(x)})` : ""}`).join(" | ")
   };
 }
 
@@ -3045,9 +3696,11 @@ function buildWebhookPayload(payload) {
       id_producto: item.id || "",
       nombre: item.nombre,
       cantidad: Number(item.cantidad || 0),
-      precio: Number(item.precio || 0)
+      precio: Number(item.precio || 0),
+      nota_item: getItemNoteD9(item)
     })),
     total: Number(payload?.total || 0),
+    nota_pedido: String(payload?.nota_pedido || payload?.notaPedido || "").trim(),
     // Se manda para futuras versiones del script. El script actual puede ignorarlo.
     fecha: payload?.fecha || new Date().toISOString(),
     fecha_original: payload?.fecha || "",
@@ -3236,6 +3889,7 @@ function saveHistory(payload, status = "enviado", error = "") {
     cliente_data: payload.cliente || null,
     detalle: payload.detalle,
     total: payload.total,
+    nota_pedido: String(payload?.nota_pedido || payload?.notaPedido || "").trim(),
     status,
     pc_status: status === "ok" ? "cargado" : "pendiente",
     whatsapp_status: "enviado",
@@ -3244,6 +3898,7 @@ function saveHistory(payload, status = "enviado", error = "") {
       nombre: x.nombre,
       cantidad: x.cantidad,
       precio: x.precio,
+      nota_item: getItemNoteD9(x),
       subtotal: Number(x.precio || 0) * Number(x.cantidad || 0)
     })),
     error
@@ -3379,11 +4034,13 @@ async function anularHistoryPedidoD9(id) {
       });
 
       if (!res?.ok || res?.data?.ok !== true) {
+        logAppEventD9("PEDIDO_ANULADO_ERROR", { pedido_id: pedidoId, cliente: item.cliente, total: item.total, resultado: "error", error: res?.data?.error || res?.error || "No se pudo anular en PC" });
         toast(res?.data?.error || res?.error || "No se pudo anular en PC.");
         return;
       }
 
       setHistoryItemAnuladoD9(id, pedidoId, "Anulado en PC");
+      logAppEventD9("PEDIDO_ANULADO", { pedido_id: pedidoId, cliente: item.cliente, total: item.total, resultado: "ok", detalle: `${res.data.filas || 0} filas` });
       renderHistory();
       toast(`Pedido anulado en PC (${res.data.filas || 0} filas).`);
     }
@@ -3471,10 +4128,12 @@ function buildManualPayloadFromHistoryItemD9(item) {
       id: x.id || x.id_producto || "",
       nombre: x.nombre || "",
       cantidad: Number(x.cantidad || 0),
-      precio: Number(x.precio || 0)
+      precio: Number(x.precio || 0),
+      nota_item: getItemNoteD9(x)
     })),
     total: Number(item?.total || 0),
-    detalle: item?.detalle || items.map(x => `${x.nombre || "Producto"} x${x.cantidad || 0}`).join(" | "),
+    nota_pedido: String(item?.nota_pedido || item?.notaPedido || "").trim(),
+    detalle: item?.detalle || items.map(x => `${x.nombre || "Producto"} x${x.cantidad || 0}${getItemNoteD9(x) ? ` (${getItemNoteD9(x)})` : ""}`).join(" | "),
     resync_pc: true,
     carga_manual_pc: true
   };
@@ -3523,6 +4182,7 @@ async function manualLoadHistoryItemsToPcD9(ids) {
       const res = await trySendToWebhook(payload);
       if (res?.ok) {
         ok++;
+        logAppEventD9("REENVIO_HISTORIAL_OK", { payload, resultado: res?.data?.duplicated ? "duplicado_ok" : "ok" });
         updateHistoryItemByLocalIdD9(localId, {
           pedido_id: payload.pedido_id,
           vendedor_id: payload.vendedor?.id || item.vendedor_id || "",
@@ -3532,6 +4192,7 @@ async function manualLoadHistoryItemsToPcD9(ids) {
         });
       } else {
         fail++;
+        logAppEventD9("REENVIO_HISTORIAL_ERROR", { payload, resultado: "error", error: res?.error || "No llegó a PC" });
         updateHistoryItemByLocalIdD9(localId, {
           pedido_id: payload.pedido_id,
           vendedor_id: payload.vendedor?.id || item.vendedor_id || "",
@@ -3617,8 +4278,9 @@ function buildPayloadFromHistoryItemD9(item) {
     fecha: item?.fecha || new Date().toISOString(),
     vendedor: { id: item?.vendedor_id || state.seller?.id || "", nombre: item?.vendedor || state.seller?.nombre || "" },
     cliente: clienteData,
-    carrito: (item?.items || []).map(x => ({ id: x.id || "", nombre: x.nombre || "", cantidad: Number(x.cantidad || 0), precio: Number(x.precio || 0) })),
+    carrito: (item?.items || []).map(x => ({ id: x.id || "", nombre: x.nombre || "", cantidad: Number(x.cantidad || 0), precio: Number(x.precio || 0), nota_item: getItemNoteD9(x) })),
     total: Number(item?.total || 0),
+    nota_pedido: String(item?.nota_pedido || item?.notaPedido || "").trim(),
     detalle: item?.detalle || "",
     resync_pc: true
   };
@@ -3662,6 +4324,7 @@ async function resyncHistoryItemsToPcD9(ids) {
       const res = await trySendToWebhook(payload);
       if (res?.ok) {
         ok++;
+        logAppEventD9("REENVIO_HISTORIAL_OK", { payload, resultado: res?.data?.duplicated ? "duplicado_ok" : "ok" });
         updateHistoryStatusByPedidoIdD9(payload.pedido_id, "ok", res?.data?.duplicated ? "Ya recibido previamente" : "Reenviado a PC");
       } else {
         fail++;
@@ -3692,13 +4355,18 @@ async function sendOrder() {
   if (validateOrder() !== true) return;
 
   const payload = buildOrderPayload();
+  logAppEventD9("CONFIRMAR_ENVIO_TOCADO", { payload, resultado: "tap" });
 
-  if (isOrderSendLocked(payload)) return;
+  if (isOrderSendLocked(payload)) {
+    logAppEventD9("ENVIO_BLOQUEADO_LOCK", { payload, resultado: "bloqueado", detalle: "isOrderSendLocked" });
+    return;
+  }
 
   // D9 v1.3.17: candado persistente por huella de pedido.
   // Evita que el mismo cliente + mismos productos + mismo total se cargue dos veces
   // si Android vuelve de WhatsApp, se repite un tap, o queda un reintento viejo dando vueltas.
   if (isRecentOrderFingerprintBlockedD9(payload, 120000)) {
+    logAppEventD9("ANTI_DUPLICADO_BLOQUEO", { payload, resultado: "bloqueado", detalle: "fingerprint reciente" });
     toast("Este mismo pedido ya se envió hace instantes. Esperá un momento para repetirlo.");
     return;
   }
@@ -3727,6 +4395,7 @@ async function sendOrder() {
 
     if (!navigator.onLine) {
       savePendingPayload(payload);
+      logAppEventD9("PENDIENTE_CREADO", { payload, resultado: "sin_conexion", detalle: "Modo offline al enviar" });
       saveHistory(payload, "pendiente", "Sin conexión");
       clearDraftPedidoIdD9();
       renderPendingBadge();
@@ -3736,16 +4405,19 @@ async function sendOrder() {
     }
 
     if (!openWhatsApp(waPhone, waText)) {
+      logAppEventD9("WHATSAPP_ERROR", { payload, resultado: "error", detalle: "Falta WhatsApp destino" });
       toast("Falta WhatsApp destino en confi.");
       return;
     }
 
+    logAppEventD9("WHATSAPP_ABIERTO", { payload, resultado: "ok", detalle: waPhone ? `destino:${waPhone}` : "sin destino" });
     markRecentOrderFingerprintD9(payload, 120000);
 
     trySendToWebhook(payload)
       .then(res => {
         if (!res || !res.ok) {
           savePendingPayload(payload);
+          logAppEventD9("PEDIDO_ENVIADO_SHEETS_ERROR", { payload, resultado: "pendiente", error: res?.error || "No pude confirmar el envío" });
           saveHistory(payload, "pendiente", res?.error || "No pude confirmar el envío");
           // IMPORTANTE: el pedido ya salió por WhatsApp y quedó guardado con su ID.
           // Limpiamos el borrador para que el próximo pedido NO reutilice el mismo ID.
@@ -3753,6 +4425,7 @@ async function sendOrder() {
           renderPendingBadge();
           console.warn("Pedido pendiente:", res?.error);
         } else {
+          logAppEventD9("PEDIDO_ENVIADO_SHEETS_OK", { payload, resultado: res?.data?.duplicated ? "duplicado_ok" : "ok", detalle: res?.data?.message || "Enviado correctamente" });
           saveHistory(payload, "ok", res?.data?.duplicated ? "Ya recibido previamente" : "Enviado correctamente");
           clearDraftPedidoIdD9();
           renderPendingBadge();
@@ -3760,6 +4433,7 @@ async function sendOrder() {
       })
       .catch(err => {
         savePendingPayload(payload);
+        logAppEventD9("PEDIDO_ENVIADO_SHEETS_ERROR", { payload, resultado: "catch", error: String(err) });
         saveHistory(payload, "pendiente", String(err));
         // También en error total: el próximo pedido debe nacer con ID nuevo.
         clearDraftPedidoIdD9();
@@ -3794,15 +4468,45 @@ async function sendOrder() {
 
 
 function savePendingNow() {
+  // D9 v1.3.33: el guardado manual como pendiente queda legacy.
+  // Los pendientes ahora se generan solamente si falla el envío real.
+  return saveDraftNowD9();
+}
+
+function getDraftsD9() {
+  return readJSON(STORAGE_KEYS.drafts, []);
+}
+
+function saveDraftsD9(items) {
+  saveJSON(STORAGE_KEYS.drafts, Array.isArray(items) ? items.slice(0, 100) : []);
+}
+
+function makeDraftIdD9() {
+  const rnd = Math.random().toString(36).slice(2, 7).toUpperCase();
+  return `draft_${Date.now().toString(36)}_${rnd}`;
+}
+
+function saveDraftNowD9() {
   if (validateOrder() !== true) return;
+
   const payload = buildOrderPayload();
-  if (isRecentOrderFingerprintBlockedD9(payload, 120000)) {
-    toast("Este mismo pedido ya fue enviado hace instantes. No lo guardo duplicado.");
-    return;
-  }
-  savePendingPayload(payload);
-  saveHistory(payload, "pendiente");
+  const draft = {
+    ...payload,
+    draft_id: makeDraftIdD9(),
+    tipo_local: "BORRADOR",
+    fecha_guardado: new Date().toISOString(),
+    activePriceList: state.activePriceList || "lista_1",
+    manualPriceOverride: !!state.manualPriceOverride
+  };
+
+  const drafts = getDraftsD9().filter(x => x && x.draft_id !== draft.draft_id);
+  drafts.unshift(draft);
+  saveDraftsD9(drafts);
+  logAppEventD9("GUARDAR_BORRADOR", { payload, pedido_id: draft.draft_id, resultado: "ok", detalle: `items:${(draft.carrito || []).length} notas:${(draft.carrito || []).filter(x => getItemNoteD9(x)).length}${draft.nota_pedido ? " nota_pedido" : ""}` });
+
+  // El borrador NO es pedido enviado y NO debe arrastrar el mismo ID al próximo pedido.
   clearDraftPedidoIdD9();
+
   if (state.seller?.rol === "cliente") {
     applyUserContext();
   } else if (!state.seller) {
@@ -3813,7 +4517,132 @@ function savePendingNow() {
   clearCart();
   renderSelectedClient();
   renderClients();
-  toast("Pedido guardado como pendiente.");
+  renderPendingBadge();
+  toast("Borrador guardado. No se enviará automáticamente.");
+}
+
+function pendingClienteNameD9(item) {
+  const c = item?.cliente || {};
+  return c.nombre_real || c.nombre || item?.cliente_nombre || "Cliente";
+}
+
+function itemDateLabelD9(value) {
+  try { return new Date(value || Date.now()).toLocaleString("es-AR"); } catch { return ""; }
+}
+
+function renderPendingAndDraftsD9() {
+  const list = $("#pendingWorkListD9");
+  if (!list) return;
+
+  const pending = readJSON(STORAGE_KEYS.pending, []);
+  const drafts = getDraftsD9();
+  renderPendingBadge();
+
+  if (!pending.length && !drafts.length) {
+    list.className = "history-list empty-state";
+    list.textContent = "No hay pendientes ni borradores en espera.";
+    return;
+  }
+
+  list.className = "history-list pending-drafts-list-d9";
+
+  const pendingHtml = pending.length ? `
+    <div class="pending-drafts-section-d9">
+      <div class="pending-drafts-title-d9">
+        <strong>⚠️ Pendientes de envío</strong>
+        <span>${pending.length}</span>
+      </div>
+      <p class="mini-text pending-drafts-help-d9">Pedidos que salieron o intentaron salir, pero todavía no quedaron confirmados en la PC.</p>
+      <button id="btnRetryPendingD9" class="history-action-btn history-action-main-d9" type="button">🔁 Reintentar pendientes</button>
+      ${pending.map(item => `
+        <div class="pending-draft-item-d9 pending-auto-d9">
+          <div>
+            <strong>${esc(pendingClienteNameD9(item))}</strong>
+            <div class="mini-text">${esc(itemDateLabelD9(item?.fecha))}</div>
+            <div class="mini-text">ID: ${esc(item?.pedido_id || item?.pedidoId || "sin ID")}${item?.error ? " · " + esc(item.error) : ""}</div>
+          </div>
+          <div class="pending-draft-side-d9">${money(Number(item?.total || 0))}</div>
+        </div>`).join("")}
+    </div>` : "";
+
+  const draftsHtml = drafts.length ? `
+    <div class="pending-drafts-section-d9">
+      <div class="pending-drafts-title-d9">
+        <strong>📝 Borradores en espera</strong>
+        <span>${drafts.length}</span>
+      </div>
+      <p class="mini-text pending-drafts-help-d9">Guardados manualmente. No se envían solos. Hay que continuarlos, revisar y enviar por WhatsApp.</p>
+      ${drafts.map(item => `
+        <div class="pending-draft-item-d9 draft-waiting-d9">
+          <div class="pending-draft-main-d9">
+            <strong>${esc(pendingClienteNameD9(item))}</strong>
+            <div class="mini-text">Guardado: ${esc(itemDateLabelD9(item?.fecha_guardado || item?.fecha))}</div>
+            <div class="mini-text">${esc((item?.carrito || []).length)} producto${(item?.carrito || []).length === 1 ? "" : "s"} · ${money(Number(item?.total || 0))}</div>
+            <div class="history-actions history-actions-compact-d9" data-no-toggle>
+              <button class="history-action-btn history-action-main-d9" data-continue-draft-d9="${esc(item.draft_id)}" type="button">Continuar</button>
+              <button class="history-delete-btn" data-delete-draft-d9="${esc(item.draft_id)}" type="button">🗑️</button>
+            </div>
+          </div>
+        </div>`).join("")}
+    </div>` : "";
+
+  list.innerHTML = pendingHtml + draftsHtml;
+}
+
+function continueDraftD9(draftId) {
+  const drafts = getDraftsD9();
+  const draft = drafts.find(x => x && x.draft_id === draftId);
+  if (!draft) return toast("No encontré ese borrador.");
+  logAppEventD9("RECUPERAR_BORRADOR", { payload: draft, pedido_id: draftId, resultado: "ok", detalle: "Continuar borrador" });
+
+  state.selectedClient = draft.cliente || null;
+  state.orderNoteGeneral = String(draft.nota_pedido || draft.notaPedido || "").trim();
+  state.activePriceList = draft.activePriceList || state.selectedClient?.lista_1 || state.activePriceList || "lista_1";
+  state.manualPriceOverride = !!draft.manualPriceOverride;
+
+  state.cart = (draft.carrito || []).map(saved => {
+    const product = state.products.find(p => String(p.id) === String(saved.id));
+    const base = product || saved;
+    return {
+      id: saved.id,
+      nombre: product?.nombre || saved.nombre,
+      cantidad: Number(saved.cantidad || 1),
+      precio: product ? productPrice(product) : Number(saved.precio || 0),
+      categoria: base.categoria || saved.categoria || "",
+      nota_item: getItemNoteD9(saved)
+    };
+  });
+
+  // Se borra al continuar para evitar que quede duplicado como borrador viejo.
+  saveDraftsD9(drafts.filter(x => x && x.draft_id !== draftId));
+  clearDraftPedidoIdD9();
+
+  renderSelectedClient();
+  renderOrderPriceListControls();
+  renderClients();
+  renderProducts();
+  renderQuickLabels();
+  renderCart();
+  renderPendingBadge();
+  showView("order");
+  toast("Borrador cargado para continuar.");
+}
+
+function deleteDraftD9(draftId) {
+  showD9Confirm({
+    message: "¿Borrar este borrador?",
+    detail: "No borra ningún pedido enviado ni nada de Google Sheets.",
+    okText: "Borrar",
+    cancelText: "Cancelar",
+    onOk: () => {
+      const drafts = getDraftsD9().filter(x => x && x.draft_id !== draftId);
+      saveDraftsD9(drafts);
+      logAppEventD9("BORRADOR_ELIMINADO", { pedido_id: draftId, resultado: "ok" });
+      renderPendingAndDraftsD9();
+      renderPendingBadge();
+      toast("Borrador eliminado.");
+    }
+  });
 }
 
 async function syncPending() {
@@ -3827,6 +4656,7 @@ async function syncPending() {
   }
 
   state.isSyncing = true;
+  logAppEventD9("SYNC_PENDIENTES_INICIADA", { resultado: "inicio", detalle: `pendientes:${pending.length}` });
   const syncBtn = $("#btnSyncPending");
   const syncBtnIsButton = syncBtn?.tagName === "BUTTON";
   if (syncBtnIsButton) {
@@ -3844,12 +4674,15 @@ async function syncPending() {
         const result = await trySendToWebhook(item);
         if (result.ok) {
           sentCount++;
+          logAppEventD9("PENDIENTE_SYNC_OK", { payload: item, resultado: result?.data?.duplicated ? "duplicado_ok" : "ok" });
           updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "ok", result?.data?.duplicated ? "Ya estaba cargado en PC" : "Cargado en PC");
         } else {
+          logAppEventD9("PENDIENTE_SYNC_ERROR", { payload: item, resultado: "error", error: result?.error || "No llegó a PC" });
           updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "pendiente", result?.error || "No llegó a PC");
           remaining.push(item);
         }
       } catch (err) {
+        logAppEventD9("PENDIENTE_SYNC_ERROR", { payload: item, resultado: "catch", error: String(err) });
         updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "pendiente", String(err));
         remaining.push(item);
       }
@@ -3857,6 +4690,7 @@ async function syncPending() {
 
     saveJSON(STORAGE_KEYS.pending, remaining);
     renderPendingBadge();
+    if (state.currentView === "pending") renderPendingAndDraftsD9();
 
     if (sentCount && !remaining.length) {
       toast("Pendientes sincronizados.");
@@ -3875,7 +4709,7 @@ async function syncPending() {
   } finally {
     state.isSyncing = false;
     if (syncBtnIsButton) {
-      setButtonBusy(syncBtn, false, "Sincronizando...", syncBtn?.dataset?.idleLabel || "Pendientes");
+      setButtonBusy(syncBtn, false, "Sincronizando...", syncBtn?.dataset?.idleLabel || "Pendientes y en espera");
     } else if (syncBtn) {
       syncBtn.classList.remove("syncing");
     }
@@ -3892,13 +4726,7 @@ function renderHistory() {
   }
 
   list.className = "history-list";
-  const toolbarHtml = `
-    <div class="history-resync-toolbar-d9" data-no-toggle>
-      <button class="history-action-btn" id="btnResyncSelectedHistoryD9" type="button">🔁 Reenviar seleccionados a PC</button>
-      <button class="history-action-btn" id="btnManualLoadSelectedHistoryD9" type="button">📝 Cargar manual seleccionados</button>
-      <span class="mini-text">Para pedidos que salieron por WhatsApp pero no llegaron a la PC.</span>
-    </div>`;
-  list.innerHTML = toolbarHtml + history.map(item => {
+  list.innerHTML = history.map(item => {
     const itemId = item.id || `${item.fecha}_${item.cliente}_${item.total}`;
     const isOpen = state.historyOpenId === itemId;
     const items = Array.isArray(item.items) ? item.items : [];
@@ -3914,12 +4742,14 @@ function renderHistory() {
               <div class="history-product-main">
                 <strong>${esc(prod.nombre)}</strong>
                 <div class="mini-text">${money(prod.precio)} c/u</div>
+                ${getItemNoteD9(prod) ? `<div class="mini-text history-note-d9">Nota: ${esc(getItemNoteD9(prod))}</div>` : ""}
               </div>
               <div class="history-product-side">
                 <span class="history-qty">x${esc(prod.cantidad)}</span>
                 <strong>${money(prod.subtotal ?? (Number(prod.precio || 0) * Number(prod.cantidad || 0)))}</strong>
               </div>
             </div>`).join('')}
+          ${String(item.nota_pedido || "").trim() ? `<div class="history-order-note-d9"><strong>Nota pedido:</strong> ${esc(item.nota_pedido)}</div>` : ""}
         </div>`
       : `
         <div class="history-detail ${isOpen ? '' : 'hidden'}" id="detail-${esc(itemId)}">
@@ -3937,7 +4767,6 @@ function renderHistory() {
       <div class="history-item ${isOpen ? 'is-open' : ''} ${isAnulado ? 'history-item-anulado-d9' : ''}" data-history-id="${esc(itemId)}" role="button" tabindex="0">
         <div class="history-head-row">
           <div class="history-copy">
-            <label class="history-select-line-d9" data-no-toggle><input type="checkbox" class="history-select-d9" data-history-select="${esc(itemId)}"> <span>Seleccionar</span></label>
             <strong>${esc(item.cliente)}</strong>
             <div class="mini-text">${new Date(item.fecha).toLocaleString("es-AR")}</div>
             <div class="mini-text history-meta-line">${esc(item.vendedor)} · WhatsApp enviado · ${esc(pcText)}${estadoText}${item.error ? ' · ' + esc(item.error) : ''}</div>
@@ -3963,13 +4792,16 @@ function reuseHistoryItem(id) {
   const item = history.find(x => x.id === id);
   if (!item) return toast("No encontré el pedido.");
 
+  state.orderNoteGeneral = String(item.nota_pedido || item.notaPedido || "").trim();
   state.cart = (item.items || []).map(x => ({
     id: x.id,
     nombre: x.nombre,
     cantidad: Number(x.cantidad || 1),
-    precio: Number(x.precio || 0)
+    precio: Number(x.precio || 0),
+    nota_item: getItemNoteD9(x)
   }));
 
+  logAppEventD9("PEDIDO_REUTILIZADO", { pedido_id: getHistoryPedidoIdD9(item), cliente: item.cliente, total: item.total, resultado: "ok", detalle: `items:${(item.items || []).length}` });
   renderCart();
   showView("order");
   toast("Pedido reutilizado.");
@@ -3983,8 +4815,25 @@ function deleteHistoryItem(id) {
     cancelText: "Cancelar",
     onOk: () => {
       const history = readJSON(STORAGE_KEYS.history, []);
+      const item = history.find(x => x.id === id);
       const filtered = history.filter(x => x.id !== id);
       saveJSON(STORAGE_KEYS.history, filtered);
+
+      if (item) {
+        logAppEventD9("PEDIDO_BORRADO_HISTORIAL", {
+          pedido_id: getHistoryPedidoIdD9(item) || id,
+          cliente: item.cliente || item.cliente_nombre || "",
+          total: item.total || item.total_pedido || "",
+          resultado: "ok",
+          detalle: `items:${(item.items || []).length}`
+        });
+      } else {
+        logAppEventD9("PEDIDO_BORRADO_HISTORIAL", {
+          pedido_id: id,
+          resultado: "ok",
+          detalle: "sin detalle local"
+        });
+      }
 
       if (state.historyOpenId === id) state.historyOpenId = null;
 
@@ -4083,7 +4932,7 @@ function resetTransientUI() {
   const sendBtn = $("#btnSend");
   const syncBtn = $("#btnSyncPending");
   if (sendBtn) setButtonBusy(sendBtn, false, "Enviando...", "Enviar pedido");
-  if (syncBtn?.tagName === "BUTTON") setButtonBusy(syncBtn, false, "Sincronizando...", syncBtn?.dataset?.idleLabel || "Pendientes");
+  if (syncBtn?.tagName === "BUTTON") setButtonBusy(syncBtn, false, "Sincronizando...", syncBtn?.dataset?.idleLabel || "Pendientes y en espera");
   else if (syncBtn) syncBtn.classList.remove("syncing");
 }
 
@@ -4120,6 +4969,7 @@ function openOrderConfirmModal() {
       <div>
         <strong>${esc(item.nombre)}</strong>
         <span>${esc(itemMetaLine(item))} · Cant: ${Number(item.cantidad || 0)}</span>
+        ${getItemNoteD9(item) ? `<small class="confirm-note-d9">Nota: ${esc(getItemNoteD9(item))}</small>` : ""}
       </div>
       <b>${money(Number(item.precio || 0) * Number(item.cantidad || 0))}</b>
     </div>
@@ -4149,6 +4999,7 @@ function openOrderConfirmModal() {
 
     <div class="confirm-section-title-d9">Productos</div>
     <div class="confirm-products-d9">${productosHtml}</div>
+    ${String(payload.nota_pedido || "").trim() ? `<div class="confirm-order-note-d9"><strong>Nota pedido:</strong> ${esc(payload.nota_pedido)}</div>` : ""}
   `;
 
   confirmBtn.disabled = false;
@@ -4248,7 +5099,7 @@ function bind() {
   const companyBtn = $("#btnCompanyInfo");
   if (companyBtn) companyBtn.addEventListener("click", openCompanyInfo);
   const syncPendingEl = $("#btnSyncPending");
-  if (syncPendingEl?.tagName === "BUTTON") syncPendingEl.addEventListener("click", syncPending);
+  if (syncPendingEl) syncPendingEl.addEventListener("click", () => { renderPendingAndDraftsD9(); showView("pending"); });
   $("#btnLogin").addEventListener("click", loginSeller);
   $("#btnLogout").addEventListener("click", logoutSeller);
   $("#btnSaveOccasionalClient").addEventListener("click", saveOccasionalClient);
@@ -4261,6 +5112,8 @@ function bind() {
   productSearchInputD9.addEventListener("pointerdown", () => clearProductSearchD9(true));
   productSearchInputD9.addEventListener("focus", () => clearProductSearchD9(true));
   $("#priceSearch").addEventListener("input", (e) => { state.priceSearch = e.target.value.trim().toLowerCase(); renderPriceProducts(); });
+  const sharePricePdfBtnD9 = $("#btnSharePricePdfD9");
+  if (sharePricePdfBtnD9) sharePricePdfBtnD9.addEventListener("click", sharePriceListPdfD9);
   $("#priceListSelect").addEventListener("change", (e) => { state.activePriceList = e.target.value; refreshPricesAcrossApp(); });
   const orderPriceSelect = $("#orderPriceListSelect");
   if (orderPriceSelect) orderPriceSelect.addEventListener("change", (e) => {
@@ -4275,10 +5128,11 @@ function bind() {
     if (state.cart.length) toast(`Se aplicó ${priceLabel(next)} al pedido.`);
   });
   $("#btnClearCart").addEventListener("click", clearCart);
+  $("#orderNoteGeneralD9")?.addEventListener("input", (e) => setOrderNoteGeneralD9(e.target.value));
   $("#btnSend").addEventListener("click", openOrderConfirmModal);
   $("#btnCancelOrderConfirm")?.addEventListener("click", closeOrderConfirmModal);
-  // D9 v1.3.17: confirmación vinculada por listener delegado anti-render.
-  $("#btnSavePending").addEventListener("click", savePendingNow);
+  // D9 v1.3.33: guardado manual ahora es Borrador; pendiente solo por falla de envío.
+  $("#btnSaveDraftD9")?.addEventListener("click", saveDraftNowD9);
   $("#btnExportHistory").addEventListener("click", exportHistory);
   $("#btnRestoreHistory")?.addEventListener("click", openRestoreHistory);
   $("#restoreHistoryFile")?.addEventListener("change", restoreHistoryFromFile);
@@ -4378,25 +5232,11 @@ function bind() {
     const editQty = ev.target.closest("[data-edit-qty]");
     if (editQty) openQtyModalD9(editQty.dataset.editQty);
 
+    const editNoteD9 = ev.target.closest("[data-edit-note-d9]");
+    if (editNoteD9) { ev.stopPropagation(); editItemNoteD9(editNoteD9.dataset.editNoteD9); return; }
+
     const remove = ev.target.closest("[data-remove-id]");
     if (remove) removeItem(remove.dataset.removeId);
-
-    const resyncSelectedHistory = ev.target.closest("#btnResyncSelectedHistoryD9");
-    if (resyncSelectedHistory) {
-      ev.stopPropagation();
-      const ids = Array.from(document.querySelectorAll(".history-select-d9:checked")).map(x => x.dataset.historySelect);
-      resyncHistoryItemsToPcD9(ids);
-      return;
-    }
-
-
-    const manualLoadSelectedHistory = ev.target.closest("#btnManualLoadSelectedHistoryD9");
-    if (manualLoadSelectedHistory) {
-      ev.stopPropagation();
-      const ids = Array.from(document.querySelectorAll(".history-select-d9:checked")).map(x => x.dataset.historySelect);
-      manualLoadHistoryItemsToPcD9(ids);
-      return;
-    }
 
     const manualLoadHistory = ev.target.closest("[data-manual-load-history]");
     if (manualLoadHistory) {
@@ -4430,6 +5270,27 @@ function bind() {
     if (deleteHistory) {
       ev.stopPropagation();
       deleteHistoryItem(deleteHistory.dataset.deleteHistory);
+      return;
+    }
+
+    const retryPendingD9 = ev.target.closest("#btnRetryPendingD9");
+    if (retryPendingD9) {
+      ev.stopPropagation();
+      syncPending();
+      return;
+    }
+
+    const continueDraftBtnD9 = ev.target.closest("[data-continue-draft-d9]");
+    if (continueDraftBtnD9) {
+      ev.stopPropagation();
+      continueDraftD9(continueDraftBtnD9.dataset.continueDraftD9);
+      return;
+    }
+
+    const deleteDraftBtnD9 = ev.target.closest("[data-delete-draft-d9]");
+    if (deleteDraftBtnD9) {
+      ev.stopPropagation();
+      deleteDraftD9(deleteDraftBtnD9.dataset.deleteDraftD9);
       return;
     }
 
@@ -4822,12 +5683,7 @@ function renderSalesHistoryD9() {
     return;
   }
   list.className = "history-list";
-  const toolbarHtml = `
-    <div class="history-resync-toolbar-d9" data-no-toggle>
-      <button class="history-action-btn" id="btnResyncSelectedHistoryD9" type="button">🔁 Reenviar seleccionados a PC</button>
-      <span class="mini-text">Para pedidos que salieron por WhatsApp pero no llegaron a la PC.</span>
-    </div>`;
-  list.innerHTML = toolbarHtml + history.map(item => {
+  list.innerHTML = history.map(item => {
     const id = item.id || item.venta_id || "";
     const isOpen = state.salesHistoryOpenId === id;
     const detalle = (item.items || []).map(prod => `
@@ -5167,12 +6023,16 @@ async function refreshDataInBackgroundD9(reason = "auto") {
     checkAppVersionD9();
 
     lastAutoRefreshAtD9 = Date.now();
-    if (isManual) toast("Datos sincronizados.");
+    if (isManual) {
+      toast("Datos sincronizados.");
+      flushAppLogsD9();
+    }
     console.log(`[D9] Datos actualizados automáticamente (${reason}).`);
     return true;
   } catch (err) {
     console.warn(`[D9] No se pudo actualizar automáticamente (${reason}):`, err);
     if (isManual) toast("No se pudo sincronizar.");
+    logAppEventD9("SYNC_ERROR", { resultado: "error", detalle: reason, error: String(err) });
     return false;
   } finally {
     if (isManual) setSyncChipBusyD9(false);
@@ -5200,6 +6060,8 @@ function setupAutoRefreshD9() {
 
 async function init() {
   setupInstallPromptD9();
+  window.addEventListener("online", () => { logAppEventD9("APP_ONLINE", { resultado: "online" }); flushAppLogsD9(); syncPending(); });
+  window.addEventListener("offline", () => logAppEventD9("APP_OFFLINE", { resultado: "offline" }));
   enableTickerTouchD9();
   injectOrderConfirmStylesD9();
   injectPriceListCleanStickyD9();
@@ -5213,6 +6075,9 @@ async function init() {
   hydrateSeller();
   renderAll();
   renderNetwork();
+  logAppEventD9("APP_ABIERTA", { resultado: "init" });
+  logAppEventD9("VERSION_CARGADA", { resultado: "ok", detalle: APP_VERSION });
+  flushAppLogsD9();
   await registerServiceWorker();
   setupAutoRefreshD9();
 
@@ -5222,6 +6087,7 @@ async function init() {
 
   try {
     await loadAllData();
+    logAppEventD9("BOOTSTRAP_OK", { resultado: "ok", detalle: `productos:${state.products.length} clientes:${state.clients.length}` });
     await registerAppVersionD9();
     persistCacheState();
     hydrateGuestClient();
@@ -5235,6 +6101,7 @@ async function init() {
     checkAppVersionD9();
     syncPending();
   } catch (error) {
+    logAppEventD9("BOOTSTRAP_ERROR", { resultado: "error", error: String(error) });
     console.error(error);
     if (!state.products.length && !state.clients.length) {
       toast("No pude cargar los datos.");

@@ -3651,3 +3651,318 @@ button:active,
 .history-item-anulado-d9 .history-meta-line {
   font-weight: 800;
 }
+
+
+/* D9 v1.3.20 - Compartir lista de precios PDF */
+.price-share-btn-d9{
+  margin-left:auto;
+  border:0;
+  border-radius:18px;
+  padding:10px 14px;
+  background:linear-gradient(135deg,#eaf7ff,#ffffff);
+  color:#12324f;
+  font-weight:900;
+  box-shadow:0 10px 24px rgba(35,120,170,.14);
+  border:1px solid rgba(97,189,232,.35);
+  white-space:nowrap;
+}
+.price-share-btn-d9:active{ transform:scale(.98); }
+@media (max-width:420px){
+  .price-share-btn-d9{ padding:9px 11px; font-size:.92rem; }
+}
+
+
+/* === v1.3.32: tarjeta de instalación PWA en Institucional === */
+.company-install-d9{
+  display:grid !important;
+  grid-template-columns:1fr auto !important;
+  gap:12px !important;
+  align-items:center !important;
+  padding:14px 16px !important;
+  border-radius:20px !important;
+  border:1px solid rgba(30,139,190,.18) !important;
+  background:linear-gradient(135deg, rgba(236,250,255,.98), rgba(255,255,255,.96)) !important;
+  box-shadow:0 8px 20px rgba(21,91,145,.07) !important;
+}
+
+.company-install-d9 span{
+  display:block !important;
+  color:#7b8a95 !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+  margin-bottom:4px !important;
+}
+
+.company-install-d9 strong{
+  display:block !important;
+  color:#173454 !important;
+  font-size:15px !important;
+  line-height:1.2 !important;
+}
+
+.company-install-d9 small{
+  display:block !important;
+  margin-top:4px !important;
+  color:#637789 !important;
+  font-size:12px !important;
+  line-height:1.3 !important;
+}
+
+.company-install-btn-d9{
+  border:0 !important;
+  border-radius:999px !important;
+  padding:11px 14px !important;
+  font-size:13px !important;
+  font-weight:950 !important;
+  color:#fff !important;
+  background:linear-gradient(135deg,#129fd0,#0b76b8) !important;
+  box-shadow:0 8px 18px rgba(11,118,184,.22) !important;
+  white-space:nowrap !important;
+}
+
+.company-install-d9.is-waiting .company-install-btn-d9{
+  background:linear-gradient(135deg,#94a3b8,#64748b) !important;
+  box-shadow:0 8px 18px rgba(100,116,139,.18) !important;
+}
+
+.company-install-d9.is-installed{
+  grid-template-columns:1fr !important;
+  border-color:rgba(36,160,96,.18) !important;
+  background:linear-gradient(135deg, rgba(238,255,246,.98), rgba(255,255,255,.96)) !important;
+}
+
+@media (max-width:430px){
+  .company-install-d9{
+    grid-template-columns:1fr !important;
+  }
+  .company-install-btn-d9{
+    width:100% !important;
+  }
+}
+
+
+/* D9 v1.3.33 - Pendientes y borradores */
+.pending-drafts-list-d9{display:flex;flex-direction:column;gap:14px}
+.pending-drafts-section-d9{border:1px solid rgba(24,92,170,.14);border-radius:18px;padding:12px;background:#fff}
+.pending-drafts-title-d9{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;color:#17315a}
+.pending-drafts-title-d9 span{min-width:28px;height:28px;border-radius:999px;background:#eef6ff;color:#185caa;display:inline-flex;align-items:center;justify-content:center;font-weight:800}
+.pending-drafts-help-d9{margin:0 0 10px}
+.pending-draft-item-d9{display:flex;justify-content:space-between;gap:12px;margin-top:10px;padding:12px;border-radius:16px;background:#f8fbff;border:1px solid rgba(24,92,170,.10)}
+.pending-draft-item-d9 strong{color:#17315a}
+.pending-auto-d9{background:#fffaf2;border-color:rgba(235,147,24,.20)}
+.draft-waiting-d9{background:#f6fbff;border-color:rgba(24,92,170,.16)}
+.pending-draft-main-d9{min-width:0;flex:1}
+.pending-draft-side-d9{font-weight:900;color:#17315a;white-space:nowrap}
+
+
+/* D9 v1.3.36 - Notas de pedido */
+.order-note-box-d9 {
+  margin: 14px 0 4px;
+  padding: 12px;
+  border: 1px solid rgba(37, 99, 235, .16);
+  border-radius: 18px;
+  background: rgba(239, 248, 255, .72);
+}
+.order-note-box-d9 label {
+  display: block;
+  font-weight: 800;
+  color: #0f2742;
+  margin-bottom: 7px;
+}
+.order-note-box-d9 textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(15, 39, 66, .16);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+  min-height: 48px;
+  background: rgba(255,255,255,.92);
+  color: #0f2742;
+}
+.note-item-btn-d9.has-note-d9 {
+  background: rgba(20, 184, 166, .14);
+  border-color: rgba(20, 184, 166, .28);
+  color: #0f766e;
+}
+.cart-item-note-d9,
+.history-note-d9,
+.confirm-note-d9 {
+  margin-top: 7px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  background: rgba(255, 247, 237, .92);
+  color: #92400e;
+  font-size: .88rem;
+  line-height: 1.25;
+}
+.confirm-note-d9 {
+  display: block;
+}
+.confirm-order-note-d9,
+.history-order-note-d9 {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(239, 248, 255, .82);
+  color: #0f2742;
+  font-size: .92rem;
+}
+
+
+/* D9 v1.3.37 - Carrito compacto con notas */
+.cart-trash-btn-d9{
+  min-width:56px !important;
+  width:56px !important;
+  height:52px !important;
+  padding:0 !important;
+  border-radius:18px !important;
+  font-size:22px !important;
+  line-height:1 !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+.cart-item .qty-row-pro-d9{
+  grid-template-columns:52px minmax(34px,auto) 52px minmax(64px,auto) 52px !important;
+  gap:8px !important;
+  align-items:center !important;
+}
+.cart-item .qty-edit-btn-d9{
+  min-height:44px !important;
+  padding:0 10px !important;
+  border-radius:14px !important;
+}
+.cart-item .note-item-btn-d9{
+  width:52px !important;
+  min-width:52px !important;
+  padding:0 !important;
+  font-size:22px !important;
+}
+.cart-subtotal-row-d9{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  color:#6f7f8d;
+  font-size:.92rem;
+}
+.cart-subtotal-row-d9 .cart-line-total-d9{
+  min-width:0 !important;
+  text-align:right !important;
+  font-size:1.05rem !important;
+  white-space:nowrap !important;
+}
+.cart-item-note-d9{
+  margin-top:8px !important;
+  padding:7px 10px !important;
+}
+@media (max-width:420px){
+  .cart-item .qty-row-pro-d9{
+    grid-template-columns:48px minmax(30px,auto) 48px minmax(58px,auto) 48px !important;
+    gap:6px !important;
+  }
+  .cart-trash-btn-d9{width:52px !important;min-width:52px !important;height:50px !important;}
+  .cart-item .note-item-btn-d9{width:48px !important;min-width:48px !important;}
+}
+
+
+/* D9 v1.3.38 - Carrito notas más compacto */
+.cart-list{
+  gap:9px !important;
+}
+.cart-item{
+  padding:10px 12px !important;
+  border-radius:18px !important;
+}
+.cart-top{
+  gap:8px !important;
+}
+.cart-title{
+  line-height:1.15 !important;
+  margin-bottom:1px !important;
+}
+.cart-meta{
+  line-height:1.15 !important;
+}
+.cart-trash-btn-d9{
+  min-width:44px !important;
+  width:44px !important;
+  height:42px !important;
+  border-radius:15px !important;
+  font-size:19px !important;
+}
+.cart-item .qty-row-pro-d9{
+  margin-top:9px !important;
+  grid-template-columns:42px minmax(24px,auto) 42px minmax(56px,auto) 44px !important;
+  gap:6px !important;
+}
+.cart-item .qty-row-pro-d9 .qty-btn{
+  width:42px !important;
+  height:42px !important;
+  border-radius:13px !important;
+  font-size:19px !important;
+}
+.cart-item .qty-value{
+  min-width:22px !important;
+  font-size:1rem !important;
+}
+.cart-item .qty-edit-btn-d9{
+  min-height:40px !important;
+  padding:0 8px !important;
+  border-radius:13px !important;
+  font-size:.95rem !important;
+}
+.cart-item .note-item-btn-d9{
+  width:44px !important;
+  min-width:44px !important;
+  min-height:40px !important;
+  font-size:20px !important;
+}
+.cart-subtotal-row-d9{
+  margin-top:6px !important;
+  font-size:.84rem !important;
+  line-height:1.15 !important;
+}
+.cart-subtotal-row-d9 .cart-line-total-d9{
+  font-size:1rem !important;
+}
+.cart-item-note-d9{
+  margin-top:6px !important;
+  padding:5px 9px !important;
+  border-radius:10px !important;
+  font-size:.84rem !important;
+  line-height:1.15 !important;
+}
+@media (max-width:420px){
+  .cart-item{
+    padding:9px 10px !important;
+    border-radius:17px !important;
+  }
+  .cart-trash-btn-d9{
+    width:42px !important;
+    min-width:42px !important;
+    height:40px !important;
+    font-size:18px !important;
+  }
+  .cart-item .qty-row-pro-d9{
+    grid-template-columns:40px minmax(22px,auto) 40px minmax(52px,auto) 42px !important;
+    gap:5px !important;
+  }
+  .cart-item .qty-row-pro-d9 .qty-btn{
+    width:40px !important;
+    height:40px !important;
+  }
+  .cart-item .qty-edit-btn-d9{
+    min-height:38px !important;
+    padding:0 7px !important;
+    font-size:.9rem !important;
+  }
+  .cart-item .note-item-btn-d9{
+    width:42px !important;
+    min-width:42px !important;
+    min-height:38px !important;
+  }
+}
