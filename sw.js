@@ -1,4 +1,4 @@
-const CACHE_NAME = "d9-prod-cache-v6-logs-depurados";
+const CACHE_NAME = "d9-prod-cache-v9-reenviar-seguro";
 const URLS = [
   "./",
   "./index.html",
