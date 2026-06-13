@@ -1,0 +1,7 @@
+D9.pedidos v1.4.9-prod (fix definitivo pendientes home)
+
+- Fix visual definitivo de la tarjeta Home “Pendientes y en espera”.
+- Evita que pulseSuccess convierta la tarjeta rica en texto plano.
+- Refuerza render inmediato al volver al Home, al crear pendientes, al sincronizar y al limpiar pendientes.
+- Mantiene siempre icono, título, subtítulo y badge; con pendientes se tunea amarillo/naranja, sin pendientes vuelve normal sin cerrar/abrir.
+- No toca backend, WhatsApp, IDs, historial ni lógica pesada de envío.

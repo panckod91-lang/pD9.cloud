@@ -1,4 +1,4 @@
-const CACHE_NAME = "d9-prod-cache-v9-reenviar-seguro";
+const CACHE_NAME = "d9-prod-cache-v13-pendientes-home-definitivo";
 const URLS = [
   "./",
   "./index.html",
