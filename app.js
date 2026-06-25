@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.5-prod (boton aplicar marcas visible)";
+const APP_VERSION = "v1.5.6-prod (precio final lista)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -2977,7 +2977,7 @@ function buildPriceListPdfBlobD9(products, logoImage) {
   function addColumns() {
     page.push(`0.10 0.24 0.38 rg ` + pdfTextD9("Cod", xCode, y, 8, "F2"));
     page.push(pdfTextD9("Articulo", xName, y, 8, "F2"));
-    page.push(pdfTextRightD9("Precio final con IVA", xPrice, y, 8, "F2"));
+    page.push(pdfTextRightD9("Precio final", xPrice, y, 8, "F2"));
     page.push(`0.70 0.78 0.84 RG ` + pdfLineD9(margin, y - 5, pageW - margin, y - 5));
     y -= columnsH;
   }
