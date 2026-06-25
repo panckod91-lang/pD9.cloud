@@ -220,6 +220,7 @@
           <div class="price-sticky-d9">
             <input id="priceSearch" class="input" type="search" placeholder="Buscar producto..." autocomplete="off" />
             <div id="priceCategoryWrap" class="chips-row"></div>
+            <div id="priceBrandWrap" class="chips-row"></div>
             <div id="priceListInfo" class="mini-text price-info"></div>
           </div>
           <div id="priceProductsList" class="price-products-list"></div>
@@ -387,6 +388,17 @@
         <button class="ghost-x" data-close-modal="priceCategory" type="button">✕</button>
       </div>
       <div id="priceCategoryList" class="option-list modal-list"></div>
+    </div>
+  </div>
+
+  <div id="priceBrandModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="priceBrand"></div>
+    <div class="modal-panel tall-panel">
+      <div class="modal-head-row">
+        <h3>Marcas</h3>
+        <button class="ghost-x" data-close-modal="priceBrand" type="button">✕</button>
+      </div>
+      <div id="priceBrandList" class="option-list modal-list"></div>
     </div>
   </div>
 

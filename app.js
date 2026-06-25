@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.4.9-prod (fix definitivo pendientes home)";
+const APP_VERSION = "v1.5.3-prod (selector marca lista)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -45,6 +45,7 @@ const state = {
   activePriceList: "lista_1",
   priceSearch: "",
   priceCategory: "",
+  priceBrand: "",
   selectedClient: null,
   guestClientDraft: null,
   selectedCategory: "",
@@ -1414,6 +1415,7 @@ async function loadAllData() {
     id: String(r.id || "").trim(),
     nombre: String(r.nombre || "").trim(),
     categoria: String(r.categoria || "Sin categoría").trim() || "Sin categoría",
+    marca: String(r.marca || "").trim(),
     precios: {
       lista_1: parseD9Number(r.lista_1 || r.precio || 0),
       lista_2: parseD9Number(r.lista_2 || 0),
@@ -2285,6 +2287,7 @@ function logoutSeller() {
   state.selectedClient = null;
   state.selectedCategory = "";
   state.priceCategory = "";
+  state.priceBrand = "";
   state.cart = [];
   syncSessionUI();
   renderSellerBadge();
@@ -2584,6 +2587,7 @@ function renderPriceListControls() {
     modeBox.classList.add("hidden");
     info.textContent = "";
     renderPriceCategoryChips();
+    renderPriceBrandChips();
     return;
   }
 
@@ -2597,6 +2601,7 @@ function renderPriceListControls() {
   }
 
   renderPriceCategoryChips();
+  renderPriceBrandChips();
 }
 
 function renderPriceCategoryChips() {
@@ -2624,6 +2629,52 @@ function renderPriceCategoryModal() {
     </button>`).join("");
 }
 
+function cleanBrandD9(brand) {
+  return String(brand || "").trim();
+}
+
+function productBrandD9(p) {
+  return cleanBrandD9(p?.marca || p?.brand || "");
+}
+
+function brandsListD9() {
+  const map = new Map();
+  (state.products || [])
+    .filter(productHasValidPrice)
+    .forEach(p => {
+      const brand = productBrandD9(p);
+      if (!brand) return;
+      const key = brand.toLowerCase();
+      if (!map.has(key)) map.set(key, brand);
+    });
+  return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base", numeric: true }));
+}
+
+function renderPriceBrandChips() {
+  const wrap = $("#priceBrandWrap");
+  if (!wrap) return;
+  const label = state.priceBrand ? cleanBrandD9(state.priceBrand) : "Todas las marcas";
+  wrap.innerHTML = `
+    <button id="btnOpenPriceBrands" class="picker-btn compact-picker" type="button">
+      <span class="picker-label-inline">Marca</span>
+      <strong>${esc(label)}</strong>
+    </button>`;
+  renderPriceBrandModal();
+}
+
+function renderPriceBrandModal() {
+  const list = $("#priceBrandList");
+  if (!list) return;
+  const brands = brandsListD9();
+  list.innerHTML = `
+    <button class="option-item option-button ${!state.priceBrand ? "is-selected" : ""}" data-price-brand="" type="button">
+      <strong>Todas las marcas</strong>
+    </button>` + brands.map(brand => `
+    <button class="option-item option-button ${state.priceBrand === brand ? "is-selected" : ""}" data-price-brand="${esc(brand)}" type="button">
+      <strong>${esc(brand)}</strong>
+    </button>`).join("");
+}
+
 
 function productHasValidPrice(p) {
   return Number(productPrice(p)) > 0;
@@ -2646,7 +2697,7 @@ function productCode(p) {
 function productMatchesTerm(p, term) {
   const t = String(term || "").trim().toLowerCase();
   if (!t) return true;
-  return [p?.nombre, p?.categoria, productCode(p)]
+  return [p?.nombre, p?.categoria, p?.marca, productCode(p)]
     .some(v => String(v || "").toLowerCase().includes(t));
 }
 
@@ -2672,19 +2723,14 @@ function renderPriceProducts() {
   if (!box) return;
   const term = (state.priceSearch || "").toLowerCase();
   const cat = state.priceCategory;
+  const brand = state.priceBrand;
 
   let filtered = [];
 
-  if (term) {
+  if (term || cat || brand) {
     filtered = state.products
       .filter(productHasValidPrice)
-      .filter(p => productMatchesTerm(p, term) && (!cat || p.categoria === cat))
-      .sort(sortByName)
-      .slice(0, 500);
-  } else if (cat) {
-    filtered = state.products
-      .filter(productHasValidPrice)
-      .filter(p => p.categoria === cat)
+      .filter(p => (!term || productMatchesTerm(p, term)) && (!cat || p.categoria === cat) && (!brand || productBrandD9(p) === brand))
       .sort(sortByName)
       .slice(0, 500);
   } else {
@@ -2703,7 +2749,7 @@ function renderPriceProducts() {
     <div class="price-row">
       <div class="price-row-main">
         <strong>${esc(p.nombre)}</strong>
-        <div class="option-meta">${esc([productCode(p) ? `Cód. ${productCode(p)}` : "", cleanCategory(p.categoria)].filter(Boolean).join(" · "))}</div>
+        <div class="option-meta">${esc([productCode(p) ? `Cód. ${productCode(p)}` : "", cleanCategory(p.categoria), productBrandD9(p)].filter(Boolean).join(" · "))}</div>
       </div>
       <div class="price-row-side">
         <strong>${money(productPrice(p))}</strong>
@@ -2717,9 +2763,10 @@ function renderPriceProducts() {
 function getPriceListFilteredProductsD9() {
   const term = String(state.priceSearch || "").trim().toLowerCase();
   const cat = state.priceCategory || "";
+  const brand = state.priceBrand || "";
   return (state.products || [])
     .filter(productHasValidPrice)
-    .filter(p => (!term || productMatchesTerm(p, term)) && (!cat || p.categoria === cat))
+    .filter(p => (!term || productMatchesTerm(p, term)) && (!cat || p.categoria === cat) && (!brand || productBrandD9(p) === brand))
     .sort((a, b) => {
       const ca = cleanCategory(a.categoria || "");
       const cb = cleanCategory(b.categoria || "");
@@ -2833,15 +2880,14 @@ function buildPriceListPdfBlobD9(products, logoImage) {
   const enviadaPor = pdfAsciiD9(state.seller?.nombre || state.seller?.usuario || "D9");
   const term = String(state.priceSearch || "").trim();
   const selectedCat = state.priceCategory || "";
+  const selectedBrand = state.priceBrand || "";
   const cleanTerm = pdfAsciiD9(term).toUpperCase();
   let titleExtra = "Lista completa";
-  if (selectedCat && term) {
-    titleExtra = `${cleanCategory(selectedCat)} · Filtro: ${cleanTerm}`;
-  } else if (selectedCat) {
-    titleExtra = cleanCategory(selectedCat);
-  } else if (term) {
-    titleExtra = `Resultados filtrados: ${cleanTerm}`;
-  }
+  const filtrosTitulo = [];
+  if (selectedCat) filtrosTitulo.push(cleanCategory(selectedCat));
+  if (selectedBrand) filtrosTitulo.push(`Marca: ${cleanBrandD9(selectedBrand)}`);
+  if (term) filtrosTitulo.push(`Filtro: ${cleanTerm}`);
+  if (filtrosTitulo.length) titleExtra = filtrosTitulo.join(" · ");
   const maxNameChars = 54;
   const rowLineH = 9;
   const rowMinH = 14;
@@ -5555,6 +5601,14 @@ function bind() {
     if (openPriceCats) {
       renderPriceCategoryModal();
       openModal("priceCategory");
+      return;
+    }
+
+    const openPriceBrands = ev.target.closest("#btnOpenPriceBrands");
+    if (openPriceBrands) {
+      renderPriceBrandModal();
+      openModal("priceBrand");
+      return;
     }
 
     const priceCategory = ev.target.closest("[data-price-category]");
@@ -5563,6 +5617,16 @@ function bind() {
       renderPriceCategoryChips();
       renderPriceProducts();
       closeModal("priceCategory");
+      return;
+    }
+
+    const priceBrand = ev.target.closest("[data-price-brand]");
+    if (priceBrand) {
+      state.priceBrand = priceBrand.dataset.priceBrand || "";
+      renderPriceBrandChips();
+      renderPriceProducts();
+      closeModal("priceBrand");
+      return;
     }
   });
 

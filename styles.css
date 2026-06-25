@@ -1715,7 +1715,8 @@ button.home-red-d9:active {
   pointer-events: none;
 }
 
-.price-sticky-d9 #priceCategoryWrap {
+.price-sticky-d9 #priceCategoryWrap,
+.price-sticky-d9 #priceBrandWrap {
   margin-top: 10px;
 }
 
@@ -2734,16 +2735,19 @@ main{
 }
 
 /* === D9 FIX Lista de precios: modal categorías sobre buscador sticky === */
-#priceCategoryModal.modal{
+#priceCategoryModal.modal,
+#priceBrandModal.modal{
   z-index:999999 !important;
   align-items:flex-end !important;
 }
 
-#priceCategoryModal .modal-backdrop{
+#priceCategoryModal .modal-backdrop,
+#priceBrandModal .modal-backdrop{
   z-index:1 !important;
 }
 
-#priceCategoryModal .modal-panel{
+#priceCategoryModal .modal-panel,
+#priceBrandModal .modal-panel{
   z-index:2 !important;
   position:relative !important;
 }
