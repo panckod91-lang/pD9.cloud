@@ -4331,3 +4331,36 @@ button:active,
   justify-content:space-between;
   gap:12px;
 }
+
+
+/* === D9 v1.5.5 fix botón aplicar marcas visible === */
+#priceBrandModal #btnApplyPriceBrands{
+  position:sticky;
+  bottom:0;
+  z-index:5;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:56px;
+  margin:14px 0 0;
+  padding:15px 18px;
+  border-radius:18px;
+  border:0;
+  background:linear-gradient(135deg,#3fb9ed 0%, #59c8f4 100%) !important;
+  color:#fff !important;
+  font-weight:900;
+  font-size:1rem;
+  box-shadow:0 -10px 22px rgba(255,255,255,.96), 0 8px 18px rgba(38,148,198,.20);
+}
+#priceBrandModal #btnApplyPriceBrands::before{
+  content:"Aplicar marcas";
+}
+#priceBrandModal #btnApplyPriceBrands{
+  font-size:0;
+}
+#priceBrandModal #btnApplyPriceBrands::before{
+  font-size:1rem;
+}
+#priceBrandModal .picker-modal-panel-d9{
+  padding-bottom:14px;
+}

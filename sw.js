@@ -1,4 +1,4 @@
-const CACHE_NAME = "d9-prod-cache-v15-selector-marca";
+const CACHE_NAME = "d9-prod-cache-v155-aplicar-marcas";
 const URLS = [
   "./",
   "./index.html",
