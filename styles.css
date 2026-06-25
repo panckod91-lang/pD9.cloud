@@ -4301,3 +4301,33 @@ button:active,
 #btnSyncPending.pending-info-card-vnext.is-success{
   transform:none !important;
 }
+
+
+/* === D9 v1.5.4 selector múltiple de marcas === */
+#priceBrandModal .picker-modal-panel-d9{
+  padding-top:0;
+  overflow:auto;
+}
+#priceBrandModal .sticky-modal-head-d9{
+  position:sticky;
+  top:0;
+  z-index:4;
+  background:#fff;
+  padding:18px 0 12px;
+  margin-bottom:10px;
+  border-bottom:1px solid rgba(18,59,95,.10);
+}
+#priceBrandModal .sticky-modal-head-d9 .ghost-x{
+  flex:0 0 auto;
+}
+#priceBrandModal .option-button.is-selected::after{
+  content:"✓";
+  margin-left:auto;
+  font-weight:900;
+}
+#priceBrandModal .option-button{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}

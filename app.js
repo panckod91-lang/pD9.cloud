@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.3-prod (selector marca lista)";
+const APP_VERSION = "v1.5.4-prod (multi marcas lista)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -46,6 +46,7 @@ const state = {
   priceSearch: "",
   priceCategory: "",
   priceBrand: "",
+  priceBrands: [],
   selectedClient: null,
   guestClientDraft: null,
   selectedCategory: "",
@@ -2288,6 +2289,7 @@ function logoutSeller() {
   state.selectedCategory = "";
   state.priceCategory = "";
   state.priceBrand = "";
+  state.priceBrands = [];
   state.cart = [];
   syncSessionUI();
   renderSellerBadge();
@@ -2650,10 +2652,46 @@ function brandsListD9() {
   return Array.from(map.values()).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base", numeric: true }));
 }
 
+function selectedPriceBrandsD9() {
+  if (Array.isArray(state.priceBrands)) {
+    return state.priceBrands.map(cleanBrandD9).filter(Boolean);
+  }
+  const legacy = cleanBrandD9(state.priceBrand || "");
+  return legacy ? [legacy] : [];
+}
+
+function setSelectedPriceBrandsD9(brands) {
+  const clean = Array.from(new Set((brands || []).map(cleanBrandD9).filter(Boolean)));
+  state.priceBrands = clean;
+  state.priceBrand = clean.length === 1 ? clean[0] : "";
+}
+
+function isPriceBrandSelectedD9(brand) {
+  const b = cleanBrandD9(brand);
+  return selectedPriceBrandsD9().some(x => x === b);
+}
+
+function togglePriceBrandD9(brand) {
+  const b = cleanBrandD9(brand);
+  if (!b) {
+    setSelectedPriceBrandsD9([]);
+    return;
+  }
+  const current = selectedPriceBrandsD9();
+  if (current.includes(b)) {
+    setSelectedPriceBrandsD9(current.filter(x => x !== b));
+  } else {
+    setSelectedPriceBrandsD9([...current, b]);
+  }
+}
+
 function renderPriceBrandChips() {
   const wrap = $("#priceBrandWrap");
   if (!wrap) return;
-  const label = state.priceBrand ? cleanBrandD9(state.priceBrand) : "Todas las marcas";
+  const selected = selectedPriceBrandsD9();
+  const label = selected.length
+    ? (selected.length === 1 ? selected[0] : `${selected.length} marcas seleccionadas`)
+    : "Todas las marcas";
   wrap.innerHTML = `
     <button id="btnOpenPriceBrands" class="picker-btn compact-picker" type="button">
       <span class="picker-label-inline">Marca</span>
@@ -2666,11 +2704,12 @@ function renderPriceBrandModal() {
   const list = $("#priceBrandList");
   if (!list) return;
   const brands = brandsListD9();
+  const selected = selectedPriceBrandsD9();
   list.innerHTML = `
-    <button class="option-item option-button ${!state.priceBrand ? "is-selected" : ""}" data-price-brand="" type="button">
+    <button class="option-item option-button ${!selected.length ? "is-selected" : ""}" data-price-brand="" type="button">
       <strong>Todas las marcas</strong>
     </button>` + brands.map(brand => `
-    <button class="option-item option-button ${state.priceBrand === brand ? "is-selected" : ""}" data-price-brand="${esc(brand)}" type="button">
+    <button class="option-item option-button ${isPriceBrandSelectedD9(brand) ? "is-selected" : ""}" data-price-brand="${esc(brand)}" type="button">
       <strong>${esc(brand)}</strong>
     </button>`).join("");
 }
@@ -2723,14 +2762,14 @@ function renderPriceProducts() {
   if (!box) return;
   const term = (state.priceSearch || "").toLowerCase();
   const cat = state.priceCategory;
-  const brand = state.priceBrand;
+  const brands = selectedPriceBrandsD9();
 
   let filtered = [];
 
-  if (term || cat || brand) {
+  if (term || cat || brands.length) {
     filtered = state.products
       .filter(productHasValidPrice)
-      .filter(p => (!term || productMatchesTerm(p, term)) && (!cat || p.categoria === cat) && (!brand || productBrandD9(p) === brand))
+      .filter(p => (!term || productMatchesTerm(p, term)) && (!cat || p.categoria === cat) && (!brands.length || brands.includes(productBrandD9(p))))
       .sort(sortByName)
       .slice(0, 500);
   } else {
@@ -2763,10 +2802,10 @@ function renderPriceProducts() {
 function getPriceListFilteredProductsD9() {
   const term = String(state.priceSearch || "").trim().toLowerCase();
   const cat = state.priceCategory || "";
-  const brand = state.priceBrand || "";
+  const brands = selectedPriceBrandsD9();
   return (state.products || [])
     .filter(productHasValidPrice)
-    .filter(p => (!term || productMatchesTerm(p, term)) && (!cat || p.categoria === cat) && (!brand || productBrandD9(p) === brand))
+    .filter(p => (!term || productMatchesTerm(p, term)) && (!cat || p.categoria === cat) && (!brands.length || brands.includes(productBrandD9(p))))
     .sort((a, b) => {
       const ca = cleanCategory(a.categoria || "");
       const cb = cleanCategory(b.categoria || "");
@@ -2880,12 +2919,13 @@ function buildPriceListPdfBlobD9(products, logoImage) {
   const enviadaPor = pdfAsciiD9(state.seller?.nombre || state.seller?.usuario || "D9");
   const term = String(state.priceSearch || "").trim();
   const selectedCat = state.priceCategory || "";
-  const selectedBrand = state.priceBrand || "";
+  const selectedBrands = selectedPriceBrandsD9();
   const cleanTerm = pdfAsciiD9(term).toUpperCase();
   let titleExtra = "Lista completa";
   const filtrosTitulo = [];
   if (selectedCat) filtrosTitulo.push(cleanCategory(selectedCat));
-  if (selectedBrand) filtrosTitulo.push(`Marca: ${cleanBrandD9(selectedBrand)}`);
+  if (selectedBrands.length === 1) filtrosTitulo.push(`Marca: ${cleanBrandD9(selectedBrands[0])}`);
+  if (selectedBrands.length > 1) filtrosTitulo.push(`Marcas: ${selectedBrands.map(cleanBrandD9).join(", ")}`);
   if (term) filtrosTitulo.push(`Filtro: ${cleanTerm}`);
   if (filtrosTitulo.length) titleExtra = filtrosTitulo.join(" · ");
   const maxNameChars = 54;
@@ -5622,9 +5662,14 @@ function bind() {
 
     const priceBrand = ev.target.closest("[data-price-brand]");
     if (priceBrand) {
-      state.priceBrand = priceBrand.dataset.priceBrand || "";
+      togglePriceBrandD9(priceBrand.dataset.priceBrand || "");
       renderPriceBrandChips();
       renderPriceProducts();
+      return;
+    }
+
+    const applyPriceBrands = ev.target.closest("#btnApplyPriceBrands");
+    if (applyPriceBrands) {
       closeModal("priceBrand");
       return;
     }

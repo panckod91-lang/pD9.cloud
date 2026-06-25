@@ -393,12 +393,16 @@
 
   <div id="priceBrandModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="priceBrand"></div>
-    <div class="modal-panel tall-panel">
-      <div class="modal-head-row">
-        <h3>Marcas</h3>
+    <div class="modal-panel tall-panel picker-modal-panel-d9">
+      <div class="modal-head-row sticky-modal-head-d9">
+        <div>
+          <h3>Marcas</h3>
+          <p class="modal-text small-gap">Podés seleccionar una o varias.</p>
+        </div>
         <button class="ghost-x" data-close-modal="priceBrand" type="button">✕</button>
       </div>
       <div id="priceBrandList" class="option-list modal-list"></div>
+      <button id="btnApplyPriceBrands" class="primary-btn full-btn sticky-action" type="button">Aplicar marcas</button>
     </div>
   </div>
 
