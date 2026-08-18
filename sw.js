@@ -1,4 +1,4 @@
-const CACHE_NAME = "d9-prod-cache-v155-aplicar-marcas";
+const CACHE_NAME = "d9-pedidos-v1514-mensaje-ok-cordial";
 const URLS = [
   "./",
   "./index.html",

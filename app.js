@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.6-prod (precio final lista)";
+const APP_VERSION = "v1.5.14-prod (mensaje OK cordial)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -323,6 +323,19 @@ async function postAppLogPayloadD9(payload) {
 }
 
 function logAppEventD9(evento, data = {}) {
+  // v1.5.13: depuración de logs. Eventos puramente técnicos sólo se guardan en debug.
+  const debugLogs = new URLSearchParams(location.search || "").has("debugLogs");
+  if (!debugLogs && ["PEDIDO_ID_CONGELADO", "ENVIO_BLOQUEADO_LOCK", "ANTI_DUPLICADO_BLOQUEO"].includes(evento)) return;
+
+  if (!debugLogs && evento === "WHATSAPP_ABIERTO") {
+    const pedidoId = String(data?.payload?.pedido_id || data?.payload?.pedidoId || "").trim();
+    const key = "d9_last_log_whatsapp";
+    const last = readJSON(key, {});
+    const now = Date.now();
+    if (pedidoId && last?.pedido_id === pedidoId && now - Number(last?.at || 0) < 90000) return;
+    if (pedidoId) saveJSON(key, { pedido_id: pedidoId, at: now });
+  }
+
   const payload = buildAppLogPayloadD9(evento, data);
   if (!navigator.onLine) {
     enqueueAppLogD9(payload);
@@ -3688,6 +3701,37 @@ function markRecentOrderFingerprintD9(payload, ttlMs = 120000) {
   saveJSON("d9_recent_order_sends", recent.slice(-20));
 }
 
+function getRecentCompletedOrdersD9() {
+  const raw = readJSON("d9_recent_completed_orders", []);
+  return Array.isArray(raw) ? raw : [];
+}
+
+function cleanupRecentCompletedOrdersD9(ttlMs = 300000) {
+  const now = Date.now();
+  const clean = getRecentCompletedOrdersD9().filter(x => x && Number(x.until || 0) > now);
+  saveJSON("d9_recent_completed_orders", clean.slice(-30));
+  return clean;
+}
+
+function markOrderCompletedD9(payload, ttlMs = 300000) {
+  if (!payload) return;
+  const pedidoId = String(payload?.pedido_id || payload?.pedidoId || "").trim();
+  const fp = buildOrderFingerprint(payload);
+  if (!pedidoId && !fp) return;
+  const now = Date.now();
+  const recent = cleanupRecentCompletedOrdersD9(ttlMs).filter(x => x.pedido_id !== pedidoId && x.fp !== fp);
+  recent.push({ pedido_id: pedidoId, fp, at: now, until: now + ttlMs });
+  saveJSON("d9_recent_completed_orders", recent.slice(-30));
+}
+
+function isRecentlyCompletedOrderD9(payload, ttlMs = 300000) {
+  if (!payload) return false;
+  const pedidoId = String(payload?.pedido_id || payload?.pedidoId || "").trim();
+  const fp = buildOrderFingerprint(payload);
+  const recent = cleanupRecentCompletedOrdersD9(ttlMs);
+  return recent.some(x => (pedidoId && x.pedido_id === pedidoId) || (fp && x.fp === fp));
+}
+
 function isOrderSendLocked(payload = null) {
   const now = Date.now();
   if (state.isSending) return true;
@@ -3712,7 +3756,33 @@ function lockOrderSend(payload, durationMs = 5000) {
 function releaseOrderSendLock(delayMs = 1800) {
   setTimeout(() => {
     state.isSending = false;
+    state.orderSendLockUntil = 0;
+    state.lastOrderFingerprint = "";
   }, delayMs);
+}
+
+function closeOrderVisualAfterWhatsAppD9(payload) {
+  // D9 v1.5.11:
+  // El envío técnico sigue con el payload congelado, pero la pantalla del pedido
+  // se cierra apenas WhatsApp fue abierto. Así, al volver desde WhatsApp no queda
+  // vivo el pedido anterior ni puede re-dispararse la confirmación desde el mismo modal.
+  try { closeOrderConfirmModal(); } catch (_) {}
+  try { closeModal("order"); } catch (_) {}
+
+  if (state.seller?.rol === "cliente") {
+    applyUserContext();
+  } else if (!state.seller) {
+    state.selectedClient = state.guestClientDraft || state.selectedClient;
+  } else {
+    state.selectedClient = null;
+  }
+
+  clearCart();
+  renderSelectedClient();
+  renderClients();
+  renderProducts();
+  refreshPendingUiD9();
+  schedulePendingHomeRefreshD9();
 }
 
 
@@ -3910,8 +3980,136 @@ function delayD9(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function verifyPedidoInPcD9(pedidoId, attempts = 3) {
-  const id = String(pedidoId || "").trim();
+
+function normalizeCompareTextD9(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function parseD9NumberForCompare(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : NaN;
+  let s = String(value ?? "").trim();
+  if (!s) return NaN;
+  s = s.replace(/\$/g, "").replace(/\s/g, "");
+
+  // Soporta ambos mundos:
+  // - Hoja/Argentina: $4.222,90 -> 4222.90
+  // - JS/backend:     4222.900000000001 -> 4222.90
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+  if (hasComma && hasDot) {
+    // Si están ambos, asumimos formato local: miles con punto, decimal con coma.
+    s = s.replace(/\./g, "").replace(/,/g, ".");
+  } else if (hasComma) {
+    s = s.replace(/,/g, ".");
+  } else if (hasDot) {
+    // Si solo hay punto, NO lo borramos: puede ser decimal JS.
+    // Solo lo tratamos como miles si parece 1.234.567 sin decimales.
+    const parts = s.split(".");
+    if (parts.length > 2 && parts.every((part, idx) => idx === 0 ? /^\d{1,3}$/.test(part) : /^\d{3}$/.test(part))) {
+      s = parts.join("");
+    }
+  }
+  return Number(s);
+}
+
+function numbersNearD9(a, b, tolerance = 0.08) {
+  const na = parseD9NumberForCompare(a);
+  const nb = parseD9NumberForCompare(b);
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) return false;
+  return Math.abs(na - nb) <= tolerance;
+}
+
+function pickPcValueD9(row, keys) {
+  if (!row || typeof row !== "object") return "";
+  const direct = keys.find(k => row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "");
+  if (direct) return row[direct];
+  const wanted = keys.map(k => normalizeCompareTextD9(k).replace(/\s+/g, "_")).filter(Boolean);
+  for (const [k, v] of Object.entries(row)) {
+    if (v === undefined || v === null || String(v).trim() === "") continue;
+    const nk = normalizeCompareTextD9(k).replace(/\s+/g, "_");
+    if (wanted.includes(nk)) return v;
+  }
+  return "";
+}
+
+function getPcRowClienteTextD9(row) {
+  return String(pickPcValueD9(row, ["cliente", "cliente_nombre", "nombre_cliente", "razon_social", "razón_social", "Cliente"]) || "");
+}
+
+function getPcRowVendedorIdD9(row) {
+  return String(pickPcValueD9(row, ["vendedor_id", "id_vendedor", "vend_id", "Vendedor ID"]) || "").trim();
+}
+
+function getPcRowTotalPedidoD9(row) {
+  // En la hoja pedidos, la columna "total" es la cantidad del item;
+  // el total real del pedido está en "total_pedido".
+  // Antes caíamos a "total" y la verificación decía falso "otro pedido".
+  return pickPcValueD9(row, ["total_pedido", "total pedido", "totalpedido", "Total Pedido", "importe_total", "monto_total"]);
+}
+
+function getPcRowProductoIdD9(row) {
+  return String(pickPcValueD9(row, ["id_prod", "id producto", "id_producto", "producto_id", "prod_id", "codigo", "código", "cod", "Codigo", "Código"]) || "").trim();
+}
+
+function getPcRowProductoNombreD9(row) {
+  return String(pickPcValueD9(row, ["producto", "nombre", "descripcion", "descripción", "detalle", "Producto"]) || "");
+}
+
+function getPcRowCantidadD9(row) {
+  // En pedidos, la cantidad del item quedó históricamente bajo el header "total".
+  return pickPcValueD9(row, ["cantidad", "cant", "Cantidad", "total"]);
+}
+
+function getPcRowPrecioD9(row) {
+  return pickPcValueD9(row, ["precio", "precio_unitario", "precio unitario", "Precio"]);
+}
+
+function pcRowsMatchPayloadD9(rows, payload) {
+  if (!Array.isArray(rows) || !rows.length || !payload) return false;
+  const items = Array.isArray(payload.carrito) ? payload.carrito : [];
+  if (!items.length || rows.length !== items.length) return false;
+
+  const vendedorId = String(payload?.vendedor?.id || payload?.vendedor_id || "").trim();
+  const rowVend = getPcRowVendedorIdD9(rows[0]);
+  if (vendedorId && rowVend && vendedorId !== rowVend) return false;
+
+  const clientePayload = normalizeCompareTextD9(payload?.cliente?.nombre_real || payload?.cliente?.nombre || payload?.cliente_nombre || "");
+  const clienteRow = normalizeCompareTextD9(getPcRowClienteTextD9(rows[0]));
+  if (clientePayload && clienteRow && !clientePayload.includes(clienteRow) && !clienteRow.includes(clientePayload)) return false;
+
+  const totalRow = getPcRowTotalPedidoD9(rows[0]);
+  if (totalRow !== "" && !numbersNearD9(totalRow, payload.total, 0.15)) return false;
+
+  return items.every(item => {
+    const itemId = String(item.id || item.id_producto || item.producto_id || "").trim();
+    const itemName = normalizeCompareTextD9(item.nombre || "");
+    const qty = Number(item.cantidad || 0);
+    const price = Number(item.precio || 0);
+
+    return rows.some(row => {
+      const rowId = getPcRowProductoIdD9(row);
+      const rowName = normalizeCompareTextD9(getPcRowProductoNombreD9(row));
+      const idOk = !itemId || !rowId || itemId === rowId;
+      const nameOk = !itemName || !rowName || itemName === rowName;
+      return idOk && nameOk && numbersNearD9(getPcRowCantidadD9(row), qty, 0.001) && numbersNearD9(getPcRowPrecioD9(row), price, 0.15);
+    });
+  });
+}
+
+function getVerifyPedidoIdD9(pedidoOrPayload) {
+  if (pedidoOrPayload && typeof pedidoOrPayload === "object") {
+    return String(pedidoOrPayload.pedido_id || pedidoOrPayload.pedidoId || "").trim();
+  }
+  return String(pedidoOrPayload || "").trim();
+}
+
+async function verifyPedidoInPcD9(pedidoOrPayload, attempts = 3) {
+  const payload = pedidoOrPayload && typeof pedidoOrPayload === "object" ? pedidoOrPayload : null;
+  const id = getVerifyPedidoIdD9(pedidoOrPayload);
   if (!id) return { ok: false, error: "Pedido sin ID para verificar" };
 
   let lastError = "La PC no confirmó que el pedido haya quedado cargado";
@@ -3919,12 +4117,23 @@ async function verifyPedidoInPcD9(pedidoId, attempts = 3) {
   for (let intento = 1; intento <= attempts; intento++) {
     try {
       const r = await fetch(`${getApiBaseD9()}?action=list_pedidos&_=${Date.now()}`, { cache: "no-store" });
-      const data = await r.json();
+      const raw = await r.text();
+      let data = null;
+      try { data = raw ? JSON.parse(raw) : null; } catch (_) { data = { raw }; }
+
       if (!r.ok || data?.ok !== true || !Array.isArray(data.pedidos)) {
         lastError = data?.error || "La PC no devolvió lista de pedidos";
       } else {
-        const exists = data.pedidos.some(p => getPedidoIdFromPcRowD9(p) === id);
-        if (exists) return { ok: true };
+        const rows = data.pedidos.filter(p => getPedidoIdFromPcRowD9(p) === id);
+        if (rows.length) {
+          if (!payload || pcRowsMatchPayloadD9(rows, payload)) return { ok: true, rows_found: rows.length };
+          return {
+            ok: false,
+            error_code: "VERIFY_ID_MISMATCH",
+            error: "Ese ID existe en PC, pero pertenece a otro cliente/productos. No se confirma este pedido con ese ID.",
+            rows_found: rows.length
+          };
+        }
         lastError = "La PC no confirmó que el pedido haya quedado cargado";
       }
     } catch (err) {
@@ -3937,6 +4146,43 @@ async function verifyPedidoInPcD9(pedidoId, attempts = 3) {
   return { ok: false, error: lastError };
 }
 
+
+async function verifyPedidoInPcGraceD9(payload, attempts = 4) {
+  // D9 v1.5.12:
+  // Si el POST perdió la respuesta al volver de WhatsApp, muchas veces el pedido
+  // ya está escrito en Sheets, pero list_pedidos todavía falla o tarda unos segundos.
+  // Antes de mostrarlo como pendiente visible, esperamos y verificamos varias veces.
+  let last = { ok: false, error: "La PC no confirmó que el pedido haya quedado cargado" };
+  const delays = [1200, 2500, 4500, 7000];
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0) await delayD9(delays[Math.min(i - 1, delays.length - 1)]);
+    last = await verifyPedidoInPcD9(payload, 2);
+    if (last?.ok) return last;
+  }
+  return last;
+}
+
+async function savePendingOnlyAfterGraceD9(payload, reason = "No pude confirmar el envío") {
+  const verify = await verifyPedidoInPcGraceD9(payload, 4);
+  if (verify?.ok) {
+    const msg = "Pedido cargado correctamente en PC.";
+    logAppEventD9("PEDIDO_CONFIRMADO_TRAS_ESPERA", { payload, resultado: "ok", detalle: msg });
+    markOrderCompletedD9(payload);
+    saveHistory(payload, "ok", msg);
+    removePendingRelatedToPayloadD9(payload, "confirmado tras espera");
+    refreshPendingUiD9();
+    schedulePendingHomeRefreshD9();
+    return { ok: true, verified: true, message: msg };
+  }
+
+  savePendingPayload(payload);
+  logAppEventD9("PEDIDO_PENDIENTE_CONFIRMACION", { payload, resultado: "pendiente", error: verify?.error || reason });
+  saveHistory(payload, "pendiente", verify?.error || reason);
+  refreshPendingUiD9();
+  schedulePendingHomeRefreshD9();
+  return { ok: false, error: verify?.error || reason };
+}
+
 async function trySendToWebhook(payload) {
   if (!Array.isArray(WEBHOOK_ENDPOINTS) || !WEBHOOK_ENDPOINTS.length) {
     return { ok: false, error: "Webhook no configurado" };
@@ -3944,14 +4190,13 @@ async function trySendToWebhook(payload) {
 
   let sendPayload = buildWebhookPayload(payload);
   let lastError = null;
-  let collisionRetryDone = false;
 
   async function verifyAfterSendProblemD9(endpoint, errorText) {
     // Caso real detectado: Apps Script puede escribir en PC, pero el navegador perder
     // la confirmación del POST (Failed to fetch / redirect / conexión gris).
     // Antes de declarar "No llegó a PC", verificamos por ID.
     try {
-      const verify = await verifyPedidoInPcD9(sendPayload.pedido_id, 3);
+      const verify = await verifyPedidoInPcD9(payload, 3);
       if (verify?.ok) {
         return {
           ok: true,
@@ -3961,7 +4206,7 @@ async function trySendToWebhook(payload) {
             duplicated: true,
             pedido_id: sendPayload.pedido_id,
             verified_after_error: true,
-            message: "El pedido ya estaba cargado en PC. Se corrigió el estado local."
+            message: "Pedido cargado correctamente en PC."
           }
         };
       }
@@ -3975,27 +4220,51 @@ async function trySendToWebhook(payload) {
     try {
       let result = await sendToEndpoint(endpoint, sendPayload);
 
-      // Defensa anti-colisión:
-      // si el backend avisa que el ID ya existe pero pertenece a otro pedido,
-      // regeneramos ID una sola vez y reenviamos. No lo marcamos como "ya cargado".
-      if (!result?.ok && result?.data?.error_code === "ERROR_COLISION_ID" && !collisionRetryDone) {
-        collisionRetryDone = true;
-        const oldId = sendPayload.pedido_id;
-        const newId = regeneratePedidoIdForPayloadD9(payload);
-        sendPayload = buildWebhookPayload(payload);
-        console.warn(`[D9] Colisión de ID detectada (${oldId}). Reintentando con ${newId}.`);
-        result = await sendToEndpoint(endpoint, sendPayload);
-      }
+      // Defensa anti-colisión v1.5.7:
+      // si el backend avisa que el ID pertenece a otro pedido, NO regeneramos acá.
+      // Regenerar automáticamente escondía el problema y podía mezclar WhatsApp/PC.
 
       if (result?.ok) {
-        const verify = await verifyPedidoInPcD9(sendPayload.pedido_id);
+        const verify = await verifyPedidoInPcD9(payload);
         if (verify.ok) return result;
+
+        // v1.5.8: si el POST del backend respondió ok:true, no convertimos el pedido
+        // en pendiente solo porque la verificación posterior no pudo comparar filas.
+        // Ese caso apareció al volver desde WhatsApp: el pedido ya estaba en Sheets,
+        // pero la comparación local lo marcaba como “otro pedido” por formato numérico.
+        if (verify?.error_code === "VERIFY_ID_MISMATCH") {
+          return {
+            ...result,
+            data: {
+              ...(result.data || {}),
+              verify_warning: true,
+              message: result?.data?.message || "Enviado correctamente"
+            }
+          };
+        }
+
         lastError = { ok: false, error: verify.error || "No confirmado en PC", endpoint, data: result.data };
       } else {
-        // Aunque el POST haya vuelto raro/no confirmado, puede haber escrito en PC.
-        // Si el backend confirmó colisión, NO verificamos por el ID viejo porque pertenece a otro pedido.
+        // v1.5.9: si el POST devuelve colisión de ID, igual verificamos por ID+contenido.
+        // Caso real: el primer envío sí escribió en Sheets, pero al volver de WhatsApp
+        // una segunda confirmación/reintento recibió "ID ya existe" y dejaba pendiente falso.
+        // Si el ID existe y las filas coinciden con este mismo payload, lo tomamos como OK controlado.
         if (result?.data?.error_code === "ERROR_COLISION_ID") {
-          lastError = { ok: false, error: result?.error || "ID repetido con otro pedido. Reenviá para generar ID nuevo.", endpoint, data: result.data };
+          const verify = await verifyPedidoInPcD9(payload, 3);
+          if (verify?.ok) {
+            return {
+              ok: true,
+              endpoint,
+              data: {
+                ok: true,
+                duplicated: true,
+                pedido_id: sendPayload.pedido_id,
+                verified_after_collision: true,
+                message: "Pedido cargado correctamente en PC."
+              }
+            };
+          }
+          lastError = { ok: false, error: result?.error || verify?.error || "ID repetido con otro pedido. Revisar antes de reenviar.", endpoint, data: result.data };
         } else {
           lastError = await verifyAfterSendProblemD9(endpoint, result?.error || `Fallo en ${endpoint}`);
           if (lastError?.ok) return lastError;
@@ -4368,7 +4637,7 @@ async function manualLoadHistoryItemsToPcD9(ids) {
     }
 
     try {
-      const exists = await verifyPedidoInPcD9(payload.pedido_id, 2);
+      const exists = await verifyPedidoInPcD9(payload, 2);
       if (exists?.ok) {
         already++;
         updateHistoryItemByLocalIdD9(localId, {
@@ -4384,15 +4653,16 @@ async function manualLoadHistoryItemsToPcD9(ids) {
       const res = await trySendToWebhook(payload);
       if (res?.ok) {
         ok++;
-        logAppEventD9(res?.data?.duplicated ? "REENVIO_HISTORIAL_WARNING" : "REENVIO_HISTORIAL_OK", { payload, resultado: res?.data?.duplicated ? "posible_duplicado" : "ok", detalle: res?.data?.duplicated ? duplicateWarningTextD9() : "" });
+        const msg = res?.data?.duplicated ? "Pedido cargado correctamente en PC." : "Cargado manualmente en PC";
+        logAppEventD9(res?.data?.duplicated ? "REENVIO_HISTORIAL_DUPLICADO_CONTROLADO" : "REENVIO_HISTORIAL_OK", { payload, resultado: "ok", detalle: msg });
         updateHistoryItemByLocalIdD9(localId, {
           pedido_id: payload.pedido_id,
           vendedor_id: payload.vendedor?.id || item.vendedor_id || "",
-          status: res?.data?.duplicated ? "duplicado_warning" : "ok",
-          pc_status: res?.data?.duplicated ? "pendiente" : "cargado",
-          error: res?.data?.duplicated ? duplicateWarningTextD9() : "Cargado manualmente en PC"
+          status: "ok",
+          pc_status: "cargado",
+          error: msg
         });
-        if (!res?.data?.duplicated) removePendingRelatedToPayloadD9(payload, "carga manual OK");
+        removePendingRelatedToPayloadD9(payload, res?.data?.duplicated ? "duplicado controlado" : "carga manual OK");
       } else {
         fail++;
         logAppEventD9("REENVIO_HISTORIAL_ERROR", { payload, resultado: "error", error: res?.error || "No llegó a PC" });
@@ -4536,7 +4806,7 @@ async function resyncHistoryItemsToPcD9(ids) {
 
     try {
       // Primero verificamos. Si ya está en PC, NO hacemos POST y evitamos duplicados.
-      const exists = await verifyPedidoInPcD9(payload.pedido_id);
+      const exists = await verifyPedidoInPcD9(payload);
       if (exists?.ok) {
         already++;
         updateHistoryStatusByPedidoIdD9(payload.pedido_id, "ok", "Ya recibido previamente");
@@ -4548,9 +4818,10 @@ async function resyncHistoryItemsToPcD9(ids) {
       if (res?.ok) {
         ok++;
         if (res?.data?.duplicated) {
-          const warn = duplicateWarningTextD9();
-          logAppEventD9("REENVIO_HISTORIAL_WARNING", { payload, resultado: "posible_duplicado", detalle: warn });
-          updateHistoryStatusByPedidoIdD9(payload.pedido_id, "duplicado_warning", warn);
+          const msg = "Pedido cargado correctamente en PC.";
+          logAppEventD9("REENVIO_HISTORIAL_DUPLICADO_CONTROLADO", { payload, resultado: "ok", detalle: msg });
+          updateHistoryStatusByPedidoIdD9(payload.pedido_id, "ok", msg);
+          removePendingRelatedToPayloadD9(payload, "duplicado controlado");
         } else {
           logAppEventD9("REENVIO_HISTORIAL_OK", { payload, resultado: "ok" });
           updateHistoryStatusByPedidoIdD9(payload.pedido_id, "ok", "Reenviado a PC");
@@ -4590,23 +4861,34 @@ async function sendOrder() {
   if (validateOrder() !== true) return;
 
   const payload = buildOrderPayload();
-  logAppEventD9("CONFIRMAR_ENVIO_TOCADO", { payload, resultado: "tap" });
 
-  if (isOrderSendLocked(payload)) {
-    logAppEventD9("ENVIO_BLOQUEADO_LOCK", { payload, resultado: "bloqueado", detalle: "isOrderSendLocked" });
+  // v1.5.13: antes de escribir logs o abrir WhatsApp, frenamos retornos/reintentos
+  // de un pedido que ya quedó OK recientemente. Esto evita ruido y segundos circuitos
+  // al volver desde WhatsApp.
+  if (isRecentlyCompletedOrderD9(payload, 300000)) {
+    toast("Pedido cargado correctamente en PC.");
     return;
   }
 
-  // D9 v1.3.17: candado persistente por huella de pedido.
-  // Evita que el mismo cliente + mismos productos + mismo total se cargue dos veces
-  // si Android vuelve de WhatsApp, se repite un tap, o queda un reintento viejo dando vueltas.
-  if (isRecentOrderFingerprintBlockedD9(payload, 120000)) {
-    logAppEventD9("ANTI_DUPLICADO_BLOQUEO", { payload, resultado: "bloqueado", detalle: "fingerprint reciente" });
+  if (isOrderSendLocked(payload)) {
+    return;
+  }
+
+  // D9 v1.3.17 / v1.5.13: candado persistente por huella de pedido.
+  // Si Android vuelve desde WhatsApp y dispara otra confirmación, no abrimos WhatsApp
+  // ni escribimos logs técnicos repetidos.
+  if (isRecentOrderFingerprintBlockedD9(payload, 300000)) {
     toast("Este mismo pedido ya se envió hace instantes. Esperá un momento para repetirlo.");
     return;
   }
 
-  lockOrderSend(payload, 15000);
+  // v1.5.7: el ID ya quedó copiado dentro de este payload.
+  // Se libera inmediatamente el ID global del borrador para que el próximo pedido
+  // no arrastre el mismo pedido_id mientras este envío sigue verificando en segundo plano.
+  clearDraftPedidoIdD9();
+  logAppEventD9("CONFIRMAR_ENVIO_TOCADO", { payload, resultado: "tap" });
+
+  lockOrderSend(payload, 300000);
 
   const sendBtn = $("#btnSend");
   const pendingBtn = $("#btnSyncPending");
@@ -4640,6 +4922,11 @@ async function sendOrder() {
       return;
     }
 
+    // v1.5.9: marcamos el fingerprint ANTES de abrir WhatsApp.
+    // En Android el cambio de app puede cortar el hilo JS antes de dejar registrada la marca;
+    // entonces al volver se podía disparar un segundo envío del mismo pedido.
+    markRecentOrderFingerprintD9(payload, 180000);
+
     if (!openWhatsApp(waPhone, waText)) {
       logAppEventD9("WHATSAPP_ERROR", { payload, resultado: "error", detalle: "Falta WhatsApp destino" });
       toast("Falta WhatsApp destino en confi.");
@@ -4647,45 +4934,41 @@ async function sendOrder() {
     }
 
     logAppEventD9("WHATSAPP_ABIERTO", { payload, resultado: "ok", detalle: waPhone ? `destino:${waPhone}` : "sin destino" });
-    markRecentOrderFingerprintD9(payload, 120000);
+    closeOrderVisualAfterWhatsAppD9(payload);
 
-    trySendToWebhook(payload)
-      .then(res => {
-        if (!res || !res.ok) {
-          savePendingPayload(payload);
-          logAppEventD9("PEDIDO_ENVIADO_SHEETS_ERROR", { payload, resultado: "pendiente", error: res?.error || "No pude confirmar el envío" });
-          saveHistory(payload, "pendiente", res?.error || "No pude confirmar el envío");
-          // IMPORTANTE: el pedido ya salió por WhatsApp y quedó guardado con su ID.
-          // Limpiamos el borrador para que el próximo pedido NO reutilice el mismo ID.
-          clearDraftPedidoIdD9();
-          refreshPendingUiD9();
-          schedulePendingHomeRefreshD9();
-          console.warn("Pedido pendiente:", res?.error);
+    try {
+      // v1.5.10: esperamos la confirmación. Antes el envío seguía en segundo plano,
+      // el finally liberaba el botón/candado, y al volver de WhatsApp Android podía
+      // disparar otra confirmación del mismo pedido, creando pendiente falso.
+      const res = await trySendToWebhook(payload);
+      if (!res || !res.ok) {
+        // Última defensa antes de crear pendiente: si ya está en PC con este mismo
+        // contenido, NO guardar pendiente falso.
+        const pendingResult = await savePendingOnlyAfterGraceD9(payload, res?.error || "No pude confirmar el envío");
+        if (pendingResult?.ok) toast(pendingResult.message || "Pedido confirmado en PC.");
+        else console.warn("Pedido pendiente:", pendingResult?.error);
+      } else {
+        if (res?.data?.duplicated) {
+          const msg = res?.data?.message || "Pedido cargado correctamente en PC.";
+          logAppEventD9("PEDIDO_DUPLICADO_CONTROLADO", { payload, resultado: "ok", detalle: msg });
+          markOrderCompletedD9(payload);
+          saveHistory(payload, "ok", msg);
+          removePendingRelatedToPayloadD9(payload, "duplicado controlado");
+          toast(msg);
         } else {
-          if (res?.data?.duplicated) {
-            const warn = duplicateWarningTextD9();
-            logAppEventD9("PEDIDO_ENVIADO_SHEETS_WARNING", { payload, resultado: "posible_duplicado", detalle: warn });
-            saveHistory(payload, "duplicado_warning", warn);
-            toast(warn);
-          } else {
-            logAppEventD9("PEDIDO_ENVIADO_SHEETS_OK", { payload, resultado: "ok", detalle: res?.data?.message || "Enviado correctamente" });
-            saveHistory(payload, "ok", "Enviado correctamente");
-          }
-          clearDraftPedidoIdD9();
-          refreshPendingUiD9();
-          schedulePendingHomeRefreshD9();
+          logAppEventD9("PEDIDO_ENVIADO_SHEETS_OK", { payload, resultado: "ok", detalle: res?.data?.message || "Enviado correctamente" });
+          markOrderCompletedD9(payload);
+          saveHistory(payload, "ok", "Enviado correctamente");
+          removePendingRelatedToPayloadD9(payload, "envío confirmado OK");
         }
-      })
-      .catch(err => {
-        savePendingPayload(payload);
-        logAppEventD9("PEDIDO_ENVIADO_SHEETS_ERROR", { payload, resultado: "catch", error: String(err) });
-        saveHistory(payload, "pendiente", String(err));
-        // También en error total: el próximo pedido debe nacer con ID nuevo.
-        clearDraftPedidoIdD9();
         refreshPendingUiD9();
         schedulePendingHomeRefreshD9();
-        console.error("Error total, guardado local:", err);
-      });
+      }
+    } catch (err) {
+      const pendingResult = await savePendingOnlyAfterGraceD9(payload, String(err));
+      if (pendingResult?.ok) toast(pendingResult.message || "Pedido confirmado en PC.");
+      else console.error("Error total, guardado local:", pendingResult?.error || err);
+    }
 
     pulseSuccess(sendBtn, "Enviado");
   } finally {
@@ -4949,13 +5232,24 @@ async function syncPending() {
           continue;
         }
 
+        // v1.5.10: antes de reenviar un pendiente, verificamos si ya está en PC.
+        // Esto limpia pendientes falsos generados al volver de WhatsApp, sin volver a mandar.
+        const existsInPc = await verifyPedidoInPcD9(item, 2);
+        if (existsInPc?.ok) {
+          sentCount++;
+          const msg = "Pedido cargado correctamente en PC.";
+          logAppEventD9("PENDIENTE_DESCARTADO_YA_EN_PC", { payload: item, resultado: "ok", detalle: msg });
+          updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "ok", msg);
+          continue;
+        }
+
         const result = await trySendToWebhook(item);
         if (result.ok) {
           sentCount++;
           if (result?.data?.duplicated) {
-            const warn = duplicateWarningTextD9();
-            logAppEventD9("PENDIENTE_SYNC_WARNING", { payload: item, resultado: "posible_duplicado", detalle: warn });
-            updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "duplicado_warning", warn);
+            const msg = "Pedido cargado correctamente en PC.";
+            logAppEventD9("PENDIENTE_SYNC_DUPLICADO_CONTROLADO", { payload: item, resultado: "ok", detalle: msg });
+            updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "ok", msg);
           } else {
             logAppEventD9("PENDIENTE_SYNC_OK", { payload: item, resultado: "ok" });
             updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "ok", "Cargado en PC");
