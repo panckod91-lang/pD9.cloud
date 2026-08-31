@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.14-prod (mensaje OK cordial)";
+const APP_VERSION = "v1.5.23-prod (modo simple, listas y ofertas)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -29,6 +29,7 @@ const CACHE_KEYS = {
   users: "d9_cache_users",
   clients: "d9_cache_clients",
   products: "d9_cache_products",
+  offers: "d9_cache_offers",
   ads: "d9_cache_ads",
   support: "d9_cache_support",
   lastSync: "d9_cache_last_sync"
@@ -39,6 +40,7 @@ const state = {
   users: [],
   clients: [],
   products: [],
+  offers: [],
   ads: [],
   support: {},
   seller: null,
@@ -50,10 +52,12 @@ const state = {
   selectedClient: null,
   guestClientDraft: null,
   selectedCategory: "",
+  selectedBrand: "",
   cart: [],
   orderNoteGeneral: "",
   mostradorClient: null,
   mostradorCategory: "",
+  mostradorBrand: "",
   clientPickerMode: "order",
   categoryPickerMode: "order",
   currentView: "home",
@@ -73,6 +77,78 @@ const state = {
   mostradorVentaFingerprint: "",
   productPickerMode: "order"
 };
+
+function normalizeSearchTextD9(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizePriceListKeyD9(value, fallback = "lista_1") {
+  const raw = normalizeSearchTextD9(value).replace(/[\s.-]+/g, "_");
+  const compact = raw.replace(/_/g, "");
+  if (["lista_1", "lista1", "1", "contado", "mostrador"].includes(raw) || compact === "lista1") return "lista_1";
+  if (["lista_2", "lista2", "2", "pueblos"].includes(raw) || compact === "lista2") return "lista_2";
+  if (["lista_3", "lista3", "3", "vendedores"].includes(raw) || compact === "lista3") return "lista_3";
+  return fallback;
+}
+
+function isSimpleSellerD9() {
+  if (!state.seller) return false;
+  const previewMode = new URLSearchParams(window.location.search).get("modoSimple");
+  if (previewMode === "1") return true;
+  if (previewMode === "0") return false;
+  return localStorage.getItem(interfaceModeStorageKeyD9()) === "simple";
+}
+
+function interfaceModeStorageKeyD9(seller = state.seller) {
+  const identity = seller?.id || seller?.usuario || "sin_usuario";
+  return `d9_interfaz_${String(identity).trim().toLowerCase()}`;
+}
+
+function renderInterfaceModeControlD9() {
+  const btn = document.getElementById("btnModeToggleD9");
+  if (!btn) return;
+  const available = Boolean(state.seller) && state.seller?.rol !== "cliente";
+  btn.classList.toggle("hidden", !available);
+  if (!available) return;
+  const simple = isSimpleSellerD9();
+  btn.textContent = simple ? "✓ Modo simple" : "Modo normal";
+  btn.classList.toggle("is-simple-d9", simple);
+  btn.setAttribute("aria-pressed", String(simple));
+  btn.setAttribute("aria-label", simple ? "Cambiar a modo normal" : "Cambiar a modo simple");
+  btn.title = simple ? "Tocar para volver al modo normal" : "Tocar para usar el modo simple";
+}
+
+function toggleInterfaceModeD9() {
+  if (!state.seller || state.seller?.rol === "cliente") return;
+  const nextSimple = !isSimpleSellerD9();
+  const url = new URL(window.location.href);
+  url.searchParams.delete("modoSimple");
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  localStorage.setItem(interfaceModeStorageKeyD9(), nextSimple ? "simple" : "normal");
+  applyExperienceModeD9();
+  renderAll();
+  renderInterfaceModeControlD9();
+  toast(nextSimple ? "Modo simple activado." : "Modo normal activado.");
+}
+
+function applyExperienceModeD9() {
+  const simple = isSimpleSellerD9();
+  document.body.classList.toggle("simple-mode-d9", simple);
+
+  const ctaTitle = document.querySelector("#btnGoOrder .cta-copy-vnext strong");
+  const ctaSub = document.querySelector("#btnGoOrder .cta-copy-vnext small");
+  if (ctaTitle) ctaTitle.textContent = simple ? "HACER UN PEDIDO" : "GENERAR PEDIDO";
+  if (ctaSub) ctaSub.textContent = simple ? "Elegí cliente y productos" : "Cliente, productos y envío";
+
+  const orderTitle = document.querySelector("#view-order .history-title-d9 h2");
+  const orderSub = document.querySelector("#view-order .history-title-d9 .subhead");
+  if (orderTitle) orderTitle.textContent = simple ? "Nuevo pedido" : "Generar pedido";
+  if (orderSub) orderSub.textContent = simple ? "Primero el cliente, después los productos." : "Más rápido, más fácil.";
+}
 
 const bannerCarousel = {
   index: 0,
@@ -454,6 +530,7 @@ function hydrateCacheState() {
   state.users = readJSON(CACHE_KEYS.users, state.users || []);
   state.clients = readJSON(CACHE_KEYS.clients, state.clients || []);
   state.products = readJSON(CACHE_KEYS.products, state.products || []);
+  state.offers = readJSON(CACHE_KEYS.offers, state.offers || []);
   state.ads = readJSON(CACHE_KEYS.ads, state.ads || []);
   state.support = readJSON(CACHE_KEYS.support, state.support || {});
 }
@@ -462,6 +539,7 @@ function persistCacheState() {
   saveJSON(CACHE_KEYS.users, state.users || []);
   saveJSON(CACHE_KEYS.clients, state.clients || []);
   saveJSON(CACHE_KEYS.products, state.products || []);
+  saveJSON(CACHE_KEYS.offers, state.offers || []);
   saveJSON(CACHE_KEYS.ads, state.ads || []);
   saveJSON(CACHE_KEYS.support, state.support || {});
   localStorage.setItem(CACHE_KEYS.lastSync, String(Date.now()));
@@ -1117,6 +1195,7 @@ function snapshotOrderDraftD9() {
     selectedClient: state.selectedClient,
     guestClientDraft: state.guestClientDraft,
     selectedCategory: state.selectedCategory,
+    selectedBrand: state.selectedBrand,
     cart: Array.isArray(state.cart) ? state.cart.slice() : [],
     activePriceList: state.activePriceList,
     manualPriceOverride: state.manualPriceOverride,
@@ -1129,6 +1208,7 @@ function restoreOrderDraftD9(snap) {
   state.selectedClient = snap.selectedClient;
   state.guestClientDraft = snap.guestClientDraft;
   state.selectedCategory = snap.selectedCategory;
+  state.selectedBrand = snap.selectedBrand || "";
   state.cart = Array.isArray(snap.cart) ? snap.cart.slice() : [];
   state.activePriceList = snap.activePriceList;
   state.manualPriceOverride = snap.manualPriceOverride;
@@ -1400,6 +1480,7 @@ async function loadAllData() {
   const sellers  = Array.isArray(data.usuarios)   ? data.usuarios   : [];
   const clients  = Array.isArray(data.clientes)   ? data.clientes   : [];
   const products = Array.isArray(data.productos)  ? data.productos  : [];
+  const offers   = Array.isArray(data.ofertas)    ? data.ofertas    : [];
   const ads      = Array.isArray(data.publicidad) ? data.publicidad : [];
 
   state.config = data.config || {};
@@ -1411,9 +1492,12 @@ async function loadAllData() {
     nombre: String(r.nombre || "").trim(),
     clave: String(r.clave || "").trim(),
     rol: String(r.rol || "cliente").trim().toLowerCase(),
-    lista_1: String(r.lista_1 || "").trim().toLowerCase(),
+    lista_precio: normalizePriceListKeyD9(r.lista_precio || r.lista || r.lista_1 || "lista_1"),
+    lista_1: normalizePriceListKeyD9(r.lista_precio || r.lista || r.lista_1 || "lista_1"),
     cliente_id: String(r.cliente_id || "").trim(),
-    wasap_report: String(r.wasap_report || "").trim()
+    wasap_report: String(r.wasap_report || "").trim(),
+    interfaz: String(r.interfaz || r.modo_interfaz || r.modo || "normal").trim().toLowerCase(),
+    modo_simple: isTrue(r.modo_simple)
   }));
 
   state.clients = clients.filter(r => isTrue(r.activo)).map(r => ({
@@ -1422,7 +1506,9 @@ async function loadAllData() {
     telefono: String(r.telefono || "").trim(),
     direccion: String(r.direccion || "").trim(),
     ciudad: String(r.ciudad || r.localidad || "").trim(),
-    lista_1: String(r.lista_1 || "").trim().toLowerCase()
+    lista_precio: normalizePriceListKeyD9(r.lista_precio || r.lista || r.lista_1 || "lista_1"),
+    // Alias de compatibilidad con versiones anteriores de D9.
+    lista_1: normalizePriceListKeyD9(r.lista_precio || r.lista || r.lista_1 || "lista_1")
   }));
 
   state.products = products.filter(r => isTrue(r.activo)).map(r => ({
@@ -1436,6 +1522,15 @@ async function loadAllData() {
       lista_3: parseD9Number(r.lista_3 || 0)
     }
   }));
+  state.offers = offers.map(r=>({
+    oferta_id:String(r.oferta_id||"").trim(),
+    producto_id:String(r.producto_id||"").trim(),
+    precio_oferta:parseD9Number(r.precio_oferta||0),
+    fecha_desde:String(r.fecha_desde||"").slice(0,10),
+    fecha_hasta:String(r.fecha_hasta||"").slice(0,10),
+    activo:isTrue(r.activo),
+    titulo:String(r.titulo||"").trim()
+  })).filter(r=>r.producto_id&&r.precio_oferta>0);
 
   state.ads = ads.filter(isActiveAd);
   state.hasLoadedData = true;
@@ -1449,6 +1544,7 @@ function showView(name, pushHistory = true) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   const target = document.getElementById(`view-${name}`);
   if (target) target.classList.add("active");
+  if (name === "order") renderOrderPriceListControls();
   if (name === "home" || name === "pending") schedulePendingHomeRefreshD9();
   window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -1602,7 +1698,8 @@ function renderNetwork() {
 function getActiveIdentityD9() {
   if (state.seller) {
     const rolRaw = String(state.seller.rol || "").trim().toLowerCase();
-    const rol = rolRaw === "cliente" ? "Cliente" : rolRaw === "vendedor" ? "Vendedor" : "Usuario";
+    const baseRole = rolRaw === "cliente" ? "Cliente" : rolRaw === "vendedor" ? "Vendedor" : "Usuario";
+    const rol = isSimpleSellerD9() ? `${baseRole} · Simple` : baseRole;
     return {
       name: state.seller.nombre || "Usuario",
       role: rol,
@@ -2046,9 +2143,12 @@ function applyUserContext() {
       nombre: state.seller.nombre,
       telefono: "",
       direccion: "",
-      lista_1: state.seller.lista_1 || "lista_1"
+      lista_precio: state.seller.lista_precio || state.seller.lista_1 || "lista_1",
+      lista_1: state.seller.lista_precio || state.seller.lista_1 || "lista_1"
     };
-    state.activePriceList = state.selectedClient.lista_1 || state.seller.lista_1 || "lista_1";
+    state.activePriceList = normalizePriceListKeyD9(
+      state.selectedClient.lista_precio || state.selectedClient.lista_1 || state.seller.lista_precio || state.seller.lista_1
+    );
   } else {
     state.selectedClient = null;
     state.activePriceList = state.activePriceList || "lista_1";
@@ -2059,6 +2159,7 @@ function openLogin(force = false) {
   $("#sellerUser").value = "";
   $("#sellerPass").value = "";
   $("#btnLogout").classList.toggle("hidden", !state.seller);
+  renderInterfaceModeControlD9();
   openModal("login");
   $("#btnCloseLogin").classList.toggle("hidden", force);
 }
@@ -2322,6 +2423,7 @@ function loginSeller() {
   state.seller = seller;
   saveJSON(STORAGE_KEYS.seller, { id: seller.id, nombre: seller.nombre, usuario: seller.usuario });
   applyUserContext();
+  applyExperienceModeD9();
   syncSessionUI();
   renderAll();
   closeLogin();
@@ -2331,37 +2433,72 @@ function loginSeller() {
 
 function getActivePriceList() {
   if (!state.seller) return "lista_1";
-  if (state.seller?.rol === "cliente") return state.selectedClient?.lista_1 || state.seller.lista_1 || "lista_1";
-  return state.activePriceList || "lista_1";
+  if (state.seller?.rol === "cliente") {
+    return normalizePriceListKeyD9(
+      state.selectedClient?.lista_precio || state.selectedClient?.lista_1 || state.seller.lista_precio || state.seller.lista_1
+    );
+  }
+  return normalizePriceListKeyD9(state.activePriceList || "lista_1");
 }
 
 function priceLabel(key) {
   const labels = {
     lista_1: "Lista_1 · Contado",
-    lista_1: "Lista_2 · Pueblos",
-    lista_1: "Lista_3 · Vendedores"
+    lista_2: "Lista_2 · Pueblos",
+    lista_3: "Lista_3 · Vendedores"
   };
   return labels[key] || key || "Lista";
 }
 
-function productPrice(product) {
-  const key = getActivePriceList();
+function productCatalogSourceD9(product) {
   let source = product;
-
-  // D9: al reutilizar desde historial el item trae id/nombre/precio,
-  // pero no trae el objeto completo con precios por lista.
-  // Si existe en catálogo, usamos el catálogo para recalcular según cliente/lista.
   const itemId = String(product?.id || product?.id_producto || product?.producto_id || "").trim();
   if ((!source?.precios || typeof source.precios !== "object") && itemId && Array.isArray(state.products)) {
     source = state.products.find(p => String(p.id || "").trim() === itemId) || source;
   }
+  return source;
+}
+
+function productPrice(product) {
+  const key = getActivePriceList();
+  const source = productCatalogSourceD9(product);
 
   const byList = parseD9Number(source?.precios?.[key] || 0);
   if (byList > 0) return byList;
 
+  // D9: Lista 1 es el precio base obligatorio. Las listas alternativas
+  // pueden quedar vacías y, en ese caso, heredan el precio de Lista 1.
+  const basePrice = parseD9Number(source?.precios?.lista_1 || 0);
+  if (basePrice > 0) return basePrice;
+
   // Fallback defensivo: nunca pisar con 0 un precio que venía guardado en historial.
   return parseD9Number(product?.precio || product?.price || product?.precio_unitario || 0);
 }
+
+function productUsesListOneFallbackD9(product) {
+  const key = getActivePriceList();
+  if (key === "lista_1") return false;
+  const source = productCatalogSourceD9(product);
+  const selectedPrice = parseD9Number(source?.precios?.[key] || 0);
+  const basePrice = parseD9Number(source?.precios?.lista_1 || 0);
+  return selectedPrice <= 0 && basePrice > 0;
+}
+
+const OFFERS_CATEGORY_D9 = "__d9_ofertas__";
+function activeOfferD9(productId){
+  const today=new Date().toLocaleDateString("en-CA",{timeZone:"America/Argentina/Buenos_Aires"});
+  return state.offers.find(o=>o.activo&&String(o.producto_id)===String(productId)&&(!o.fecha_desde||o.fecha_desde<=today)&&(!o.fecha_hasta||o.fecha_hasta>=today))||null;
+}
+function itemCatalogD9(item){const id=String(item?.id||item?.id_producto||"");return state.products.find(p=>String(p.id)===id)||item}
+function setItemOfferPriceD9(item,useOffer){
+  const product=itemCatalogD9(item),offer=activeOfferD9(product?.id||item?.id),normal=productPrice(product);
+  item.precio_lista=normal;
+  if(useOffer&&offer){item.usa_oferta=true;item.oferta_id=offer.oferta_id;item.precio_oferta=offer.precio_oferta;item.precio=offer.precio_oferta;return item}
+  item.usa_oferta=false;item.oferta_id="";item.precio_oferta=offer?.precio_oferta||0;if(!item.precio_manual)item.precio=normal;return item;
+}
+function toggleCartOfferD9(id){const item=state.cart.find(x=>String(x.id)===String(id));if(!item||!activeOfferD9(id))return;delete item.precio_manual;setItemOfferPriceD9(item,!item.usa_oferta);renderProducts();renderCart()}
+function activeProductBrandD9(){return state.productPickerMode==="mostrador"?state.mostradorBrand:state.selectedBrand}
+function productCategoryLabelD9(category){return category===OFFERS_CATEGORY_D9?"🔥 Ofertas":category?cleanCategory(category):"Todas"}
 
 function renderQuickLabels() {
   const isClient = state.seller?.rol === "cliente";
@@ -2371,7 +2508,6 @@ function renderQuickLabels() {
     : (state.selectedClient
         ? (state.selectedClient.ocasional ? (state.selectedClient.nombre_real || "Cliente nuevo / ocasional") : state.selectedClient.nombre)
         : (guestMode ? "Cliente nuevo / ocasional" : "Seleccionar cliente"));
-  $("#selectedCategoryLabel").textContent = state.selectedCategory ? cleanCategory(state.selectedCategory) : "Todas las categorías";
   $("#selectedProductsLabel").textContent = state.cart.length ? `${state.cart.length} productos seleccionados` : "Seleccionar productos";
   const clientBtn = $("#btnOpenClients");
   if (clientBtn) {
@@ -2396,33 +2532,49 @@ function renderQuickLabels() {
   const productHint = $("#productModalHint");
   if (productHint) {
     const activeProductCategory = state.productPickerMode === "mostrador" ? state.mostradorCategory : state.selectedCategory;
-    const catLabel = activeProductCategory ? cleanCategory(activeProductCategory) : "Todas las categorías";
+    const brand=activeProductBrandD9(),catLabel=productCategoryLabelD9(activeProductCategory),brandLabel=brand||"Todas";
     productHint.innerHTML = `
-      <div class="modal-category-box-d9">
-        <div class="modal-category-current-d9">
-          <span>Cat.</span>
-          <strong>${esc(catLabel)}</strong>
-        </div>
-        <button id="btnCategoryInsideProductModal" class="modal-category-button-d9" type="button">Cambiar categoría</button>
+      <div class="product-filter-bar-d9">
+        <button id="btnCategoryInsideProductModal" class="product-filter-btn-d9" type="button"><span>Categoría</span><strong>${esc(catLabel)}</strong></button>
+        <button id="btnBrandInsideProductModal" class="product-filter-btn-d9" type="button"><span>Marca</span><strong>${esc(brandLabel)}</strong></button>
       </div>
     `;
   }
 }
 
 function renderClients() {
-  const term = $("#clientSearch").value.trim().toLowerCase();
+  const term = normalizeSearchTextD9($("#clientSearch").value);
   const list = $("#clientList");
   const canBrowseClients = ["vendedor", "mostrador"].includes(String(state.seller?.rol || "").toLowerCase());
+  const simple = isSimpleSellerD9() && state.clientPickerMode === "order";
+
+  const recentOrder = [];
+  if (simple) {
+    const historyRows = readJSON(STORAGE_KEYS.history, []);
+    (Array.isArray(historyRows) ? historyRows : []).slice(0, 80).forEach(row => {
+      const id = String(row?.cliente_id || row?.cliente_data?.id || "").trim();
+      if (id && !recentOrder.includes(id)) recentOrder.push(id);
+    });
+  }
+  const recentRank = new Map(recentOrder.map((id, index) => [id, index]));
 
   const base = canBrowseClients
     ? state.clients
-        .filter(c => !term || c.nombre.toLowerCase().includes(term))
-        .sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base", numeric: true }))
+        .filter(c => !term || [c.nombre, c.direccion, c.ciudad, c.telefono]
+          .some(value => normalizeSearchTextD9(value).includes(term)))
+        .sort((a, b) => {
+          if (simple && !term) {
+            const rankA = recentRank.has(String(a.id)) ? recentRank.get(String(a.id)) : 9999;
+            const rankB = recentRank.has(String(b.id)) ? recentRank.get(String(b.id)) : 9999;
+            if (rankA !== rankB) return rankA - rankB;
+          }
+          return String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base", numeric: true });
+        })
     : [];
 
   const filtered = base.slice(0, 600);
 
-  const occasionalBtn = `
+  const occasionalBtn = simple ? "" : `
     <button class="option-item option-button special-option" id="btnOccasionalClient" type="button">
       <strong>+ Cliente nuevo / ocasional</strong>
       <div class="option-meta">Cargar nombre, dirección, ciudad y teléfono para este pedido</div>
@@ -2438,7 +2590,9 @@ function renderClients() {
     ? occasionalBtn + filtered.map(c => `
       <button class="option-item option-button ${activeClient?.id === c.id ? "is-selected" : ""}" data-client-id="${esc(c.id)}" type="button">
         <strong>${esc(c.nombre)}</strong>
-        <div class="option-meta">${esc(c.telefono || "Sin teléfono")} · ${esc(c.direccion || "Sin dirección")}</div>
+        <div class="option-meta">${esc(simple
+          ? (c.direccion || c.ciudad || "Cliente")
+          : [c.telefono || "Sin teléfono", c.direccion || c.ciudad || "Sin dirección"].join(" · "))}</div>
       </button>`).join("")
     : occasionalBtn + '<div class="empty-state">No encontré clientes.</div>';
 }
@@ -2460,7 +2614,7 @@ function selectClient(id) {
   state.selectedClient = c;
   if (["vendedor", "mostrador"].includes(String(state.seller?.rol || "").toLowerCase())) {
     const previousActive = state.activePriceList || "lista_1";
-    const nextList = c.lista_1 || "lista_1";
+    const nextList = normalizePriceListKeyD9(c.lista_precio || c.lista_1 || "lista_1");
     const changedClient = previousClientId && String(previousClientId) !== String(c.id);
     const changedList = nextList !== previousActive;
     state.activePriceList = nextList;
@@ -2478,6 +2632,18 @@ function selectClient(id) {
   renderCart();
   if (typeof renderMostradorD9 === "function") renderMostradorD9();
   closeModal("client");
+
+  if (isSimpleSellerD9()) {
+    window.setTimeout(() => {
+      state.productPickerMode = "order";
+      state.categoryPickerMode = "order";
+      clearProductSearchD9(false);
+      renderProducts();
+      openModal("product");
+      window.setTimeout(() => $("#productSearch")?.focus(), 120);
+      toast("Ahora elegí los productos.");
+    }, 180);
+  }
 }
 
 function renderSelectedClient() {
@@ -2492,7 +2658,8 @@ function renderSelectedClient() {
   box.innerHTML = `
     <strong>${esc(state.selectedClient.ocasional ? "Cliente nuevo / ocasional" : state.selectedClient.nombre)}</strong>
     <div class="mini-text">${esc(state.selectedClient.ocasional ? (state.selectedClient.nombre_real || state.selectedClient.nombre) : (state.selectedClient.telefono || "Sin teléfono"))}</div>
-    <div class="mini-text">${esc(state.selectedClient.direccion || "Sin dirección")}</div>`;
+    <div class="mini-text">${esc(state.selectedClient.direccion || "Sin dirección")}</div>
+    <div class="mini-text client-price-list-d9">${esc(priceLabel(state.selectedClient.lista_precio || state.selectedClient.lista_1))}</div>`;
 }
 
 function renderOrderPriceListControls() {
@@ -2501,18 +2668,21 @@ function renderOrderPriceListControls() {
   const info = $("#orderPriceListInfo");
   if (!box || !select || !info) return;
 
-  if (state.seller?.rol === "vendedor") {
+  if (state.seller?.rol === "vendedor" && !isSimpleSellerD9()) {
     box.classList.remove("hidden");
     select.value = state.activePriceList || "lista_1";
     const clientName = state.selectedClient?.nombre_real || state.selectedClient?.nombre || "sin cliente";
-    const defaultList = state.selectedClient?.lista_1 || "lista_1";
+    const defaultList = normalizePriceListKeyD9(state.selectedClient?.lista_precio || state.selectedClient?.lista_1 || "lista_1");
     const currentList = state.activePriceList || defaultList;
     const override = !!state.selectedClient && currentList !== defaultList;
+    box.classList.toggle("is-overridden",override);
     info.textContent = override
       ? `Lista cambiada para ${clientName}: ${priceLabel(currentList)} (por defecto ${priceLabel(defaultList)}).`
       : `Precio activo para ${clientName}: ${priceLabel(currentList)}.`;
+    select.title=info.textContent;
   } else {
     box.classList.add("hidden");
+    box.classList.remove("is-overridden");
     info.textContent = "";
   }
 }
@@ -2729,7 +2899,8 @@ function renderPriceBrandModal() {
 
 
 function productHasValidPrice(p) {
-  return Number(productPrice(p)) > 0;
+  const source = productCatalogSourceD9(p);
+  return parseD9Number(source?.precios?.lista_1 || 0) > 0;
 }
 
 function sortByName(a, b) {
@@ -2747,10 +2918,10 @@ function productCode(p) {
 }
 
 function productMatchesTerm(p, term) {
-  const t = String(term || "").trim().toLowerCase();
+  const t = normalizeSearchTextD9(term);
   if (!t) return true;
   return [p?.nombre, p?.categoria, p?.marca, productCode(p)]
-    .some(v => String(v || "").toLowerCase().includes(t));
+    .some(v => normalizeSearchTextD9(v).includes(t));
 }
 
 function productMetaLine(p, includePrice = true) {
@@ -2758,6 +2929,7 @@ function productMetaLine(p, includePrice = true) {
   const parts = [];
   if (code) parts.push(`Cód. ${code}`);
   if (includePrice) parts.push(`${money(productPrice(p))} c/u`);
+  if (includePrice && productUsesListOneFallbackD9(p)) parts.push("respaldo Lista 1");
   return parts.join(" · ");
 }
 
@@ -2767,6 +2939,13 @@ function itemMetaLine(item) {
   if (code) parts.push(`Cód. ${code}`);
   parts.push(`${money(Number(item.precio || 0))} c/u`);
   return parts.join(" · ");
+}
+
+function cartItemMetaLineD9(item) {
+  const fallbackLabel = productUsesListOneFallbackD9(item) ? " · respaldo Lista 1" : "";
+  if (!item?.usa_oferta) return itemMetaLine(item) + fallbackLabel;
+  const normalPrice = Number(item.precio_lista || productPrice(item) || 0);
+  return itemMetaLine({ ...item, precio: normalPrice }) + fallbackLabel;
 }
 
 
@@ -3224,7 +3403,12 @@ async function sharePriceListPdfD9() {
 }
 
 function refreshPricesAcrossApp() {
-  state.cart = state.cart.map(item => ({ ...item, precio: productPrice(item) }));
+  state.cart = state.cart.map(item => {
+    const next = { ...item };
+    delete next.precio_manual;
+    setItemOfferPriceD9(next,!!next.usa_oferta);
+    return next;
+  });
   renderQuickLabels();
   renderProducts();
   renderCart();
@@ -3234,12 +3418,13 @@ function refreshPricesAcrossApp() {
 }
 
 function categoriesList() {
-  return [...new Set(
+  const regular=[...new Set(
     state.products
       .filter(productHasValidPrice)
       .map(p => p.categoria)
       .filter(Boolean)
   )].sort((a, b) => cleanCategory(a).localeCompare(cleanCategory(b), "es", { sensitivity: "base", numeric: true }));
+  return state.products.some(p=>activeOfferD9(p.id))?[OFFERS_CATEGORY_D9,...regular]:regular;
 }
 
 function renderCategories() {
@@ -3253,9 +3438,17 @@ function renderCategories() {
     </button>`;
   list.innerHTML = allItem + cats.map(c => `
     <button class="option-item option-button ${activeCategory === c ? "is-selected" : ""}" data-category="${esc(c)}" type="button">
-      <strong>${esc(cleanCategory(c))}</strong>
+      <strong>${c===OFFERS_CATEGORY_D9?"🔥 Productos en oferta":esc(cleanCategory(c))}</strong>
     </button>`).join("");
 }
+
+function productBrandsListD9(){
+  const cat=state.productPickerMode==="mostrador"?state.mostradorCategory:state.selectedCategory,map=new Map();
+  state.products.filter(productHasValidPrice).filter(p=>!cat||(cat===OFFERS_CATEGORY_D9?!!activeOfferD9(p.id):p.categoria===cat)).forEach(p=>{const brand=productBrandD9(p);if(brand&&!map.has(normalizeSearchTextD9(brand)))map.set(normalizeSearchTextD9(brand),brand)});
+  return [...map.values()].sort((a,b)=>a.localeCompare(b,"es",{sensitivity:"base",numeric:true}));
+}
+function renderBrandsD9(){const list=$("#brandList");if(!list)return;const active=activeProductBrandD9();list.innerHTML=`<button class="option-item option-button ${!active?"is-selected":""}" data-product-brand="" type="button"><strong>Todas las marcas</strong></button>`+productBrandsListD9().map(brand=>`<button class="option-item option-button ${active===brand?"is-selected":""}" data-product-brand="${esc(brand)}" type="button"><strong>${esc(brand)}</strong></button>`).join("")}
+function selectProductBrandD9(brand){if(state.productPickerMode==="mostrador")state.mostradorBrand=brand;else state.selectedBrand=brand;clearProductSearchD9(false);renderBrandsD9();renderProducts();renderQuickLabels();closeModal("brand")}
 
 function clearProductSearchD9(shouldRender = true) {
   const input = $("#productSearch");
@@ -3269,6 +3462,7 @@ function clearProductSearchD9(shouldRender = true) {
 function selectCategory(category) {
   if (state.categoryPickerMode === "mostrador") {
     state.mostradorCategory = category;
+    if(state.mostradorBrand&&!productBrandsListD9().includes(state.mostradorBrand))state.mostradorBrand="";
     clearProductSearchD9(false);
     renderCategories();
     renderProducts();
@@ -3277,6 +3471,7 @@ function selectCategory(category) {
     return;
   }
   state.selectedCategory = category;
+  if(state.selectedBrand&&!productBrandsListD9().includes(state.selectedBrand))state.selectedBrand="";
   clearProductSearchD9(false);
   renderCategories();
   renderProducts();
@@ -3286,9 +3481,10 @@ function selectCategory(category) {
 }
 
 function renderProducts() {
-  const term = $("#productSearch").value.trim().toLowerCase();
+  const term = normalizeSearchTextD9($("#productSearch").value);
   const pickerMode = state.productPickerMode === "mostrador" ? "mostrador" : "order";
   const cat = pickerMode === "mostrador" ? state.mostradorCategory : state.selectedCategory;
+  const brand = pickerMode === "mostrador" ? state.mostradorBrand : state.selectedBrand;
   const list = $("#productList");
   const activeCart = pickerMode === "mostrador" ? state.mostradorCart : state.cart;
 
@@ -3298,14 +3494,45 @@ function renderProducts() {
     filtered = state.products
       .filter(productHasValidPrice)
       .filter(p => productMatchesTerm(p, term))
+      .filter(p => (!cat||(cat===OFFERS_CATEGORY_D9?!!activeOfferD9(p.id):p.categoria===cat))&&(!brand||productBrandD9(p)===brand))
       .sort(sortByName)
       .slice(0, 500);
-  } else if (cat) {
+  } else if (cat||brand) {
     filtered = state.products
       .filter(productHasValidPrice)
-      .filter(p => p.categoria === cat)
+      .filter(p => (!cat||(cat===OFFERS_CATEGORY_D9?!!activeOfferD9(p.id):p.categoria===cat))&&(!brand||productBrandD9(p)===brand))
       .sort(sortByName)
       .slice(0, 500);
+  } else if (isSimpleSellerD9() && pickerMode === "order") {
+    const recentIds = [];
+    const historyRows = readJSON(STORAGE_KEYS.history, []);
+    const selectedClientId = String(state.selectedClient?.id || "").trim();
+    const orderedHistory = (Array.isArray(historyRows) ? historyRows : []).slice(0, 80).sort((a, b) => {
+      const aSame = selectedClientId && String(a?.cliente_id || a?.cliente_data?.id || "") === selectedClientId ? 0 : 1;
+      const bSame = selectedClientId && String(b?.cliente_id || b?.cliente_data?.id || "") === selectedClientId ? 0 : 1;
+      return aSame - bSame;
+    });
+    orderedHistory.forEach(row => {
+      (Array.isArray(row?.items) ? row.items : []).forEach(item => {
+        const id = String(item?.id || item?.id_producto || "").trim();
+        if (id && !recentIds.includes(id)) recentIds.push(id);
+      });
+    });
+    const rank = new Map(recentIds.map((id, index) => [id, index]));
+    filtered = state.products
+      .filter(productHasValidPrice)
+      .filter(p => rank.has(String(p.id)))
+      .sort((a, b) => rank.get(String(a.id)) - rank.get(String(b.id)))
+      .slice(0, 30);
+    if (!filtered.length) {
+      const availableCount = state.products.filter(productHasValidPrice).length;
+      if (!availableCount) {
+        list.innerHTML = `<div class="empty-state simple-help-d9">${esc(priceLabel(getActivePriceList()))} todavía no tiene productos con precio. Avisale al encargado antes de continuar.</div>`;
+        return;
+      }
+      list.innerHTML = '<div class="empty-state simple-help-d9">Escribí una parte del nombre del producto o tocá <strong>Cambiar categoría</strong>.</div>';
+      return;
+    }
   } else {
     list.innerHTML = '<div class="empty-state">Elegí una categoría o buscá un producto.</div>';
     return;
@@ -3316,7 +3543,8 @@ function renderProducts() {
       const cartItem = activeCart.find(x => String(x.id) === String(p.id));
       const selected = !!cartItem;
       const cantidad = Number(cartItem?.cantidad || 1);
-      const precio = Number(cartItem?.precio || productPrice(p) || 0);
+      const offer=activeOfferD9(p.id);
+      const precio = Number(cartItem?.precio ?? (cat===OFFERS_CATEGORY_D9&&offer?offer.precio_oferta:productPrice(p)) ?? 0);
       const subtotal = cantidad * precio;
       const qtyText = pickerMode === "mostrador" ? mostradorQtyTextD9(cantidad) : String(cantidad);
       return `
@@ -3324,7 +3552,9 @@ function renderProducts() {
           <div class="product-copy product-main-d9" ${selected ? 'data-no-toggle="true"' : ''}>
             <strong>${esc(p.nombre)}</strong>
             <div class="option-meta">${esc(productMetaLine(p))}</div>
+            ${offer?`<div class="option-meta offer-meta-d9">🔥 Oferta disponible ${money(offer.precio_oferta)}</div>`:""}
             ${term && cat && p.categoria !== cat ? `<div class="option-meta product-cross-category-d9">Cat. ${esc(cleanCategory(p.categoria))}</div>` : ""}
+            ${!term && !cat && isSimpleSellerD9() ? '<div class="option-meta simple-recent-d9">Usado recientemente</div>' : ''}
           </div>
           <div class="product-side product-qty-zone-d9" ${selected ? 'data-no-toggle="true"' : ''}>
             ${selected ? (pickerMode === "mostrador" ? `
@@ -3355,7 +3585,7 @@ function toggleProduct(id) {
     } else {
       const p = state.products.find(x => String(x.id) === String(id));
       if (!p) return;
-      state.mostradorCart.push({ id: p.id, nombre: p.nombre, precio: productPrice(p), cantidad: 1 });
+      const item={ id: p.id, nombre: p.nombre, precio: productPrice(p), cantidad: 1 };setItemOfferPriceD9(item,false);state.mostradorCart.push(item);
     }
     renderProducts();
     renderMostradorD9();
@@ -3367,7 +3597,7 @@ function toggleProduct(id) {
   } else {
     const p = state.products.find(x => x.id === id);
     if (!p) return;
-    state.cart.push({ ...p, precio: productPrice(p), cantidad: 1 });
+    const item={ ...p, precio: productPrice(p), cantidad: 1 };setItemOfferPriceD9(item,false);state.cart.push(item);
   }
   renderProducts();
   renderQuickLabels();
@@ -3388,7 +3618,7 @@ function updateQty(id, delta) {
   const item = state.cart.find(x => x.id === id);
   if (!item) return;
   item.cantidad += delta;
-  item.precio = productPrice(item);
+  if (!item.precio_manual) setItemOfferPriceD9(item,!!item.usa_oferta);
   if (item.cantidad <= 0) state.cart = state.cart.filter(x => x.id !== id);
   renderProducts();
   renderQuickLabels();
@@ -3430,6 +3660,21 @@ function editItemNoteD9(id) {
   const value = window.prompt(`Nota para ${item.nombre || "producto"}:`, current);
   if (value === null) return;
   setItemNoteD9(id, value);
+}
+
+function editItemPriceD9(id) {
+  if (isSimpleSellerD9()) return;
+  const item = state.cart.find(x => String(x.id) === String(id));
+  if (!item) return toast("No encontré ese producto.");
+  const value = window.prompt(`Precio unitario para ${item.nombre || "producto"}:`, String(Number(item.precio || 0)).replace(".", ","));
+  if (value === null) return;
+  const price = parseDecimalD9(value);
+  if (!(price > 0)) return toast("Ingresá un precio mayor a cero.");
+  item.precio = price;
+  item.precio_manual = true;
+  renderProducts();
+  renderCart();
+  toast("Precio modificado solo para este pedido.");
 }
 
 function setOrderNoteGeneralD9(value) {
@@ -3599,7 +3844,7 @@ function applyQtyModalD9() {
   } else {
     item.cantidad = qty;
     if (isMostrador) asegurarPrecioMostradorD9(item);
-    else item.precio = productPrice(item);
+    else if (!item.precio_manual) item.precio = productPrice(item);
   }
 
   closeQtyModalD9();
@@ -3624,7 +3869,8 @@ function renderCart() {
         <div class="cart-top">
           <div>
             <strong>${esc(item.nombre)}</strong>
-            <div class="mini-text">${esc(itemMetaLine(item))}</div>
+            <div class="mini-text">${esc(cartItemMetaLineD9(item))}</div>
+            ${activeOfferD9(item.id)?`<button class="qty-edit-btn-d9 offer-toggle-d9 ${item.usa_oferta?'has-offer-d9':''}" data-toggle-offer-d9="${esc(item.id)}" type="button">${item.usa_oferta?`🔥 Oferta aplicada ${money(item.precio)}`:`🔥 Usar oferta ${money(activeOfferD9(item.id).precio_oferta)}`}</button>`:""}
           </div>
           <button class="remove-btn cart-trash-btn-d9" data-remove-id="${esc(item.id)}" type="button" title="Quitar producto" aria-label="Quitar producto">🗑️</button>
         </div>
@@ -3636,8 +3882,8 @@ function renderCart() {
           <button class="qty-edit-btn-d9 note-item-btn-d9 ${getItemNoteD9(item) ? 'has-note-d9' : ''}" data-edit-note-d9="${esc(item.id)}" type="button" title="Nota del producto" aria-label="Nota del producto">📝</button>
         </div>
         <div class="cart-subtotal-row-d9">
-          <span>Subtotal</span>
-          <strong class="product-price cart-line-total-d9">${money(item.precio * item.cantidad)}</strong>
+          <span class="cart-price-edit-row-d9">Subtotal ${!isSimpleSellerD9() ? `<button class="price-item-btn-d9 ${item.precio_manual ? 'has-manual-price-d9' : ''}" data-edit-price-d9="${esc(item.id)}" type="button">${item.precio_manual ? 'Precio manual' : 'Cambiar precio'}</button>` : ""}</span>
+          <strong class="product-price cart-line-total-d9">${money(item.precio * item.cantidad)}${item.precio_manual ? ' *' : ''}</strong>
         </div>
         ${getItemNoteD9(item) ? `<div class="cart-item-note-d9">${esc(getItemNoteD9(item))}</div>` : ""}
       </div>`).join("");
@@ -3871,7 +4117,18 @@ function buildOrderPayload() {
     fecha: new Date().toISOString(),
     vendedor: state.seller,
     cliente: state.selectedClient,
-    carrito: state.cart.map(x => ({ id: x.id, nombre: x.nombre, cantidad: x.cantidad, precio: x.precio, nota_item: getItemNoteD9(x) })),
+    lista_precio: getActivePriceList(),
+    carrito: state.cart.map(x => ({
+      id: x.id,
+      nombre: x.nombre,
+      cantidad: x.cantidad,
+      precio: x.precio,
+      precio_manual: x.precio_manual === true,
+      usa_oferta: x.usa_oferta === true,
+      oferta_id: x.oferta_id || "",
+      precio_lista: x.precio_lista || productPrice(x),
+      nota_item: getItemNoteD9(x)
+    })),
     total: cartTotal(),
     nota_pedido: String(state.orderNoteGeneral || "").trim(),
     detalle: state.cart.map(x => `${x.nombre} x${x.cantidad}${getItemNoteD9(x) ? ` (${getItemNoteD9(x)})` : ""}`).join(" | ")
@@ -3897,12 +4154,17 @@ function buildWebhookPayload(payload) {
     vendedor_id: payload?.vendedor?.id || "",
     vendedor: payload?.vendedor?.nombre || "",
     cliente: clienteTexto,
+    lista_precio: normalizePriceListKeyD9(payload?.lista_precio || cliente.lista_precio || cliente.lista_1 || "lista_1"),
     items: (payload?.carrito || []).map(item => ({
       id: item.id || "",
       id_producto: item.id || "",
       nombre: item.nombre,
       cantidad: Number(item.cantidad || 0),
       precio: Number(item.precio || 0),
+      precio_manual: item.precio_manual === true,
+      usa_oferta: item.usa_oferta === true,
+      oferta_id: item.oferta_id || "",
+      precio_lista: Number(item.precio_lista || 0),
       nota_item: getItemNoteD9(item)
     })),
     total: Number(payload?.total || 0),
@@ -4292,6 +4554,7 @@ function saveHistory(payload, status = "enviado", error = "") {
     cliente: payload.cliente?.nombre_real || payload.cliente?.nombre || "",
     cliente_id: payload.cliente?.id || "",
     cliente_data: payload.cliente || null,
+    lista_precio: normalizePriceListKeyD9(payload?.lista_precio || payload?.cliente?.lista_precio || payload?.cliente?.lista_1 || "lista_1"),
     detalle: payload.detalle,
     total: payload.total,
     nota_pedido: String(payload?.nota_pedido || payload?.notaPedido || "").trim(),
@@ -4303,6 +4566,10 @@ function saveHistory(payload, status = "enviado", error = "") {
       nombre: x.nombre,
       cantidad: x.cantidad,
       precio: x.precio,
+      precio_manual: x.precio_manual === true,
+      usa_oferta: x.usa_oferta === true,
+      oferta_id: x.oferta_id || "",
+      precio_lista: Number(x.precio_lista || 0),
       nota_item: getItemNoteD9(x),
       subtotal: Number(x.precio || 0) * Number(x.cantidad || 0)
     })),
@@ -5149,20 +5416,26 @@ function continueDraftD9(draftId) {
 
   state.selectedClient = draft.cliente || null;
   state.orderNoteGeneral = String(draft.nota_pedido || draft.notaPedido || "").trim();
-  state.activePriceList = draft.activePriceList || state.selectedClient?.lista_1 || state.activePriceList || "lista_1";
+  state.activePriceList = normalizePriceListKeyD9(
+    draft.activePriceList || draft.lista_precio || state.selectedClient?.lista_precio || state.selectedClient?.lista_1 || state.activePriceList || "lista_1"
+  );
   state.manualPriceOverride = !!draft.manualPriceOverride;
 
   state.cart = (draft.carrito || []).map(saved => {
     const product = state.products.find(p => String(p.id) === String(saved.id));
     const base = product || saved;
-    return {
+    const restored={
       id: saved.id,
       nombre: product?.nombre || saved.nombre,
       cantidad: Number(saved.cantidad || 1),
-      precio: product ? productPrice(product) : Number(saved.precio || 0),
+      precio: saved.precio_manual ? Number(saved.precio || 0) : (product ? productPrice(product) : Number(saved.precio || 0)),
+      precio_manual: saved.precio_manual === true,
+      usa_oferta: saved.usa_oferta === true,
+      oferta_id: saved.oferta_id || "",
+      precio_lista: Number(saved.precio_lista || 0),
       categoria: base.categoria || saved.categoria || "",
       nota_item: getItemNoteD9(saved)
-    };
+    };if(!restored.precio_manual)setItemOfferPriceD9(restored,restored.usa_oferta);return restored;
   });
 
   // Se borra al continuar para evitar que quede duplicado como borrador viejo.
@@ -5381,7 +5654,7 @@ function reuseHistoryItem(id) {
     nombre: x.nombre,
     cantidad: Number(x.cantidad || 1),
     precio: Number(x.precio || 0),
-    nota_item: getItemNoteD9(x)
+    nota_item: getItemNoteD9(x),usa_oferta:x.usa_oferta===true,oferta_id:x.oferta_id||"",precio_lista:Number(x.precio_lista||0)
   }));
 
   logAppEventD9("PEDIDO_REUTILIZADO", { pedido_id: getHistoryPedidoIdD9(item), cliente: item.cliente, total: item.total, resultado: "ok", detalle: `items:${(item.items || []).length}` });
@@ -5664,9 +5937,22 @@ function bind() {
       openModal("category");
       return;
     }
+    const insideBrandBtn=e.target.closest("#btnBrandInsideProductModal");
+    if(insideBrandBtn){e.preventDefault();e.stopPropagation();renderBrandsD9();const modal=document.getElementById("brandModal");if(modal){modal.classList.add("front-modal-d9");modal.style.zIndex="999999"}openModal("brand");return}
   });
 
-  $("#btnGoOrder").addEventListener("click", () => { state.productPickerMode = "order"; showView("order"); });
+  $("#btnGoOrder").addEventListener("click", () => {
+    state.productPickerMode = "order";
+    showView("order");
+    if (isSimpleSellerD9() && !state.selectedClient) {
+      window.setTimeout(() => {
+        state.clientPickerMode = "order";
+        renderClients();
+        openModal("client");
+        window.setTimeout(() => $("#clientSearch")?.focus(), 120);
+      }, 160);
+    }
+  });
   $("#btnGoPrices").addEventListener("click", () => { renderPriceListControls(); renderPriceProducts(); showView("prices"); });
   $("#btnGoHistory").addEventListener("click", () => { renderHistory(); showView("history"); });
   document.addEventListener("click", (ev) => { const b = ev.target.closest("#btnGoMostrador"); if (b) { renderMostradorD9(); showView("mostrador"); } });
@@ -5685,6 +5971,7 @@ function bind() {
   const syncPendingEl = $("#btnSyncPending");
   if (syncPendingEl) syncPendingEl.addEventListener("click", () => { renderPendingAndDraftsD9(); showView("pending"); });
   $("#btnLogin").addEventListener("click", loginSeller);
+  $("#btnModeToggleD9")?.addEventListener("click", toggleInterfaceModeD9);
   $("#btnLogout").addEventListener("click", logoutSeller);
   $("#btnSaveOccasionalClient").addEventListener("click", saveOccasionalClient);
   $("#sellerUser").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#sellerPass").focus(); });
@@ -5707,9 +5994,15 @@ function bind() {
       return;
     }
     state.activePriceList = next;
-    state.manualPriceOverride = !!state.selectedClient && next !== (state.selectedClient.lista_1 || "lista_1");
+    const defaultList = normalizePriceListKeyD9(state.selectedClient?.lista_precio || state.selectedClient?.lista_1 || "lista_1");
+    state.manualPriceOverride = !!state.selectedClient && next !== defaultList;
     refreshPricesAcrossApp();
-    if (state.cart.length) toast(`Se aplicó ${priceLabel(next)} al pedido.`);
+    if (state.cart.length) {
+      const fallbackCount = state.cart.filter(productUsesListOneFallbackD9).length;
+      toast(fallbackCount
+        ? `${priceLabel(next)} aplicada · ${fallbackCount} ${fallbackCount === 1 ? "producto usa" : "productos usan"} Lista 1.`
+        : `Se aplicó ${priceLabel(next)} al pedido.`);
+    }
   });
   $("#btnClearCart").addEventListener("click", clearCart);
   $("#orderNoteGeneralD9")?.addEventListener("input", (e) => setOrderNoteGeneralD9(e.target.value));
@@ -5730,25 +6023,23 @@ function bind() {
     renderClients();
     openModal("client");
   });
-  $("#btnOpenCategories").addEventListener("click", () => {
-    state.categoryPickerMode = "order";
-    if (!state.selectedClient && !state.seller?.rol) {
-      toast("Primero cargá los datos del comprador.");
-      openOccasionalClientModal();
-      return;
-    }
-    renderCategories();
-    openModal("category");
-  });
   $("#btnOpenProducts").addEventListener("click", () => {
     state.productPickerMode = "order";
     state.categoryPickerMode = "order";
+    if (isSimpleSellerD9() && !state.selectedClient) {
+      toast("Primero elegí el cliente.");
+      state.clientPickerMode = "order";
+      renderClients();
+      openModal("client");
+      return;
+    }
     if (!state.selectedClient && !state.seller?.rol) {
       toast("Primero cargá los datos del comprador.");
       openOccasionalClientModal();
       return;
     }
     state.productPickerMode = "order";
+    renderQuickLabels();
     renderProducts();
     openModal("product");
   });
@@ -5769,6 +6060,7 @@ function bind() {
     if (ev.target.closest("#btnMostradorOpenProducts")) {
       state.productPickerMode = "mostrador";
       state.categoryPickerMode = "mostrador";
+      renderQuickLabels();
       renderProducts();
       openModal("product");
       return;
@@ -5807,6 +6099,9 @@ function bind() {
     const cat = ev.target.closest("[data-category]");
     if (cat) selectCategory(cat.dataset.category);
 
+    const productBrand = ev.target.closest("[data-product-brand]");
+    if (productBrand) { selectProductBrandD9(productBrand.dataset.productBrand || ""); return; }
+
     const toggle = ev.target.closest("[data-toggle-product]");
     if (toggle && !ev.target.closest("[data-no-toggle]")) toggleProduct(toggle.dataset.toggleProduct);
 
@@ -5818,6 +6113,12 @@ function bind() {
 
     const editNoteD9 = ev.target.closest("[data-edit-note-d9]");
     if (editNoteD9) { ev.stopPropagation(); editItemNoteD9(editNoteD9.dataset.editNoteD9); return; }
+
+    const editPriceD9 = ev.target.closest("[data-edit-price-d9]");
+    if (editPriceD9) { ev.stopPropagation(); editItemPriceD9(editPriceD9.dataset.editPriceD9); return; }
+
+    const toggleOfferD9 = ev.target.closest("[data-toggle-offer-d9]");
+    if (toggleOfferD9) { ev.stopPropagation(); toggleCartOfferD9(toggleOfferD9.dataset.toggleOfferD9); return; }
 
     const remove = ev.target.closest("[data-remove-id]");
     if (remove) removeItem(remove.dataset.removeId);
@@ -6575,6 +6876,7 @@ function renderMostradorRoleD9() {
 }
 
 function renderAll() {
+  applyExperienceModeD9();
   renderTop();
   renderNetwork();
   renderSellerBadge();
@@ -6588,6 +6890,7 @@ function renderAll() {
   renderCategories();
   renderClients();
   renderSelectedClient();
+  renderOrderPriceListControls();
   renderProducts();
   renderCart();
   renderPriceListControls();

@@ -1877,9 +1877,10 @@ button.home-red-d9:active {
 }
 
 
-/* D9: ocultar selector visual de listas, motor interno sigue en lista_1 */
-#orderPriceListBox,
-#priceListModeBox {
+/* D9 v1.5.15: las listas vuelven para vendedores normales.
+   El modo simple respeta automáticamente la lista asignada al cliente. */
+body.simple-mode-d9 #orderPriceListBox,
+body.simple-mode-d9 #priceListModeBox {
   display: none !important;
 }
 
@@ -4167,6 +4168,191 @@ button:active,
   color:#70839b !important;
   font-weight:700 !important;
 }
+
+/* === D9 v1.5.16 · Selector local de modo por usuario === */
+.login-mode-head-d9{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.login-mode-head-d9 h3{
+  margin:0;
+}
+
+.mode-toggle-d9{
+  min-height:42px;
+  padding:8px 13px;
+  border:2px solid #cfe5f2;
+  border-radius:15px;
+  background:#eef7fd;
+  color:#245276;
+  font-size:.86rem;
+  line-height:1.05;
+  font-weight:900;
+  white-space:nowrap;
+  box-shadow:0 6px 15px rgba(24,105,145,.10);
+}
+
+.mode-toggle-d9.is-simple-d9{
+  border-color:#30aee3;
+  background:linear-gradient(135deg,#daf4ff,#bfeaff);
+  color:#075e85;
+}
+
+.mode-toggle-d9:active{
+  transform:scale(.97);
+}
+
+body.simple-mode-d9 #bannerWrap,
+body.simple-mode-d9 .led-info-vnext,
+body.simple-mode-d9 #btnGoPrices,
+body.simple-mode-d9 #btnChangeSeller,
+body.simple-mode-d9 #view-order #btnOpenCategories,
+body.simple-mode-d9 #view-order #selectedClientCard,
+body.simple-mode-d9 #view-order .order-note-box-d9,
+body.simple-mode-d9 #view-order #btnSaveDraftD9 {
+  display:none !important;
+}
+
+body.simple-mode-d9 #view-home.view.active{
+  min-height:calc(100dvh - 230px);
+  display:flex !important;
+  flex-direction:column;
+  gap:18px;
+}
+
+body.simple-mode-d9 #btnGoOrder{
+  min-height:168px !important;
+  border-radius:30px !important;
+  padding:24px 22px !important;
+}
+
+body.simple-mode-d9 #btnGoOrder .cta-icon-vnext{
+  width:76px !important;
+  height:76px !important;
+  min-width:76px !important;
+  font-size:2.45rem !important;
+}
+
+body.simple-mode-d9 #btnGoOrder .cta-copy-vnext strong{
+  font-size:1.72rem !important;
+  line-height:1.05 !important;
+}
+
+body.simple-mode-d9 #btnGoOrder .cta-copy-vnext small{
+  font-size:1.02rem !important;
+  margin-top:8px !important;
+}
+
+body.simple-mode-d9 .home-grid-vnext{
+  grid-template-columns:1fr 1fr !important;
+  gap:12px !important;
+  margin-top:0 !important;
+}
+
+body.simple-mode-d9 #btnGoHistory,
+body.simple-mode-d9 #btnSyncPending{
+  min-height:108px !important;
+  padding:13px !important;
+}
+
+body.simple-mode-d9 #view-order .quick-grid-card{
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:14px !important;
+  padding:16px !important;
+}
+
+body.simple-mode-d9 #view-order .picker-btn{
+  min-height:92px !important;
+  border-radius:22px !important;
+  padding:15px 18px !important;
+}
+
+body.simple-mode-d9 #view-order .picker-btn .picker-label{
+  font-size:.9rem !important;
+  font-weight:900 !important;
+}
+
+body.simple-mode-d9 #view-order .picker-btn strong{
+  font-size:1.28rem !important;
+  line-height:1.18 !important;
+}
+
+body.simple-mode-d9 #clientModal .modal-panel,
+body.simple-mode-d9 #productModal .product-modal-panel-d9{
+  border-radius:24px !important;
+}
+
+body.simple-mode-d9 #clientSearch,
+body.simple-mode-d9 #productSearch{
+  min-height:62px !important;
+  font-size:1.18rem !important;
+  border-width:2px !important;
+}
+
+body.simple-mode-d9 #clientList .option-item{
+  min-height:80px !important;
+  padding:15px 16px !important;
+}
+
+body.simple-mode-d9 #clientList .option-item strong,
+body.simple-mode-d9 #productList .product-item strong{
+  font-size:1.08rem !important;
+  line-height:1.2 !important;
+}
+
+body.simple-mode-d9 #productList .product-item{
+  min-height:94px !important;
+}
+
+body.simple-mode-d9 #btnProductDone,
+body.simple-mode-d9 #btnSend{
+  min-height:64px !important;
+  font-size:1.12rem !important;
+  font-weight:950 !important;
+}
+
+.simple-recent-d9{
+  color:#148bb8 !important;
+  font-weight:850 !important;
+}
+
+.client-price-list-d9{
+  color:#1687b6 !important;
+  font-weight:850 !important;
+}
+
+.cart-price-edit-row-d9{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+
+.price-item-btn-d9{
+  min-height:30px;
+  padding:4px 9px;
+  border:1px solid rgba(35,126,174,.22);
+  border-radius:10px;
+  background:#eef7fd;
+  color:#245276;
+  font-size:.76rem;
+  font-weight:900;
+}
+
+.price-item-btn-d9.has-manual-price-d9{
+  background:#fff4ce !important;
+  border-color:#efbd42 !important;
+  color:#7b5600 !important;
+}
+
+@media (max-width:380px){
+  body.simple-mode-d9 #btnGoOrder .cta-copy-vnext strong{font-size:1.45rem !important;}
+  body.simple-mode-d9 #btnGoOrder .cta-icon-vnext{width:64px !important;height:64px !important;min-width:64px !important;}
+}
 #btnSyncPending.has-pending-real{
   background:linear-gradient(135deg,#fff9dc 0%,#fff0b5 52%,#ffe1a3 100%) !important;
   border:2px solid #f59e0b !important;
@@ -4364,3 +4550,18 @@ button:active,
 #priceBrandModal .picker-modal-panel-d9{
   padding-bottom:14px;
 }
+.offer-meta-d9{color:#b45309!important;font-weight:800}.offer-meta-d9 del{color:#7b8794;font-weight:500;margin-left:6px}.offer-toggle-d9{margin-top:7px}.offer-toggle-d9.has-offer-d9{background:#fff1c7!important;border-color:#f59e0b!important;color:#8a4b00!important}
+
+/* v1.5.20 · ofertas visibles y selector de lista discreto */
+.product-filter-bar-d9{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-top:8px}
+.product-filter-btn-d9{min-width:0;min-height:58px;padding:8px 12px;border:1.5px solid #c8dce8;border-radius:17px;background:#f3f9fc;color:#18324c;text-align:left;box-shadow:none}
+.product-filter-btn-d9 span{display:block;font-size:.72rem;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:#2789aa}
+.product-filter-btn-d9 strong{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.96rem}
+#brandModal.front-modal-d9{z-index:999999!important}
+#brandModal.front-modal-d9 .modal-panel{position:relative;z-index:1000000}
+.order-price-strip-d9{display:flex;align-items:center;gap:5px;width:max-content;max-width:calc(100% - 36px);margin:3px 18px 10px auto;padding:2px 4px 2px 9px;border:1px solid rgba(162,190,205,.48);border-radius:12px;background:rgba(255,255,255,.42);box-shadow:none}
+.order-price-label-d9{flex:0 0 auto;color:#82919d;font-size:.68rem;font-weight:900;text-transform:uppercase;letter-spacing:.07em}
+.order-price-strip-d9 #orderPriceListSelect{flex:0 1 auto;width:auto;max-width:230px;min-width:0;min-height:34px;height:34px;padding:2px 30px 2px 6px;border:0;background-color:transparent;font-size:.85rem;font-weight:750;color:#3d566a;box-shadow:none}
+.order-price-info-d9{display:none!important}
+.order-price-strip-d9.is-overridden{border-color:#f0b44c;background:#fff9ea}
+@media(max-width:520px){.order-price-strip-d9{max-width:calc(100% - 28px);margin:3px 14px 9px auto}.product-filter-btn-d9{min-height:55px;padding:7px 10px}.product-filter-btn-d9 strong{font-size:.9rem}}

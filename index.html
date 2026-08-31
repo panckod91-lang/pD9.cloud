@@ -17,10 +17,10 @@
 <meta name="twitter:title" content="Distribuidora 9 - Pedidos" />
 <meta name="twitter:description" content="Tomá pedidos rápido y fácil." />
 <meta name="twitter:image" content="https://pd9-cloud.pages.dev/og-d9.jpg" />
-  <link rel="manifest" href="manifest.json?v=d9-prod-v4" />
+  <link rel="manifest" href="manifest.json?v=d9-prod-v1523" />
   <link rel="icon" href="icons/d9-icon-192-v2.png" type="image/png" />
   <link rel="apple-touch-icon" href="icons/d9-icon-192-v2.png" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=1523-prod" />
 </head>
 <body>
   <div class="app-shell app-shell-vnext">
@@ -147,11 +147,6 @@
             <strong id="selectedClientLabel">Seleccionar cliente</strong>
           </button>
 
-          <button id="btnOpenCategories" class="picker-btn" type="button">
-            <span class="picker-label">Categoría</span>
-            <strong id="selectedCategoryLabel">Todas las categorías</strong>
-          </button>
-
           <button id="btnOpenProducts" class="picker-btn" type="button">
             <span class="picker-label">Productos</span>
             <strong id="selectedProductsLabel">Seleccionar productos</strong>
@@ -160,14 +155,14 @@
 
         <div id="selectedClientCard" class="selected-card hidden"></div>
 
-        <div id="orderPriceListBox" class="card price-mode-box hidden">
-          <label class="picker-label" for="orderPriceListSelect">Lista para este pedido</label>
+        <div id="orderPriceListBox" class="order-price-strip-d9 hidden">
+          <label class="order-price-label-d9" for="orderPriceListSelect">Lista</label>
           <select id="orderPriceListSelect" class="select">
             <option value="lista_1">Lista_1 · Contado</option>
             <option value="lista_2">Lista_2 · Pueblos</option>
             <option value="lista_3">Lista_3 · Vendedores</option>
           </select>
-          <div id="orderPriceListInfo" class="mini-text price-info"></div>
+          <div id="orderPriceListInfo" class="mini-text price-info order-price-info-d9"></div>
         </div>
 
         <div class="card section-block">
@@ -303,7 +298,10 @@
   <div id="loginModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop"></div>
     <div class="modal-panel">
-      <h3>Ingreso de usuario</h3>
+      <div class="login-mode-head-d9">
+        <h3>Ingreso de usuario</h3>
+        <button id="btnModeToggleD9" class="mode-toggle-d9 hidden" type="button" aria-pressed="false">Modo normal</button>
+      </div>
       <p class="modal-text">Entrá con tu usuario y clave o seguí en modo invitado.</p>
       <input id="sellerUser" class="input login-select" type="text" placeholder="Usuario" autocomplete="username" />
       <input id="sellerPass" class="input" type="password" placeholder="Clave" autocomplete="current-password" />
@@ -362,23 +360,34 @@
     </div>
   </div>
 
+  <div id="brandModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="brand"></div>
+    <div class="modal-panel tall-panel">
+      <div class="modal-head-row">
+        <h3>Seleccionar marca</h3>
+        <button class="ghost-x" data-close-modal="brand" type="button">✕</button>
+      </div>
+      <div id="brandList" class="option-list modal-list"></div>
+    </div>
+  </div>
+
   <div id="productModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="product"></div>
     <div class="modal-panel tall-panel product-modal-panel-d9">
       <div class="modal-head-row">
         <div>
           <h3>Seleccionar productos</h3>
-          <p id="productModalHint" class="modal-text small-gap">Podés marcar varios.</p>
         </div>
         <button class="ghost-x" data-close-modal="product" type="button">✕</button>
       </div>
+      <div id="productModalHint" class="modal-text small-gap">Podés marcar varios.</div>
       <input id="productSearch" class="input" type="search" placeholder="Buscar producto..." autocomplete="off" />
       <div id="productList" class="product-list modal-list"></div>
       <button id="btnProductDone" class="primary-btn full-btn sticky-action" data-close-modal="product" type="button">Aceptar selección</button>
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=1523-prod"></script>
 
   <div id="priceCategoryModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="priceCategory"></div>

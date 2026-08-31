@@ -17,6 +17,71 @@ PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, 
 - `app.js`: lógica de datos, pedidos, historial, pendientes y sincronización.
 - `sw.js`: service worker para cache offline de archivos propios.
 - `manifest.json`: configuración PWA.
+- `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
+
+## v1.5.23-prod - promoción aprobada de desarrollo
+
+- Publica en producción la lógica validada durante dos días en `v1.5.22-dev`.
+- Incorpora modo simple opcional, listas asignadas por cliente y cambio manual por pedido.
+- Lista 2 y Lista 3 usan Lista 1 como respaldo visible cuando no tienen precio.
+- Oculta productos que no poseen un precio válido en Lista 1.
+- Incorpora ofertas con aplicación manual: cada producto entra inicialmente con su precio normal.
+- Compacta Generar pedido y combina filtros de Categoría y Marca dentro del selector de productos.
+- Mantiene los fixes productivos de IDs, pendientes, verificación en Sheet y retorno desde WhatsApp.
+- No requiere cambios en D9 Script PROD, Cloudflare Worker ni estructura de pedidos.
+
+## v1.5.22-dev - ofertas manuales y respaldo visible
+
+- Los productos con oferta se agregan inicialmente con su precio normal.
+- La oferta se aplica únicamente al pulsar el botón de la línea del pedido.
+- Si Lista 2 o 3 hereda un precio, la línea identifica `respaldo Lista 1`.
+- Al cambiar de lista, el aviso indica cuántos productos están usando el respaldo.
+
+## v1.5.21-dev - Lista 1 como precio base
+
+- Un producto sin precio válido en Lista 1 no aparece aunque figure activo.
+- Lista 2 y Lista 3 usan automáticamente Lista 1 cuando su precio está vacío o en cero.
+- Impide que cambiar de lista lleve un producto válido a precio cero.
+
+## v1.5.20-dev - ofertas más visibles
+
+- El botón de una oferta disponible muestra el fuego aun antes de aplicarla.
+- Al aplicar la oferta, la línea del producto conserva visible el precio normal de lista.
+- El selector de lista queda reducido a un control secundario alineado a la derecha.
+
+## v1.5.19-dev - pantalla de pedido compacta
+
+- Elimina el selector de categoría repetido de la pantalla principal.
+- Dentro de Productos incorpora filtros compactos y combinables de Categoría y Marca.
+- Mantiene `🔥 Productos en oferta` como categoría especial y permite combinarla con una marca.
+- Reduce el selector de lista a una franja discreta; si se cambia manualmente queda resaltada suavemente.
+
+## v1.5.18-dev - productos en oferta
+
+- Incorpora la categoría virtual `🔥 Productos en oferta`.
+- El precio normal de `lista_1/2/3` permanece intacto.
+- Al agregar desde esa categoría aplica la oferta; desde otra categoría puede activarse en la línea del pedido.
+- La oferta puede quitarse y volver al precio de la lista asignada al cliente.
+- Guarda en el payload el precio de lista, `oferta_id` y si se usó la oferta; el Worker actual tolera esos campos sin cambios.
+
+## v1.5.17-dev - selector de lista visible desde el primer ingreso
+
+- Corrige la inicialización del selector `Lista para este pedido`.
+- Ahora aparece al entrar por primera vez a `Generar pedido`, sin tener que visitar antes `Lista de precios`.
+- También se actualiza cada vez que se vuelve a abrir la pantalla del pedido.
+- Conserva el modo simple y las listas por cliente incorporadas en v1.5.16-dev.
+
+## v1.5.16-dev - selector de modo y listas por cliente
+
+- Agrega un botón `Modo normal / Modo simple` dentro de Ingreso de usuario.
+- La elección queda guardada por usuario en ese celular o PC; no requiere columnas nuevas ni cambios en Apps Script.
+- El modo simple muestra un inicio reducido, botones grandes y un recorrido guiado: cliente → productos → pedido.
+- Prioriza clientes y productos usados recientemente en el dispositivo.
+- Conserva historial y pendientes de forma secundaria, sin eliminarlos.
+- Recupera la asignación de precios desde `clientes.lista_precio` (`lista_1`, `lista_2` o `lista_3`).
+- El modo normal permite cambiar la lista para un pedido y modificar el precio unitario de una línea sin alterar la Sheet.
+- Los pedidos guardan la lista utilizada y qué precios fueron modificados manualmente; el backend actual puede ignorar esos campos sin romper compatibilidad.
+- El parámetro `?modoSimple=1` queda disponible únicamente como prueba técnica opcional.
 
 ## Limpieza aplicada
 
