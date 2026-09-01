@@ -19,6 +19,12 @@ PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, 
 - `manifest.json`: configuración PWA.
 - `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
 
+## v1.5.24-prod - vínculo seguro de clientes
+
+- Los pedidos nuevos envían el `cliente_id` además del texto comercial visible.
+- Gestión puede precargar el cliente por ID aunque el pedido incluya teléfono o dirección.
+- Los pedidos anteriores siguen siendo compatibles mediante búsqueda segura por nombre.
+
 ## v1.5.23-prod - promoción aprobada de desarrollo
 
 - Publica en producción la lógica validada durante dos días en `v1.5.22-dev`.

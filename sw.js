@@ -1,4 +1,4 @@
-const CACHE_NAME = "d9-pedidos-v1523-prod-simple-listas-ofertas";
+const CACHE_NAME = "d9-pedidos-v1524-prod-cliente-id";
 const URLS = [
   "./",
   "./index.html",
