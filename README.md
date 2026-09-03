@@ -19,6 +19,13 @@ PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, 
 - `manifest.json`: configuración PWA.
 - `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
 
+## v1.5.25-prod - buscador en Historial
+
+- Agrega búsqueda instantánea por nombre de cliente.
+- También encuentra por ID o número de pedido cuando está disponible en el historial local.
+- Filtra solamente los movimientos ya mostrados por Historial y no cambia datos, envío, sincronización ni almacenamiento.
+- No requiere cambios en D9 Script PROD ni en el Worker.
+
 ## v1.5.24-prod - vínculo seguro de clientes
 
 - Los pedidos nuevos envían el `cliente_id` además del texto comercial visible.

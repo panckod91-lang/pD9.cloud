@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.24-prod (cliente ID en pedidos)";
+const APP_VERSION = "v1.5.25-prod (buscador en historial)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -62,6 +62,7 @@ const state = {
   categoryPickerMode: "order",
   currentView: "home",
   historyOpenId: null,
+  historySearch: "",
   salesHistoryOpenId: null,
   isSending: false,
   isSyncing: false,
@@ -5573,11 +5574,34 @@ async function syncPending() {
 }
 
 function renderHistory() {
-  const history = readJSON(STORAGE_KEYS.history, []);
+  const allHistory = readJSON(STORAGE_KEYS.history, []);
+  const query = normalizeSearchTextD9(state.historySearch);
+  const queryTokens = query.split(" ").filter(Boolean);
+  const history = query
+    ? allHistory.filter(item => {
+        const haystack = normalizeSearchTextD9([
+          item.cliente,
+          item.cliente_nombre,
+          item.nombre_cliente,
+          getHistoryPedidoIdD9(item),
+          item.id
+        ].filter(Boolean).join(" "));
+        return queryTokens.every(token => haystack.includes(token));
+      })
+    : allHistory;
   const list = $("#historyList");
-  if (!history.length) {
+  const summary = $("#historySearchSummary");
+  if (summary) summary.textContent = query
+    ? `${history.length} de ${allHistory.length} pedidos`
+    : (allHistory.length ? `${allHistory.length} pedidos` : "");
+  if (!allHistory.length) {
     list.className = "history-list empty-state";
     list.textContent = "Sin movimientos todavía.";
+    return;
+  }
+  if (!history.length) {
+    list.className = "history-list empty-state";
+    list.textContent = `No encontramos pedidos para “${state.historySearch.trim()}”.`;
     return;
   }
 
@@ -6012,6 +6036,11 @@ function bind() {
   // D9 v1.3.33: guardado manual ahora es Borrador; pendiente solo por falla de envío.
   $("#btnSaveDraftD9")?.addEventListener("click", saveDraftNowD9);
   $("#btnExportHistory").addEventListener("click", exportHistory);
+  $("#historySearch")?.addEventListener("input", (event) => {
+    state.historySearch = event.target.value;
+    state.historyOpenId = null;
+    renderHistory();
+  });
   $("#btnRestoreHistory")?.addEventListener("click", openRestoreHistory);
   $("#restoreHistoryFile")?.addEventListener("change", restoreHistoryFromFile);
   $("#btnOpenClients").addEventListener("click", () => {
