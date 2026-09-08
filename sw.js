@@ -1,10 +1,10 @@
-const CACHE_NAME = "d9-pedidos-v1525-prod-buscador-historial";
+const CACHE_NAME = "d9-pedidos-v1526-prod-eliminar-pendiente";
 const URLS = [
   "./",
   "./index.html",
-  "./styles.css?v=1525-prod",
-  "./app.js?v=1525-prod",
-  "./manifest.json?v=d9-prod-v1525",
+  "./styles.css?v=1526-prod",
+  "./app.js?v=1526-prod",
+  "./manifest.json?v=d9-prod-v1526",
   "./icons/d9-icon-192-v2.png",
   "./icons/d9-icon-512-v2.png",
   "./icons/d9-maskable-512-v2.png",

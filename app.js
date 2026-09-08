@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.25-prod (buscador en historial)";
+const APP_VERSION = "v1.5.26-prod (eliminar pendiente individual)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -5374,13 +5374,21 @@ function renderPendingAndDraftsD9() {
       </div>
       <p class="mini-text pending-drafts-help-d9">Pedidos que salieron o intentaron salir, pero todavía no quedaron confirmados en la PC.</p>
       <button id="btnRetryPendingD9" class="history-action-btn history-action-main-d9 pending-retry-main-d9" type="button">📤 Enviar pendientes a PC</button>
-      ${pending.map(item => `
+      ${pending.map((item, pendingIndex) => `
         <div class="pending-draft-item-d9 pending-auto-d9">
           <div class="pending-draft-main-d9">
             <strong>${esc(pendingClienteNameD9(item))}</strong>
             <div class="mini-text">${esc(itemDateLabelD9(item?.fecha))}</div>
             <div class="mini-text">ID: ${esc(item?.pedido_id || item?.pedidoId || "sin ID")}${item?.error ? " · " + esc(item.error) : ""}</div>
             ${pendingProductsPreviewHtmlD9(item)}
+            <div class="pending-delete-row-d9" data-no-toggle>
+              <button
+                class="pending-delete-action-d9"
+                data-delete-pending-d9="${pendingIndex}"
+                data-delete-pending-id-d9="${esc(item?.pedido_id || item?.pedidoId || "")}"
+                type="button"
+              >🗑️ Eliminar pendiente</button>
+            </div>
           </div>
           <div class="pending-draft-side-d9">${money(Number(item?.total || 0))}</div>
         </div>`).join("")}
@@ -5468,6 +5476,71 @@ function deleteDraftD9(draftId) {
       renderPendingAndDraftsD9();
       renderPendingBadge();
       toast("Borrador eliminado.");
+    }
+  });
+}
+
+function deletePendingD9(pendingIndex, pendingId = "") {
+  if (state.isSyncing) {
+    toast("Esperá a que termine la sincronización para eliminarlo.");
+    return;
+  }
+
+  const pending = readJSON(STORAGE_KEYS.pending, []);
+  const index = Number(pendingIndex);
+  const selected = Number.isInteger(index) && index >= 0 ? pending[index] : null;
+  if (!selected) {
+    refreshPendingUiD9();
+    toast("Ese pendiente ya no está en la cola.");
+    return;
+  }
+
+  const selectedId = String(pendingId || selected?.pedido_id || selected?.pedidoId || "").trim();
+  const clientName = pendingClienteNameD9(selected);
+
+  showD9Confirm({
+    message: `¿Eliminar el pendiente de ${clientName}?`,
+    detail: "Este pedido todavía no está confirmado en la PC. Si lo eliminás, D9 dejará de intentar enviarlo.",
+    okText: "Eliminar pendiente",
+    cancelText: "Cancelar",
+    onOk: () => {
+      if (state.isSyncing) {
+        toast("Empezó una sincronización. Intentá eliminarlo cuando termine.");
+        return;
+      }
+
+      const current = readJSON(STORAGE_KEYS.pending, []);
+      let targetIndex = -1;
+
+      if (selectedId) {
+        targetIndex = current.findIndex(item =>
+          String(item?.pedido_id || item?.pedidoId || "").trim() === selectedId
+        );
+      }
+      if (targetIndex < 0 && current[index] && pendingPayloadMatchesD9(current[index], selected)) {
+        targetIndex = index;
+      }
+      if (targetIndex < 0) {
+        targetIndex = current.findIndex(item => pendingPayloadMatchesD9(item, selected));
+      }
+
+      if (targetIndex < 0) {
+        refreshPendingUiD9();
+        toast("Ese pendiente ya no está en la cola.");
+        return;
+      }
+
+      const next = current.slice();
+      const [removed] = next.splice(targetIndex, 1);
+      saveJSON(STORAGE_KEYS.pending, next);
+      refreshPendingUiD9();
+      schedulePendingHomeRefreshD9();
+      logAppEventD9("PENDIENTE_ELIMINADO_MANUAL", {
+        payload: removed,
+        resultado: "ok",
+        detalle: "El usuario descartó únicamente este pendiente local"
+      });
+      toast("Pendiente eliminado. D9 ya no intentará enviarlo.");
     }
   });
 }
@@ -6218,6 +6291,16 @@ function bind() {
       retryPendingD9.dataset.busy = "1";
       logAppEventD9("REINTENTAR_PENDIENTES_TOCADO", { resultado: "tap", detalle: `pendientes:${pendientes.length}` });
       syncPending().finally(() => { retryPendingD9.dataset.busy = "0"; });
+      return;
+    }
+
+    const deletePendingBtnD9 = ev.target.closest("[data-delete-pending-d9]");
+    if (deletePendingBtnD9) {
+      ev.stopPropagation();
+      deletePendingD9(
+        deletePendingBtnD9.dataset.deletePendingD9,
+        deletePendingBtnD9.dataset.deletePendingIdD9
+      );
       return;
     }
 

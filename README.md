@@ -19,6 +19,14 @@ PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, 
 - `manifest.json`: configuración PWA.
 - `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
 
+## v1.5.26-prod - eliminación individual de pendientes
+
+- Cada pedido de `Pendientes de envío` incorpora la acción discreta `Eliminar pendiente`.
+- Antes de eliminar se confirma que el pedido todavía no está confirmado en la PC y dejará de reintentarse.
+- Se elimina únicamente el registro seleccionado de la cola local `d9_pendientes`.
+- La interfaz y el contador se actualizan inmediatamente.
+- No cambia historial, IDs, envío, reintentos, sincronización automática, Worker ni Apps Script.
+
 ## v1.5.25-prod - buscador en Historial
 
 - Agrega búsqueda instantánea por nombre de cliente.

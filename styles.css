@@ -4077,6 +4077,31 @@ button:active,
   color:#92400e;
   font-weight:800;
 }
+.pending-delete-row-d9{
+  display:flex;
+  justify-content:flex-start;
+  margin-top:9px;
+}
+.pending-delete-action-d9{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:#9f3a32;
+  padding:5px 2px;
+  font:inherit;
+  font-size:.82rem;
+  font-weight:800;
+  line-height:1.2;
+  cursor:pointer;
+  text-decoration:underline;
+  text-decoration-color:rgba(159,58,50,.28);
+  text-underline-offset:3px;
+}
+.pending-delete-action-d9:hover,
+.pending-delete-action-d9:focus-visible{
+  color:#7f1d1d;
+  text-decoration-color:currentColor;
+}
 
 /* D9 v1.4.7 - Pulido Home pendientes */
 #btnSyncPending.pending-info-card-vnext{
