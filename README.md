@@ -19,6 +19,17 @@ PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, 
 - `manifest.json`: configuración PWA.
 - `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
 
+## v1.5.27-prod - WhatsApp interno y cliente en Venta mostrador
+
+- Conserva el circuito existente de Venta mostrador, su `venta_id`, guardado, historial e impresión.
+- Registra la venta una sola vez y luego presenta dos destinos separados: copia interna y cliente.
+- El destino interno continúa usando `wasap_report` del usuario y, como respaldo, el WhatsApp general de `confi`.
+- El teléfono del cliente registrado se toma de su ficha.
+- Si falta, permite guardarlo en la ficha mediante el `update_clientes` ya existente o continuar sin enviar al cliente.
+- Los clientes ocasionales usan el teléfono ingresado en su carga, sin convertirse en clientes permanentes.
+- Normaliza números argentinos habituales para WhatsApp y muestra cada destinatario antes de abrir la conversación.
+- No modifica Apps Script, Worker, ventas, pedidos normales, otros roles ni módulos financieros.
+
 ## v1.5.26-prod - eliminación individual de pendientes
 
 - Cada pedido de `Pendientes de envío` incorpora la acción discreta `Eliminar pendiente`.

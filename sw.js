@@ -1,10 +1,10 @@
-const CACHE_NAME = "d9-pedidos-v1526-prod-eliminar-pendiente";
+const CACHE_NAME = "d9-pedidos-v1527-prod-whatsapp-doble-mostrador";
 const URLS = [
   "./",
   "./index.html",
-  "./styles.css?v=1526-prod",
-  "./app.js?v=1526-prod",
-  "./manifest.json?v=d9-prod-v1526",
+  "./styles.css?v=1527-prod",
+  "./app.js?v=1527-prod",
+  "./manifest.json?v=d9-prod-v1527",
   "./icons/d9-icon-192-v2.png",
   "./icons/d9-icon-512-v2.png",
   "./icons/d9-maskable-512-v2.png",

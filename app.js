@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.26-prod (eliminar pendiente individual)";
+const APP_VERSION = "v1.5.27-prod (WhatsApp doble en mostrador)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -76,6 +76,7 @@ const state = {
   mostradorCart: [],
   mostradorVentaDraftId: "",
   mostradorVentaFingerprint: "",
+  mostradorFinalizingWhatsApp: false,
   productPickerMode: "order"
 };
 
@@ -6827,10 +6828,12 @@ function deleteSalesHistoryD9(id) {
   });
 }
 
-function buildMostradorTextD9() {
-  const fecha = new Date().toLocaleString("es-AR");
-  const operador = state.seller?.nombre || "Mostrador";
-  const cliente = state.mostradorClient?.nombre_real || state.mostradorClient?.nombre || "Consumidor final";
+function buildMostradorTextD9(payload = null) {
+  const fecha = payload?.fecha_txt || new Date().toLocaleString("es-AR");
+  const operador = payload?.usuario || state.seller?.nombre || "Mostrador";
+  const cliente = payload?.cliente || state.mostradorClient?.nombre_real || state.mostradorClient?.nombre || "Consumidor final";
+  const items = Array.isArray(payload?.items) ? payload.items : state.mostradorCart;
+  const totalVenta = Number(payload?.total_venta ?? payload?.total ?? mostradorTotalD9());
   const lines = [
     "REMITO INTERNO / MOSTRADOR",
     `Fecha: ${fecha}`,
@@ -6838,25 +6841,292 @@ function buildMostradorTextD9() {
     `Cliente: ${cliente}`,
     "────────────────────"
   ];
-  state.mostradorCart.forEach((item, i) => {
-    const total = (Number(item.cantidad)||0) * (Number(item.precio)||0);
+  items.forEach((item, i) => {
+    const precio = Number(item.precio ?? item.precio_unitario ?? 0);
+    const total = Number(item.subtotal ?? ((Number(item.cantidad)||0) * precio));
     lines.push(`${i+1}) ${item.nombre}`);
-    lines.push(`   Cant/Peso: ${fmtQtyD9(item.cantidad)} · Unit: ${money(item.precio)} · Total: ${money(total)}`);
+    lines.push(`   Cant/Peso: ${fmtQtyD9(item.cantidad)} · Unit: ${money(precio)} · Total: ${money(total)}`);
   });
   lines.push("────────────────────");
-  lines.push(`TOTAL: ${money(mostradorTotalD9())}`);
+  lines.push(`TOTAL: ${money(totalVenta)}`);
   lines.push("Comprobante no oficial");
   return lines.join("\n");
 }
+
+function whatsappDestinationDigitsD9(value) {
+  let digits = onlyDigits(value);
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.startsWith("0")) digits = digits.slice(1);
+  if (/^\d{10}$/.test(digits) && !digits.startsWith("54")) return `549${digits}`;
+  if (/^54\d{10}$/.test(digits) && !digits.startsWith("549")) return `549${digits.slice(2)}`;
+  return digits;
+}
+
+function whatsappDestinationLabelD9(value) {
+  const digits = whatsappDestinationDigitsD9(value);
+  return digits ? `+${digits}` : "Sin teléfono";
+}
+
+async function postMostradorClientPhoneD9(client, phone) {
+  const cleanPhone = String(phone || "").trim();
+  const payload = {
+    action: "update_clientes",
+    clientes: [{
+      id: String(client?.id || "").trim(),
+      nombre: String(client?.nombre || client?.nombre_real || "").trim(),
+      telefono: cleanPhone,
+      direccion: String(client?.direccion || "").trim(),
+      ciudad: String(client?.ciudad || client?.localidad || "").trim(),
+      activo: "si"
+    }]
+  };
+
+  if (!payload.clientes[0].id || !payload.clientes[0].nombre) {
+    throw new Error("No se pudo identificar la ficha del cliente.");
+  }
+  if (!navigator.onLine) {
+    throw new Error("Necesitás conexión para guardar el teléfono en la ficha.");
+  }
+
+  const apiBase = getApiBaseD9();
+  const body = JSON.stringify(payload);
+
+  async function tryPost(options) {
+    const response = await fetch(`${apiBase}?action=update_clientes`, {
+      method: "POST",
+      cache: "no-store",
+      redirect: "follow",
+      ...options
+    });
+    const raw = await response.text();
+    let data;
+    try { data = JSON.parse(raw); } catch { data = { ok: false, error: raw || `HTTP ${response.status}` }; }
+    if (!response.ok && !data?.error) data.error = `HTTP ${response.status}`;
+    return data;
+  }
+
+  let result = null;
+  try {
+    result = await tryPost({
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body
+    });
+    if (result?.ok) return result;
+  } catch (_) {}
+
+  result = await tryPost({
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: `payload=${encodeURIComponent(body)}`
+  });
+  if (!result?.ok) throw new Error(result?.error || "No se pudo guardar el teléfono.");
+  return result;
+}
+
+async function saveMostradorClientPhoneD9(client, phone) {
+  const cleanPhone = String(phone || "").trim();
+  const destination = whatsappDestinationDigitsD9(cleanPhone);
+  if (destination.length < 10) throw new Error("Ingresá un teléfono completo con código de área.");
+
+  await postMostradorClientPhoneD9(client, cleanPhone);
+
+  const clientId = String(client?.id || "").trim();
+  state.clients = state.clients.map(item =>
+    String(item?.id || "").trim() === clientId ? { ...item, telefono: cleanPhone } : item
+  );
+  const updated = state.clients.find(item => String(item?.id || "").trim() === clientId) || { ...client, telefono: cleanPhone };
+  state.mostradorClient = updated;
+  persistCacheState();
+  renderMostradorQuickLabelsD9();
+  renderClients();
+  return updated;
+}
+
+function closeMostradorOverlayD9(id) {
+  document.getElementById(id)?.remove();
+}
+
+function showMostradorPhonePromptD9(client) {
+  closeMostradorOverlayD9("mostradorPhoneOverlayD9");
+  const overlay = document.createElement("div");
+  overlay.id = "mostradorPhoneOverlayD9";
+  overlay.className = "d9-confirm-overlay mostrador-flow-overlay-d9";
+  overlay.innerHTML = `
+    <div class="d9-confirm-box mostrador-flow-box-d9" role="dialog" aria-modal="true" aria-labelledby="mostradorPhoneTitleD9">
+      <h3 id="mostradorPhoneTitleD9">Falta el teléfono del cliente</h3>
+      <p>${esc(client?.nombre || client?.nombre_real || "Cliente")}</p>
+      <label class="mostrador-phone-field-d9">
+        <span>Teléfono con código de área</span>
+        <input id="mostradorPhoneInputD9" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej.: 5493471123456">
+      </label>
+      <small id="mostradorPhoneHelpD9">Se guardará en la ficha del cliente y se usará ahora mismo.</small>
+      <div id="mostradorPhoneErrorD9" class="mostrador-flow-error-d9 hidden" role="alert"></div>
+      <div class="mostrador-flow-actions-d9">
+        <button id="btnMostradorSavePhoneD9" class="mostrador-flow-primary-d9" type="button">Guardar teléfono y continuar</button>
+        <button id="btnMostradorSkipPhoneD9" class="mostrador-flow-link-d9" type="button">Continuar sin enviar al cliente</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector("#mostradorPhoneInputD9");
+  const saveBtn = overlay.querySelector("#btnMostradorSavePhoneD9");
+  const skipBtn = overlay.querySelector("#btnMostradorSkipPhoneD9");
+  const errorBox = overlay.querySelector("#mostradorPhoneErrorD9");
+
+  const continueWithoutClient = () => {
+    if (saveBtn?.disabled) return;
+    closeMostradorOverlayD9("mostradorPhoneOverlayD9");
+    finalizeMostradorWhatsAppD9(false);
+  };
+
+  const saveAndContinue = async () => {
+    if (saveBtn?.disabled) return;
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Guardando teléfono...";
+    }
+    if (skipBtn) skipBtn.disabled = true;
+    if (errorBox) {
+      errorBox.classList.add("hidden");
+      errorBox.textContent = "";
+    }
+    try {
+      await saveMostradorClientPhoneD9(client, input?.value || "");
+      closeMostradorOverlayD9("mostradorPhoneOverlayD9");
+      toast("Teléfono guardado en la ficha del cliente.");
+      finalizeMostradorWhatsAppD9(true);
+    } catch (error) {
+      if (errorBox) {
+        errorBox.textContent = String(error?.message || error || "No se pudo guardar el teléfono.");
+        errorBox.classList.remove("hidden");
+      }
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Guardar teléfono y continuar";
+      }
+      if (skipBtn) skipBtn.disabled = false;
+    }
+  };
+
+  saveBtn?.addEventListener("click", saveAndContinue);
+  skipBtn?.addEventListener("click", continueWithoutClient);
+  input?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveAndContinue();
+    }
+  });
+  window.setTimeout(() => input?.focus(), 80);
+}
+
+function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowClient }) {
+  closeMostradorOverlayD9("mostradorWhatsAppOverlayD9");
+  const internalRaw = state.seller?.wasap_report || getDefaultWhatsAppD9();
+  const internalPhoneCandidate = whatsappDestinationDigitsD9(internalRaw);
+  const internalPhone = internalPhoneCandidate.length >= 10 ? internalPhoneCandidate : "";
+  const clientRaw = allowClient ? (state.mostradorClient?.telefono || payload?.telefono || "") : "";
+  const clientPhoneCandidate = whatsappDestinationDigitsD9(clientRaw);
+  const clientPhone = clientPhoneCandidate.length >= 10 ? clientPhoneCandidate : "";
+  const clientName = payload?.cliente || "Cliente";
+  const savedInPc = Boolean(saveResult?.ok);
+  const saleStatus = savedInPc
+    ? "Venta registrada correctamente."
+    : "Venta guardada en el celular y pendiente de confirmación en la PC.";
+
+  const overlay = document.createElement("div");
+  overlay.id = "mostradorWhatsAppOverlayD9";
+  overlay.className = "d9-confirm-overlay mostrador-flow-overlay-d9";
+  overlay.innerHTML = `
+    <div class="d9-confirm-box mostrador-flow-box-d9 mostrador-share-box-d9" role="dialog" aria-modal="true" aria-labelledby="mostradorShareTitleD9">
+      <h3 id="mostradorShareTitleD9">Venta lista para enviar</h3>
+      <p class="mostrador-sale-status-d9">✓ ${esc(saleStatus)}</p>
+      <small>Cada botón abre una conversación diferente. Revisá el destinatario antes de enviar.</small>
+      <div class="mostrador-destinations-d9">
+        <button id="btnMostradorSendInternalD9" class="mostrador-destination-btn-d9 internal" type="button" ${internalPhone ? "" : "disabled"}>
+          <span>1 · Enviar copia interna</span>
+          <strong>Distribuidora</strong>
+          <small>${esc(whatsappDestinationLabelD9(internalRaw))}</small>
+        </button>
+        ${clientPhone ? `
+          <button id="btnMostradorSendClientD9" class="mostrador-destination-btn-d9 client" type="button">
+            <span>2 · Enviar al cliente</span>
+            <strong>${esc(clientName)}</strong>
+            <small>${esc(whatsappDestinationLabelD9(clientRaw))}</small>
+          </button>` : `
+          <div class="mostrador-no-client-send-d9">
+            <span>2 · Cliente</span>
+            <strong>Sin envío por WhatsApp</strong>
+            <small>No se cargó un teléfono para esta venta.</small>
+          </div>`}
+      </div>
+      ${internalPhone ? "" : '<div class="mostrador-flow-error-d9">Falta configurar el WhatsApp interno del usuario o de confi.</div>'}
+      <button id="btnMostradorShareDoneD9" class="mostrador-flow-done-d9" type="button">Listo</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const markOpened = (button, label) => {
+    if (!button) return;
+    button.classList.add("is-opened-d9");
+    const title = button.querySelector("span");
+    if (title) title.textContent = `✓ ${label}`;
+  };
+
+  overlay.querySelector("#btnMostradorSendInternalD9")?.addEventListener("click", event => {
+    if (openWhatsApp(internalPhone, text)) markOpened(event.currentTarget, "Copia interna abierta");
+  });
+  overlay.querySelector("#btnMostradorSendClientD9")?.addEventListener("click", event => {
+    if (openWhatsApp(clientPhone, text)) markOpened(event.currentTarget, "WhatsApp del cliente abierto");
+  });
+  overlay.querySelector("#btnMostradorShareDoneD9")?.addEventListener("click", () => {
+    closeMostradorOverlayD9("mostradorWhatsAppOverlayD9");
+  });
+}
+
+async function finalizeMostradorWhatsAppD9(allowClient) {
+  if (state.mostradorFinalizingWhatsApp) return;
+  state.mostradorFinalizingWhatsApp = true;
+  const button = document.getElementById("btnMostradorWhatsApp");
+  const idleLabel = button?.textContent || "Registrar y enviar por WhatsApp";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Registrando venta...";
+  }
+
+  try {
+    const saveResult = await persistMostradorVentaD9("whatsapp");
+    if (!saveResult?.payload) throw new Error("No se pudo preparar la venta.");
+    const text = buildMostradorTextD9(saveResult.payload);
+    showMostradorWhatsAppDestinationsD9({
+      payload: saveResult.payload,
+      text,
+      saveResult,
+      allowClient
+    });
+  } catch (error) {
+    console.warn("No se pudo preparar WhatsApp mostrador:", error);
+    toast("No se pudo registrar la venta. Reintentá.");
+  } finally {
+    state.mostradorFinalizingWhatsApp = false;
+    if (button) {
+      button.disabled = false;
+      button.textContent = idleLabel;
+    }
+  }
+}
+
 function whatsappMostradorD9() {
   if (!state.mostradorCart.length) return toast("Agregá productos.");
-  const payload = buildMostradorPayloadD9();
-  const phone = onlyDigits(state.seller?.wasap_report || getDefaultWhatsAppD9());
-  const text = buildMostradorTextD9();
-  const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
-  window.open(url, "_blank", "noopener,noreferrer");
+  if (state.mostradorFinalizingWhatsApp) return;
 
-  persistMostradorVentaD9("whatsapp");
+  const client = state.mostradorClient;
+  const isRegisteredClient = Boolean(client?.id && !client?.ocasional);
+  const hasClientPhone = whatsappDestinationDigitsD9(client?.telefono).length >= 10;
+
+  if (isRegisteredClient && !hasClientPhone) {
+    showMostradorPhonePromptD9(client);
+    return;
+  }
+
+  finalizeMostradorWhatsAppD9(hasClientPhone);
 }
 
 function printMostradorD9() {
@@ -6971,7 +7241,7 @@ function setupMostradorViewD9() {
       <div class="section-title-row between"><h3>Comprobante</h3><button id="btnMostradorClear" class="link-btn danger" type="button">Limpiar</button></div>
       <div id="mostradorCartList" class="cart-list empty-state">Todavía no agregaste productos.</div>
       <div class="summary-box compact-summary"><div class="summary-row total"><span>Total</span><strong id="mostradorTotal">$ 0</strong></div></div>
-      <div class="actions-stack"><button id="btnMostradorPrint" class="primary-btn" type="button">Imprimir</button><button id="btnMostradorWhatsApp" class="secondary-btn" type="button">Enviar WhatsApp</button></div>
+      <div class="actions-stack"><button id="btnMostradorPrint" class="primary-btn" type="button">Imprimir</button><button id="btnMostradorWhatsApp" class="secondary-btn" type="button">Registrar y enviar por WhatsApp</button></div>
     </div>`;
   main.appendChild(sec);
 }
