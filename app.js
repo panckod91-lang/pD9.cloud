@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.28-prod (cierre mostrador y ofertas)";
+const APP_VERSION = "v1.5.29-prod (logs y selector mostrador)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -6622,6 +6622,23 @@ function buildMostradorPayloadD9() {
   };
 }
 
+function mostradorLogDataD9(payload, resultado = "ok", extra = "") {
+  const ventaId = String(payload?.venta_id || "").trim();
+  const cliente = String(payload?.cliente || "Consumidor final").trim();
+  const total = Number(payload?.total_venta ?? payload?.total ?? 0);
+  const productos = Array.isArray(payload?.items) ? payload.items.length : 0;
+  const resumen = `${ventaId} | ${cliente} | ${money(total)} | ${productos} ${productos === 1 ? "producto" : "productos"}`;
+  return {
+    payload,
+    pedido_id: ventaId,
+    cliente,
+    total,
+    fingerprint: payload?.fingerprint || "",
+    resultado,
+    detalle: extra ? `${resumen} | ${extra}` : resumen
+  };
+}
+
 function saveMostradorHistoryD9(payload, status = "local", error = "", options = {}) {
   const history = readJSON(STORAGE_KEYS.salesHistory, []);
   const id = payload.venta_id || `VM_LOCAL_${Date.now()}`;
@@ -6694,6 +6711,7 @@ async function persistMostradorVentaD9(motivo = "local") {
     const res = await sendMostradorVentaToSheetD9(payload);
     if (res?.ok) {
       saveMostradorHistoryD9(payload, statusBase, "", { saved_sheet: true });
+      logAppEventD9("VENTA_MOSTRADOR_OK", mostradorLogDataD9(payload, "ok"));
       return { ok: true, payload, res };
     }
     saveMostradorHistoryD9(payload, "pendiente", res?.error || "No se confirmó en Sheet", { saved_sheet: false });
@@ -7093,12 +7111,18 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
 
   overlay.querySelector("#btnMostradorSendInternalD9")?.addEventListener("click", event => {
     if (openWhatsApp(internalPhone, text)) {
+      if (!internalDone) {
+        logAppEventD9("WHATSAPP_INTERNO_ABIERTO", mostradorLogDataD9(payload, "ok", `destino:${internalPhone}`));
+      }
       internalDone = true;
       markOpened(event.currentTarget, "1 · Copia interna enviada");
     }
   });
   overlay.querySelector("#btnMostradorSendClientD9")?.addEventListener("click", event => {
     if (openWhatsApp(clientPhone, text)) {
+      if (!clientDone) {
+        logAppEventD9("WHATSAPP_CLIENTE_ABIERTO", mostradorLogDataD9(payload, "ok", `destino:${clientPhone}`));
+      }
       clientDone = true;
       markOpened(event.currentTarget, "2 · Copia al cliente enviada");
     }
@@ -7285,11 +7309,6 @@ function setupMostradorViewD9() {
       <button id="btnMostradorOpenClients" class="picker-btn" type="button">
         <span class="picker-label">Cliente</span>
         <strong id="mostradorClientLabel">Seleccionar cliente</strong>
-      </button>
-
-      <button id="btnMostradorOpenCategories" class="picker-btn" type="button">
-        <span class="picker-label">Categoría</span>
-        <strong id="mostradorCategoryLabel">Todas las categorías</strong>
       </button>
 
       <button id="btnMostradorOpenProducts" class="picker-btn" type="button">

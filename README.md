@@ -19,6 +19,17 @@ PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, 
 - `manifest.json`: configuración PWA.
 - `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
 
+## v1.5.29-prod - logs y selector simplificado en Venta mostrador
+
+- Registra `VENTA_MOSTRADOR_OK` cuando la Sheet confirma el guardado de una venta nueva.
+- El detalle identifica `venta_id`, cliente, total y cantidad de productos usando el sistema común `log_evento`.
+- Registra una sola vez por destino y por modal `WHATSAPP_INTERNO_ABIERTO` y `WHATSAPP_CLIENTE_ABIERTO`.
+- La semántica indica apertura de WhatsApp, no un envío que la PWA no puede comprobar.
+- Elimina únicamente el selector superior redundante de Categoría en Venta mostrador.
+- Categorías, marcas y Ofertas continúan disponibles dentro del selector de Productos.
+- `SYNC_ERROR · interval` sigue correspondiendo al refresco general de datos, no al guardado de ventas.
+- No modifica Apps Script, Worker, impresión, Generar pedido, otros roles ni Gestión.
+
 ## v1.5.28-prod - cierre y ofertas en Venta mostrador
 
 - Los dos destinos de WhatsApp comienzan pendientes y cambian a verde después de abrir cada conversación.
