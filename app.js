@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.27-prod (WhatsApp doble en mostrador)";
+const APP_VERSION = "v1.5.28-prod (cierre mostrador y ofertas)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -2499,6 +2499,7 @@ function setItemOfferPriceD9(item,useOffer){
   item.usa_oferta=false;item.oferta_id="";item.precio_oferta=offer?.precio_oferta||0;if(!item.precio_manual)item.precio=normal;return item;
 }
 function toggleCartOfferD9(id){const item=state.cart.find(x=>String(x.id)===String(id));if(!item||!activeOfferD9(id))return;delete item.precio_manual;setItemOfferPriceD9(item,!item.usa_oferta);renderProducts();renderCart()}
+function toggleMostradorOfferD9(id){const item=state.mostradorCart.find(x=>String(x.id)===String(id));if(!item||!activeOfferD9(id))return;delete item.precio_manual;setItemOfferPriceD9(item,!item.usa_oferta);renderProducts();renderMostradorD9()}
 function activeProductBrandD9(){return state.productPickerMode==="mostrador"?state.mostradorBrand:state.selectedBrand}
 function productCategoryLabelD9(category){return category===OFFERS_CATEGORY_D9?"🔥 Ofertas":category?cleanCategory(category):"Todas"}
 
@@ -6184,6 +6185,8 @@ function bind() {
     if (qtyMost) { editMostradorQtyD9(qtyMost.dataset.mostradorQty); return; }
     const remMost = ev.target.closest("[data-mostrador-remove]");
     if (remMost) { state.mostradorCart = state.mostradorCart.filter(x => String(x.id) !== String(remMost.dataset.mostradorRemove)); renderMostradorD9(); return; }
+    const offerMost = ev.target.closest("[data-toggle-mostrador-offer-d9]");
+    if (offerMost) { ev.stopPropagation(); toggleMostradorOfferD9(offerMost.dataset.toggleMostradorOfferD9); return; }
     if (ev.target.closest("#btnMostradorClear")) { resetMostradorD9(); return; }
     if (ev.target.closest("#btnMostradorPrint")) { printMostradorD9(); return; }
     if (ev.target.closest("#btnMostradorWhatsApp")) { whatsappMostradorD9(); return; }
@@ -6479,6 +6482,7 @@ function renderMostradorD9() {
     cartBox.className = "cart-list";
     cartBox.innerHTML = state.mostradorCart.map(item => {
       const precio = asegurarPrecioMostradorD9(item);
+      const offer = activeOfferD9(item.id);
       const cantidadTxt = mostradorQtyTextD9(item.cantidad);
       const subtotal = Number(item.cantidad || 0) * Number(precio || 0);
       return `
@@ -6487,6 +6491,7 @@ function renderMostradorD9() {
           <div>
             <strong>${esc(item.nombre)}</strong>
             <div class="cart-meta">${esc(cantidadTxt)} × ${money(precio)}</div>
+            ${offer ? `<button class="qty-edit-btn-d9 offer-toggle-d9 ${item.usa_oferta ? 'has-offer-d9' : ''}" data-toggle-mostrador-offer-d9="${esc(item.id)}" type="button">${item.usa_oferta ? `🔥 Oferta aplicada ${money(item.precio)}` : `🔥 Usar oferta ${money(offer.precio_oferta)}`}</button>` : ""}
           </div>
           <button class="remove-btn" data-mostrador-remove="${esc(item.id)}" type="button">Quitar</button>
         </div>
@@ -6520,7 +6525,9 @@ function addMostradorProductD9(id) {
   if (current) {
     current.cantidad = (Number(current.cantidad) || 0) + 1;
   } else {
-    state.mostradorCart.push({ id: p.id, nombre: p.nombre, precio: productPrice(p), cantidad: 1 });
+    const item = { id: p.id, nombre: p.nombre, precio: productPrice(p), cantidad: 1 };
+    setItemOfferPriceD9(item, false);
+    state.mostradorCart.push(item);
   }
   renderMostradorD9();
   if (state.productPickerMode === "mostrador") renderProducts();
@@ -6587,6 +6594,10 @@ function buildMostradorPayloadD9() {
       cantidad,
       precio,
       precio_unitario: precio,
+      precio_lista: Number(item.precio_lista || precio || 0),
+      precio_oferta: Number(item.precio_oferta || 0),
+      usa_oferta: Boolean(item.usa_oferta),
+      oferta_id: item.oferta_id || "",
       subtotal: cantidad * precio
     };
   });
@@ -6638,6 +6649,10 @@ function saveMostradorHistoryD9(payload, status = "local", error = "", options =
       nombre: x.nombre || "",
       cantidad: Number(x.cantidad || 0),
       precio: Number(x.precio || x.precio_unitario || 0),
+      precio_lista: Number(x.precio_lista || x.precio || x.precio_unitario || 0),
+      precio_oferta: Number(x.precio_oferta || 0),
+      usa_oferta: Boolean(x.usa_oferta),
+      oferta_id: x.oferta_id || "",
       subtotal: Number(x.subtotal || 0)
     }))
   };
@@ -6800,6 +6815,10 @@ function reuseSalesHistoryD9(id) {
     id: x.id_producto || x.id || "",
     nombre: x.nombre || "",
     precio: Number(x.precio || 0),
+    precio_lista: Number(x.precio_lista || x.precio || 0),
+    precio_oferta: Number(x.precio_oferta || 0),
+    usa_oferta: Boolean(x.usa_oferta),
+    oferta_id: x.oferta_id || "",
     cantidad: Number(x.cantidad || 0)
   })).filter(x => x.nombre && Number(x.cantidad) > 0);
 
@@ -7031,6 +7050,8 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
   const saleStatus = savedInPc
     ? "Venta registrada correctamente."
     : "Venta guardada en el celular y pendiente de confirmación en la PC.";
+  let internalDone = false;
+  let clientDone = false;
 
   const overlay = document.createElement("div");
   overlay.id = "mostradorWhatsAppOverlayD9";
@@ -7042,13 +7063,13 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
       <small>Cada botón abre una conversación diferente. Revisá el destinatario antes de enviar.</small>
       <div class="mostrador-destinations-d9">
         <button id="btnMostradorSendInternalD9" class="mostrador-destination-btn-d9 internal" type="button" ${internalPhone ? "" : "disabled"}>
-          <span>1 · Enviar copia interna</span>
+          <span>🔴 1 · Enviar copia interna</span>
           <strong>Distribuidora</strong>
           <small>${esc(whatsappDestinationLabelD9(internalRaw))}</small>
         </button>
         ${clientPhone ? `
           <button id="btnMostradorSendClientD9" class="mostrador-destination-btn-d9 client" type="button">
-            <span>2 · Enviar al cliente</span>
+            <span>🔴 2 · Enviar al cliente</span>
             <strong>${esc(clientName)}</strong>
             <small>${esc(whatsappDestinationLabelD9(clientRaw))}</small>
           </button>` : `
@@ -7059,7 +7080,7 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
           </div>`}
       </div>
       ${internalPhone ? "" : '<div class="mostrador-flow-error-d9">Falta configurar el WhatsApp interno del usuario o de confi.</div>'}
-      <button id="btnMostradorShareDoneD9" class="mostrador-flow-done-d9" type="button">Listo</button>
+      <button id="btnMostradorShareDoneD9" class="mostrador-flow-done-d9" type="button">Finalizar venta</button>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -7067,18 +7088,58 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
     if (!button) return;
     button.classList.add("is-opened-d9");
     const title = button.querySelector("span");
-    if (title) title.textContent = `✓ ${label}`;
+    if (title) title.textContent = `✅ ${label}`;
   };
 
   overlay.querySelector("#btnMostradorSendInternalD9")?.addEventListener("click", event => {
-    if (openWhatsApp(internalPhone, text)) markOpened(event.currentTarget, "Copia interna abierta");
+    if (openWhatsApp(internalPhone, text)) {
+      internalDone = true;
+      markOpened(event.currentTarget, "1 · Copia interna enviada");
+    }
   });
   overlay.querySelector("#btnMostradorSendClientD9")?.addEventListener("click", event => {
-    if (openWhatsApp(clientPhone, text)) markOpened(event.currentTarget, "WhatsApp del cliente abierto");
+    if (openWhatsApp(clientPhone, text)) {
+      clientDone = true;
+      markOpened(event.currentTarget, "2 · Copia al cliente enviada");
+    }
   });
   overlay.querySelector("#btnMostradorShareDoneD9")?.addEventListener("click", () => {
-    closeMostradorOverlayD9("mostradorWhatsAppOverlayD9");
+    const missingInternal = Boolean(internalPhone && !internalDone);
+    const missingClient = Boolean(clientPhone && !clientDone);
+    if (!missingInternal && !missingClient) {
+      finalizeMostradorSaleD9();
+      return;
+    }
+    const detail = missingInternal && missingClient
+      ? `Todavía faltan enviar la copia interna y la copia al cliente ${clientName}.`
+      : missingInternal
+        ? "Todavía falta enviar la copia interna a Distribuidora."
+        : `Todavía falta enviar al cliente ${clientName}.`;
+    showD9Confirm({
+      message: "¿Finalizar sin enviar todos los comprobantes?",
+      detail,
+      okText: "Finalizar igualmente",
+      cancelText: "Volver",
+      onOk: finalizeMostradorSaleD9
+    });
+    document.getElementById("d9ConfirmOverlay")?.classList.add("mostrador-finalize-confirm-d9");
   });
+}
+
+function finalizeMostradorSaleD9() {
+  closeMostradorOverlayD9("mostradorWhatsAppOverlayD9");
+  state.mostradorClient = null;
+  state.mostradorCategory = "";
+  state.mostradorBrand = "";
+  state.mostradorSearch = "";
+  state.mostradorCart = [];
+  state.mostradorVentaDraftId = "";
+  state.mostradorVentaFingerprint = "";
+  state.productPickerMode = "order";
+  state.clientPickerMode = "order";
+  state.categoryPickerMode = "order";
+  renderMostradorD9();
+  toast("Venta finalizada. Podés comenzar una nueva.");
 }
 
 async function finalizeMostradorWhatsAppD9(allowClient) {

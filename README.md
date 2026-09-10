@@ -19,6 +19,15 @@ PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, 
 - `manifest.json`: configuración PWA.
 - `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
 
+## v1.5.28-prod - cierre y ofertas en Venta mostrador
+
+- Los dos destinos de WhatsApp comienzan pendientes y cambian a verde después de abrir cada conversación.
+- `Finalizar venta` advierte solamente por los destinos disponibles que todavía no se utilizaron.
+- Al finalizar limpia el trabajo actual de Venta mostrador sin borrar ni registrar nuevamente la venta guardada.
+- Venta mostrador reutiliza la misma lógica de ofertas de Generar pedido: precio normal inicial, aplicación manual y regreso al precio normal.
+- El precio elegido y los datos de la oferta se conservan en el registro e historial local; total y WhatsApp utilizan ese precio.
+- No modifica Apps Script, Worker, impresión, pedidos normales, otros roles ni módulos financieros.
+
 ## v1.5.27-prod - WhatsApp interno y cliente en Venta mostrador
 
 - Conserva el circuito existente de Venta mostrador, su `venta_id`, guardado, historial e impresión.

@@ -3501,15 +3501,15 @@ button:active,
   text-align:left;
 }
 .mostrador-destination-btn-d9{
-  border:1px solid rgba(37,211,102,.34);
-  background:#effdf4;
-  color:#14532d;
+  border:1px solid rgba(225,29,72,.25);
+  background:#fff1f2;
+  color:#9f1239;
   cursor:pointer;
 }
 .mostrador-destination-btn-d9.internal{
-  border-color:rgba(24,92,170,.25);
-  background:#eef7ff;
-  color:#17315a;
+  border-color:rgba(225,29,72,.25);
+  background:#fff1f2;
+  color:#9f1239;
 }
 .mostrador-destination-btn-d9 span,
 .mostrador-no-client-send-d9 span{
@@ -3527,8 +3527,11 @@ button:active,
 }
 .mostrador-destination-btn-d9.is-opened-d9{
   border-color:#16a34a;
+  background:#ecfdf5;
+  color:#166534;
   box-shadow:0 0 0 3px rgba(22,163,74,.12);
 }
+.mostrador-finalize-confirm-d9{z-index:1000002;}
 .mostrador-destination-btn-d9:disabled{
   opacity:.55;
   cursor:not-allowed;
