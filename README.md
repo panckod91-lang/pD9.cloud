@@ -19,6 +19,11 @@ PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, 
 - `manifest.json`: configuración PWA.
 - `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
 
+## v1.5.31-prod - hotfix alta de cliente
+
+- Corrige `cliente is not defined` al preparar el POST de alta/edición desde Venta Zonal.
+- No cambia cartera, Script, ventas, ofertas, WhatsApp ni pedidos normales.
+
 ## v1.5.30-prod - Venta Zonal y cartera propia
 
 - Renombra la experiencia visible de `mostrador` a `VENTA ZONAL` sin cambiar IDs ni estructuras internas.
