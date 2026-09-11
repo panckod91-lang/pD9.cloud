@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.29-prod (logs y selector mostrador)";
+const APP_VERSION = "v1.5.30-prod (venta zonal y cartera mostrador)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -77,6 +77,10 @@ const state = {
   mostradorVentaDraftId: "",
   mostradorVentaFingerprint: "",
   mostradorFinalizingWhatsApp: false,
+  mostradorClientFormOrigin: "",
+  mostradorEditingClientId: "",
+  mostradorClientRequestId: "",
+  mostradorClientsSearch: "",
   productPickerMode: "order"
 };
 
@@ -1508,6 +1512,8 @@ async function loadAllData() {
     telefono: String(r.telefono || "").trim(),
     direccion: String(r.direccion || "").trim(),
     ciudad: String(r.ciudad || r.localidad || "").trim(),
+    vendedor_id: String(r.vendedor_id || r.vendedorId || r.id_vendedor || "").trim(),
+    vendedor: String(r.vendedor || r.nombre_vendedor || "").trim(),
     lista_precio: normalizePriceListKeyD9(r.lista_precio || r.lista || r.lista_1 || "lista_1"),
     // Alias de compatibilidad con versiones anteriores de D9.
     lista_1: normalizePriceListKeyD9(r.lista_precio || r.lista || r.lista_1 || "lista_1")
@@ -1542,6 +1548,7 @@ async function loadAllData() {
 
 
 function showView(name, pushHistory = true) {
+  if (isMostradorD9() && ["order", "history"].includes(name)) name = "home";
   state.currentView = name;
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   const target = document.getElementById(`view-${name}`);
@@ -1584,6 +1591,9 @@ function closeModal(name) {
   if (name === "occasionalClient") {
     renderQuickLabels();
     renderSelectedClient();
+    state.mostradorClientFormOrigin = "";
+    state.mostradorEditingClientId = "";
+    state.mostradorClientRequestId = "";
   }
 }
 
@@ -2398,6 +2408,7 @@ function closeCompanyInfo() {
 
 
 function logoutSeller() {
+  clearMostradorWorkspaceD9();
   state.seller = null;
   localStorage.removeItem(STORAGE_KEYS.seller);
   state.activePriceList = "lista_1";
@@ -2422,6 +2433,7 @@ function loginSeller() {
   const seller = state.users.find(s => s.usuario === userValue);
   if (!seller) return toast("Usuario no encontrado.");
   if (!pass || pass !== String(seller.clave || "").trim()) return toast("Clave incorrecta.");
+  if (String(state.seller?.id || "") !== String(seller.id || "")) clearMostradorWorkspaceD9();
   state.seller = seller;
   saveJSON(STORAGE_KEYS.seller, { id: seller.id, nombre: seller.nombre, usuario: seller.usuario });
   applyUserContext();
@@ -2431,6 +2443,21 @@ function loginSeller() {
   closeLogin();
   showView("home");
   toast(`Hola, ${seller.nombre}`);
+}
+
+function clearMostradorWorkspaceD9() {
+  state.mostradorClient = null;
+  state.mostradorCategory = "";
+  state.mostradorBrand = "";
+  state.mostradorSearch = "";
+  state.mostradorCart = [];
+  state.mostradorVentaDraftId = "";
+  state.mostradorVentaFingerprint = "";
+  state.mostradorFinalizingWhatsApp = false;
+  state.mostradorClientFormOrigin = "";
+  state.mostradorEditingClientId = "";
+  state.mostradorClientRequestId = "";
+  state.mostradorClientsSearch = "";
 }
 
 function getActivePriceList() {
@@ -2545,6 +2572,17 @@ function renderQuickLabels() {
   }
 }
 
+function isMostradorClientOwnedD9(client) {
+  if (!isMostradorD9() || !client) return false;
+  const sellerId = String(state.seller?.id || "").trim();
+  const ownerId = String(client.vendedor_id || "").trim();
+  if (sellerId && ownerId) return sellerId === ownerId;
+  const sellerName = normalizeSearchTextD9(state.seller?.nombre || "");
+  const ownerName = normalizeSearchTextD9(client.vendedor || "");
+  return Boolean(!ownerId && sellerName && ownerName && sellerName === ownerName);
+}
+function mostradorClientsD9() { return state.clients.filter(isMostradorClientOwnedD9); }
+
 function renderClients() {
   const term = normalizeSearchTextD9($("#clientSearch").value);
   const list = $("#clientList");
@@ -2561,8 +2599,9 @@ function renderClients() {
   }
   const recentRank = new Map(recentOrder.map((id, index) => [id, index]));
 
+  const availableClients = isMostradorD9() ? mostradorClientsD9() : state.clients;
   const base = canBrowseClients
-    ? state.clients
+    ? availableClients
         .filter(c => !term || [c.nombre, c.direccion, c.ciudad, c.telefono]
           .some(value => normalizeSearchTextD9(value).includes(term)))
         .sort((a, b) => {
@@ -2579,8 +2618,8 @@ function renderClients() {
 
   const occasionalBtn = simple ? "" : `
     <button class="option-item option-button special-option" id="btnOccasionalClient" type="button">
-      <strong>+ Cliente nuevo / ocasional</strong>
-      <div class="option-meta">Cargar nombre, dirección, ciudad y teléfono para este pedido</div>
+      <strong>${isMostradorD9()?"+ Nuevo cliente":"+ Cliente nuevo / ocasional"}</strong>
+      <div class="option-meta">${isMostradorD9()?"Crear un comercio real en tu cartera":"Cargar nombre, dirección, ciudad y teléfono para este pedido"}</div>
     </button>`;
 
   if (!canBrowseClients) {
@@ -2605,11 +2644,19 @@ function selectClient(id) {
   if (!c) return;
 
   if (state.clientPickerMode === "mostrador") {
+    if (!isMostradorClientOwnedD9(c)) return toast("Ese cliente no pertenece a tu cartera.");
+    const previousId = String(state.mostradorClient?.id || "");
+    const nextList = normalizePriceListKeyD9(c.lista_precio || c.lista_1 || "lista_1");
+    const listChanged = nextList !== state.activePriceList;
+    state.activePriceList = nextList;
     state.mostradorClient = c;
+    if ((listChanged || (previousId && previousId !== String(c.id))) && state.mostradorCart.length) {
+      state.mostradorCart.forEach(item => setItemOfferPriceD9(item, Boolean(item.usa_oferta)));
+    }
     renderClients();
     renderMostradorD9();
     closeModal("client");
-    toast("Cliente cargado en mostrador.");
+    toast("Cliente cargado en Venta Zonal.");
     return;
   }
 
@@ -2690,7 +2737,35 @@ function renderOrderPriceListControls() {
   }
 }
 
+function openMostradorClientFormD9(origin = "home", clientId = "") {
+  if (!isMostradorD9()) return;
+  const current = clientId ? state.clients.find(client => String(client.id) === String(clientId)) : null;
+  if (current && !isMostradorClientOwnedD9(current)) return toast("Ese cliente no pertenece a tu cartera.");
+  state.mostradorClientFormOrigin = origin;
+  state.mostradorEditingClientId = current?.id || "";
+  state.mostradorClientRequestId = current ? "" : `CLREQ-${String(state.seller?.id||"0").replace(/[^A-Za-z0-9_-]/g,"")}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+  const title = document.querySelector("#occasionalClientModal .modal-head-row h3");
+  if (title) title.textContent = current ? "Editar cliente" : "Nuevo cliente";
+  $("#occasionalName").value = current?.nombre || "";
+  $("#occasionalPhone").value = current?.telefono || "";
+  $("#occasionalAddress").value = current?.direccion || "";
+  $("#occasionalCity").value = current?.ciudad || "";
+  $("#occasionalPriceWrap")?.classList.add("hidden");
+  const saveButton = $("#btnSaveOccasionalClient");
+  if (saveButton) saveButton.textContent = current ? "Guardar cambios" : "Crear cliente";
+  closeModal("client");
+  openModal("occasionalClient");
+  window.setTimeout(() => $("#occasionalName")?.focus(), 100);
+}
+
 function openOccasionalClientModal() {
+  if (isMostradorD9() && state.clientPickerMode === "mostrador") return openMostradorClientFormD9("sale");
+  state.mostradorClientFormOrigin = "";
+  state.mostradorEditingClientId = "";
+  const title = document.querySelector("#occasionalClientModal .modal-head-row h3");
+  if (title) title.textContent = "Cliente nuevo / ocasional";
+  const saveButton = $("#btnSaveOccasionalClient");
+  if (saveButton) saveButton.textContent = "Usar este cliente";
   $("#occasionalName").value = "";
   $("#occasionalPhone").value = "";
   $("#occasionalAddress").value = "";
@@ -2704,7 +2779,27 @@ function openOccasionalClientModal() {
   openModal("occasionalClient");
 }
 
-function saveOccasionalClient() {
+async function saveMostradorRealClientD9() {
+  const nombre = $("#occasionalName").value.trim(), telefono = $("#occasionalPhone").value.trim(), direccion = $("#occasionalAddress").value.trim(), ciudad = $("#occasionalCity").value.trim();
+  if (!nombre) return toast("Cargá al menos el nombre del cliente.");
+  if (!navigator.onLine) return toast("Necesitás conexión para crear o editar un cliente real.");
+  const origin = state.mostradorClientFormOrigin || "home", editingId = state.mostradorEditingClientId, button = $("#btnSaveOccasionalClient");
+  button.disabled = true;button.textContent = "Guardando…";
+  try {
+    const result = await postMostradorClientD9({id:editingId,request_id:state.mostradorClientRequestId,nombre,telefono,direccion,ciudad});
+    const raw = result.cliente || {}, client = {id:String(raw.id||"").trim(),nombre:String(raw.nombre||nombre).trim(),telefono:String(raw.telefono||telefono).trim(),direccion:String(raw.direccion||direccion).trim(),ciudad:String(raw.ciudad||ciudad).trim(),vendedor_id:String(raw.vendedor_id||state.seller?.id||"").trim(),vendedor:String(raw.vendedor||state.seller?.nombre||"").trim(),lista_precio:normalizePriceListKeyD9(raw.lista_precio||"lista_1"),lista_1:normalizePriceListKeyD9(raw.lista_precio||"lista_1")};
+    const index = state.clients.findIndex(item => String(item.id) === client.id);if(index>=0)state.clients[index]={...state.clients[index],...client};else state.clients.push(client);
+    if (String(state.mostradorClient?.id || "") === client.id) state.mostradorClient = client;
+    persistCacheState();closeModal("occasionalClient");state.mostradorClientFormOrigin="";state.mostradorEditingClientId="";
+    if (origin === "sale") {state.activePriceList=client.lista_precio||"lista_1";state.mostradorClient=client;renderMostradorD9();showView("mostrador");toast("Cliente creado y seleccionado.");}
+    else {renderMostradorClientsD9();showView("mostrador-clients-d9");toast(result.actualizado?"Cliente actualizado.":"Cliente creado en tu cartera.");}
+    renderClients();renderMostradorRoleD9();
+  } catch (error) {toast(error.message || "No se pudo guardar el cliente.");}
+  finally {button.disabled=false;button.textContent=editingId?"Guardar cambios":"Crear cliente";}
+}
+
+async function saveOccasionalClient() {
+  if (isMostradorD9() && state.mostradorClientFormOrigin) return saveMostradorRealClientD9();
   const nombre = $("#occasionalName").value.trim();
   const telefono = $("#occasionalPhone").value.trim();
   const direccion = $("#occasionalAddress").value.trim();
@@ -2724,16 +2819,6 @@ function saveOccasionalClient() {
     lista_1: lista,
     ocasional: true
   };
-
-  if (state.clientPickerMode === "mostrador") {
-    state.mostradorClient = occasionalClient;
-    closeModal("occasionalClient");
-    closeModal("client");
-    renderMostradorD9();
-    showView("mostrador");
-    toast("Cliente ocasional cargado en mostrador.");
-    return;
-  }
 
   const previousId = state.selectedClient?.id || "";
   state.selectedClient = occasionalClient;
@@ -6057,6 +6142,13 @@ function bind() {
   $("#btnGoHistory").addEventListener("click", () => { renderHistory(); showView("history"); });
   document.addEventListener("click", (ev) => { const b = ev.target.closest("#btnGoMostrador"); if (b) { renderMostradorD9(); showView("mostrador"); } });
   document.addEventListener("click", (ev) => { const b = ev.target.closest("#btnGoSalesHistoryD9"); if (b) { renderSalesHistoryD9(); showView("sales-history-d9"); } });
+  document.addEventListener("click", (ev) => {
+    if (ev.target.closest("#btnGoMostradorNewClientD9")) { openMostradorClientFormD9("home"); return; }
+    if (ev.target.closest("#btnGoMostradorClientsD9")) { renderMostradorClientsD9(); showView("mostrador-clients-d9"); return; }
+    if (ev.target.closest("#btnMostradorClientsNewD9")) { openMostradorClientFormD9("portfolio"); return; }
+    const edit = ev.target.closest("[data-edit-mostrador-client-d9]");
+    if (edit) { openMostradorClientFormD9("portfolio", edit.dataset.editMostradorClientD9); }
+  });
   $("#sellerBadge").addEventListener("click", () => openLogin(false));
   $("#btnPancko").addEventListener("click", () => {
     if (isAppUpdateAvailableD9) {
@@ -6163,6 +6255,13 @@ function bind() {
       return;
     }
     if (ev.target.closest("#btnMostradorOpenProducts")) {
+      if (!state.mostradorClient || !isMostradorClientOwnedD9(state.mostradorClient)) {
+        toast("Primero elegí un cliente de tu cartera.");
+        state.clientPickerMode = "mostrador";
+        renderClients();
+        openModal("client");
+        return;
+      }
       state.productPickerMode = "mostrador";
       state.categoryPickerMode = "mostrador";
       renderQuickLabels();
@@ -6174,6 +6273,7 @@ function bind() {
 
   document.addEventListener("input", (ev) => {
     if (ev.target && ev.target.id === "mostradorSearch") { state.mostradorSearch = ev.target.value.trim().toLowerCase(); renderMostradorD9(); }
+    if (ev.target && ev.target.id === "mostradorClientsSearchD9") { state.mostradorClientsSearch = ev.target.value; renderMostradorClientsD9(); }
   });
 
   document.addEventListener("click", async (ev) => {
@@ -6819,6 +6919,10 @@ function reuseSalesHistoryD9(id) {
     (clienteNombre && String(c.nombre || "").trim().toLowerCase() === clienteNombre.toLowerCase())
   );
 
+  if (isMostradorD9() && (!found || !isMostradorClientOwnedD9(found))) {
+    return toast("Ese cliente no está asignado a tu cartera. Pedile a Ale que lo asigne antes de reutilizar.");
+  }
+
   state.mostradorClient = found || {
     id: clienteId || `ocasional_${Date.now()}`,
     nombre: clienteNombre || "Consumidor final",
@@ -6904,32 +7008,13 @@ function whatsappDestinationLabelD9(value) {
   return digits ? `+${digits}` : "Sin teléfono";
 }
 
-async function postMostradorClientPhoneD9(client, phone) {
-  const cleanPhone = String(phone || "").trim();
-  const payload = {
-    action: "update_clientes",
-    clientes: [{
-      id: String(client?.id || "").trim(),
-      nombre: String(client?.nombre || client?.nombre_real || "").trim(),
-      telefono: cleanPhone,
-      direccion: String(client?.direccion || "").trim(),
-      ciudad: String(client?.ciudad || client?.localidad || "").trim(),
-      activo: "si"
-    }]
-  };
-
-  if (!payload.clientes[0].id || !payload.clientes[0].nombre) {
-    throw new Error("No se pudo identificar la ficha del cliente.");
-  }
-  if (!navigator.onLine) {
-    throw new Error("Necesitás conexión para guardar el teléfono en la ficha.");
-  }
-
+async function postMostradorApiD9(action, payload, fallbackError) {
+  if (!navigator.onLine) throw new Error("Necesitás conexión para guardar cambios de clientes.");
   const apiBase = getApiBaseD9();
-  const body = JSON.stringify(payload);
+  const body = JSON.stringify({action,...payload});
 
   async function tryPost(options) {
-    const response = await fetch(`${apiBase}?action=update_clientes`, {
+    const response = await fetch(`${apiBase}?action=${encodeURIComponent(action)}`, {
       method: "POST",
       cache: "no-store",
       redirect: "follow",
@@ -6955,8 +7040,19 @@ async function postMostradorClientPhoneD9(client, phone) {
     headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
     body: `payload=${encodeURIComponent(body)}`
   });
-  if (!result?.ok) throw new Error(result?.error || "No se pudo guardar el teléfono.");
+  if (!result?.ok) throw new Error(result?.error || fallbackError || "No se pudo guardar el cliente.");
   return result;
+}
+
+async function postMostradorClientD9(client) {
+  return postMostradorApiD9("guardar_cliente_mostrador", {usuario_id:String(state.seller?.id||"").trim(),cliente}, "No se pudo guardar el cliente.");
+}
+
+async function postMostradorClientPhoneD9(client, phone) {
+  const cleanPhone = String(phone || "").trim();
+  const item={id:String(client?.id||"").trim(),nombre:String(client?.nombre||client?.nombre_real||"").trim(),telefono:cleanPhone,direccion:String(client?.direccion||"").trim(),ciudad:String(client?.ciudad||client?.localidad||"").trim()};
+  if (!item.id || !item.nombre) throw new Error("No se pudo identificar la ficha del cliente.");
+  return postMostradorClientD9(item);
 }
 
 async function saveMostradorClientPhoneD9(client, phone) {
@@ -7199,6 +7295,7 @@ async function finalizeMostradorWhatsAppD9(allowClient) {
 }
 
 function whatsappMostradorD9() {
+  if (!state.mostradorClient || !isMostradorClientOwnedD9(state.mostradorClient)) return toast("Primero elegí un cliente de tu cartera.");
   if (!state.mostradorCart.length) return toast("Agregá productos.");
   if (state.mostradorFinalizingWhatsApp) return;
 
@@ -7215,6 +7312,7 @@ function whatsappMostradorD9() {
 }
 
 function printMostradorD9() {
+  if (!state.mostradorClient || !isMostradorClientOwnedD9(state.mostradorClient)) return toast("Primero elegí un cliente de tu cartera.");
   if (!state.mostradorCart.length) return toast("Agregá productos.");
   persistMostradorVentaD9("impresion");
   const rows = state.mostradorCart.map(item => {
@@ -7243,12 +7341,79 @@ function setupMostradorHomeD9() {
   btn.innerHTML = `
     <span class="cta-icon-vnext">🏪</span>
     <span class="cta-copy-vnext">
-      <strong>VENTA MOSTRADOR</strong>
-      <small>Remito interno y comprobante</small>
+      <strong>VENTA ZONAL</strong>
+      <small>Clientes, productos y venta</small>
     </span>
     <span class="cta-arrow-vnext">›</span>
   `;
   homeView.insertBefore(btn, orderBtn);
+}
+
+function setupMostradorClientsHomeD9() {
+  const grid = document.querySelector(".home-grid-vnext");
+  if (!grid || document.getElementById("btnGoMostradorNewClientD9")) return;
+  const newClient = document.createElement("button");
+  newClient.id = "btnGoMostradorNewClientD9";
+  newClient.className = "action-card-vnext hidden";
+  newClient.type = "button";
+  newClient.innerHTML = `
+    <span class="action-head-vnext">
+      <span class="icon-wrap-vnext blue">＋</span>
+      <span class="title-group-vnext"><strong>Nuevo cliente</strong><small>Agregar un comercio a mi cartera</small></span>
+    </span><span class="go-vnext">›</span>`;
+  const myClients = document.createElement("button");
+  myClients.id = "btnGoMostradorClientsD9";
+  myClients.className = "action-card-vnext hidden";
+  myClients.type = "button";
+  myClients.innerHTML = `
+    <span class="action-head-vnext">
+      <span class="icon-wrap-vnext cyan">👥</span>
+      <span class="title-group-vnext"><strong>Mis clientes</strong><small>Consultar mi cartera</small></span>
+    </span><span class="go-vnext">›</span>`;
+  const prices = document.getElementById("btnGoPrices");
+  grid.insertBefore(newClient, prices || grid.firstChild);
+  grid.insertBefore(myClients, prices || grid.firstChild);
+}
+
+function setupMostradorClientsViewD9() {
+  const main = document.querySelector("main");
+  if (!main || document.getElementById("view-mostrador-clients-d9")) return;
+  const sec = document.createElement("section");
+  sec.id = "view-mostrador-clients-d9";
+  sec.className = "view";
+  sec.innerHTML = `
+    <div class="view-head history-head-d9">
+      <button class="back-btn history-home-d9 home-red-d9" data-back="home" type="button" aria-label="Volver al inicio">🏠</button>
+      <div class="history-title-d9"><h2>Mis clientes</h2><p class="subhead">Comercios asignados a tu cartera.</p></div>
+    </div>
+    <div class="card mostrador-clients-tools-d9">
+      <input id="mostradorClientsSearchD9" class="input" type="search" autocomplete="off" placeholder="Buscar por nombre, teléfono o dirección" aria-label="Buscar en mis clientes">
+      <button id="btnMostradorClientsNewD9" class="primary-btn" type="button">+ Nuevo cliente</button>
+    </div>
+    <div id="mostradorClientsListD9" class="mostrador-clients-list-d9"></div>`;
+  main.appendChild(sec);
+}
+
+function renderMostradorClientsD9() {
+  const list = document.getElementById("mostradorClientsListD9");
+  if (!list) return;
+  const query = normalizeSearchTextD9(state.mostradorClientsSearch || "");
+  const clients = mostradorClientsD9()
+    .filter(client => !query || normalizeSearchTextD9([client.nombre, client.telefono, client.direccion, client.ciudad].join(" ")).includes(query))
+    .sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base" }));
+  if (!clients.length) {
+    list.className = "mostrador-clients-list-d9 empty-state card";
+    list.innerHTML = query ? "No hay clientes que coincidan con la búsqueda." : "Todavía no tenés clientes asignados.";
+    return;
+  }
+  list.className = "mostrador-clients-list-d9";
+  list.innerHTML = clients.map(client => {
+    const location = [client.direccion, client.ciudad].filter(Boolean).join(" · ") || "Sin dirección";
+    return `<article class="card mostrador-client-card-d9">
+      <div class="mostrador-client-copy-d9"><strong>${esc(client.nombre)}</strong><small>${esc(client.telefono || "Sin teléfono")}</small><small>${esc(location)}</small></div>
+      <button class="secondary-btn mostrador-client-edit-d9" data-edit-mostrador-client-d9="${esc(client.id)}" type="button">Editar</button>
+    </article>`;
+  }).join("");
 }
 
 function setupMostradorHistoryHomeD9() {
@@ -7262,8 +7427,8 @@ function setupMostradorHistoryHomeD9() {
     <span class="action-head-vnext">
       <span class="icon-wrap-vnext cyan">🧾</span>
       <span class="title-group-vnext">
-        <strong>Historial ventas</strong>
-        <small>Ventas mostrador locales</small>
+        <strong>Historial de ventas</strong>
+        <small>Ventas zonales en este celular</small>
       </span>
     </span>
     <span class="go-vnext">›</span>
@@ -7282,8 +7447,8 @@ function setupSalesHistoryViewD9() {
     <div class="view-head history-head-d9">
       <button class="back-btn history-home-d9 home-red-d9" data-back="home" type="button" aria-label="Volver al inicio">🏠</button>
       <div class="history-title-d9">
-        <h2>Historial ventas</h2>
-        <p class="subhead">Ventas de mostrador guardadas en este celular.</p>
+        <h2>Historial de ventas</h2>
+        <p class="subhead">Ventas zonales guardadas en este celular.</p>
       </div>
     </div>
     <div class="card">
@@ -7302,7 +7467,7 @@ function setupMostradorViewD9() {
   sec.innerHTML = `
     <div class="view-head history-head-d9">
       <button class="back-btn history-home-d9 home-red-d9" data-back="home" type="button">🏠</button>
-      <div class="history-title-d9"><h2>Venta mostrador</h2><p class="subhead">Remito interno y comprobante.</p></div>
+      <div class="history-title-d9"><h2>Venta Zonal</h2><p class="subhead">Clientes, productos y venta.</p></div>
     </div>
 
     <div class="card quick-grid-card mostrador-picker-card-d9">
@@ -7328,14 +7493,24 @@ function setupMostradorViewD9() {
 
 function renderMostradorRoleD9() {
   setupMostradorHomeD9();
+  setupMostradorClientsHomeD9();
   setupMostradorHistoryHomeD9();
   setupMostradorViewD9();
+  setupMostradorClientsViewD9();
   setupSalesHistoryViewD9();
   const on = isMostradorD9();
+  document.getElementById("btnGoOrder")?.classList.toggle("hidden", on);
+  document.getElementById("btnGoHistory")?.classList.toggle("hidden", on);
   document.getElementById("btnGoMostrador")?.classList.toggle("hidden", !on);
+  document.getElementById("btnGoMostradorNewClientD9")?.classList.toggle("hidden", !on);
+  document.getElementById("btnGoMostradorClientsD9")?.classList.toggle("hidden", !on);
   document.getElementById("btnGoSalesHistoryD9")?.classList.toggle("hidden", !on);
   document.getElementById("bannerWrap")?.classList.toggle("hidden", on);
-  if (on) renderSalesHistoryD9();
+  if (on) {
+    if (state.mostradorClient && !isMostradorClientOwnedD9(state.mostradorClient)) state.mostradorClient = null;
+    renderSalesHistoryD9();
+    renderMostradorClientsD9();
+  }
 }
 
 function renderAll() {

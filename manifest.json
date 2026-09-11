@@ -3,7 +3,7 @@
   "short_name": "D9",
   "description": "Gestor de pedidos y consultas de Distribuidora D9",
   "id": "/",
-  "start_url": "./index.html?app=d9-prod-v1529",
+  "start_url": "./index.html?app=d9-prod-v1530",
   "scope": "./",
   "display": "standalone",
   "background_color": "#eaf8ff",

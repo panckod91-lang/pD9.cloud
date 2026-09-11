@@ -19,6 +19,16 @@ PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, 
 - `manifest.json`: configuración PWA.
 - `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
 
+## v1.5.30-prod - Venta Zonal y cartera propia
+
+- Renombra la experiencia visible de `mostrador` a `VENTA ZONAL` sin cambiar IDs ni estructuras internas.
+- Oculta Generar pedido e Historial de pedidos sólo para mostrador.
+- Agrega Nuevo cliente y Mis clientes al Home.
+- Los clientes creados son registros reales del maestro y quedan asignados automáticamente al mostrador logueado.
+- Venta Zonal y Mis clientes trabajan únicamente con la cartera asignada por vendedor.
+- Conserva sin cambios venta_id, ofertas, doble WhatsApp, finalización, impresión, logs, ventas y pedidos de otros roles.
+- Incluye el Script PROD complementario dentro de `apps-script/`; no requiere cambios de Worker ni de Gestión.
+
 ## v1.5.29-prod - logs y selector simplificado en Venta mostrador
 
 - Registra `VENTA_MOSTRADOR_OK` cuando la Sheet confirma el guardado de una venta nueva.

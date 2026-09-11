@@ -3680,6 +3680,34 @@ button:active,
   padding:18px 18px 16px;
   overflow:hidden;
 }
+
+/* D9 v1.5.30 · cartera propia del modo Venta Zonal */
+.mostrador-clients-tools-d9{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  margin-bottom:14px;
+}
+.mostrador-clients-tools-d9 .input{width:100%;min-width:0;}
+.mostrador-clients-tools-d9 .primary-btn{width:auto;white-space:nowrap;}
+.mostrador-clients-list-d9{display:grid;gap:10px;}
+.mostrador-client-card-d9{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  margin:0;
+}
+.mostrador-client-copy-d9{min-width:0;display:grid;gap:4px;}
+.mostrador-client-copy-d9 strong{font-size:1rem;line-height:1.2;overflow-wrap:anywhere;}
+.mostrador-client-copy-d9 small{color:var(--muted);line-height:1.25;overflow-wrap:anywhere;}
+.mostrador-client-edit-d9{width:auto;min-width:82px;}
+@media(max-width:600px){
+  .mostrador-clients-tools-d9{grid-template-columns:1fr;gap:9px;}
+  .mostrador-clients-tools-d9 .primary-btn{width:100%;}
+  .mostrador-client-card-d9{padding:14px;}
+}
 .mostrador-cart-item-d9 .cart-item-top{
   display:block;
   padding-right:118px;
