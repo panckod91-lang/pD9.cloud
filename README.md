@@ -2,6 +2,15 @@
 
 PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, cola local de pendientes y sincronización automática.
 
+## v1.5.32-prod - pedidos consecutivos sin pérdida de edición
+
+- Corrige el segundo reset tardío que podía borrar el pedido nuevo cuando llegaba la confirmación del pedido anterior.
+- El pedido enviado conserva un snapshot propio de cliente, productos, cantidades, notas, precios/ofertas e ID.
+- La pantalla se limpia una sola vez al cerrar el pedido enviado y queda inmediatamente disponible para el siguiente.
+- Las confirmaciones, errores y reintentos posteriores actualizan únicamente historial/pendientes del `pedido_id` correspondiente.
+- Permite A y B simultáneamente en vuelo mientras C continúa en edición, incluso si las respuestas llegan fuera de orden.
+- No modifica Worker, Apps Script, Venta Zonal ni el resto de los módulos.
+
 ## Stack actual
 
 - Frontend: HTML, CSS y JS puro.

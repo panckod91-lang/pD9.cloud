@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.31-prod (fix alta cliente Venta Zonal)";
+const APP_VERSION = "v1.5.32-prod (fix pedidos consecutivos)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -4203,8 +4203,10 @@ function buildOrderPayload() {
   return {
     pedido_id: pedidoId,
     fecha: new Date().toISOString(),
-    vendedor: state.seller,
-    cliente: state.selectedClient,
+    // Snapshot propio del pedido. Las respuestas tardías deben trabajar sobre
+    // estos datos y nunca sobre el vendedor/cliente actualmente visibles.
+    vendedor: state.seller ? { ...state.seller } : null,
+    cliente: state.selectedClient ? { ...state.selectedClient } : null,
     lista_precio: getActivePriceList(),
     carrito: state.cart.map(x => ({
       id: x.id,
@@ -5256,6 +5258,20 @@ async function sendOrder() {
     confirmBtn.textContent = "Enviando...";
   }
 
+  let sendUiReleased = false;
+  const releaseCurrentSendUiD9 = (resetEditor = false) => {
+    if (resetEditor) closeOrderVisualAfterWhatsAppD9(payload);
+    setButtonBusy(sendBtn, false, "Enviando...", "Enviar pedido");
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Confirmar y enviar";
+    }
+    // El payload y su huella ya quedaron congelados. Liberamos solamente la UI
+    // para que el vendedor pueda enviar B/C mientras A sigue confirmándose.
+    releaseOrderSendLock(0);
+    sendUiReleased = true;
+  };
+
   try {
     const defaultWa = getDefaultWhatsAppD9();
 
@@ -5273,6 +5289,7 @@ async function sendOrder() {
       clearDraftPedidoIdD9();
       refreshPendingUiD9();
       schedulePendingHomeRefreshD9();
+      releaseCurrentSendUiD9(true);
       toast("Sin internet. Pedido guardado pendiente.");
       if (pendingBtn) pulseSuccess(pendingBtn, "Pendiente guardado", "Se enviará al recuperar conexión");
       return;
@@ -5286,68 +5303,56 @@ async function sendOrder() {
     if (!openWhatsApp(waPhone, waText)) {
       logAppEventD9("WHATSAPP_ERROR", { payload, resultado: "error", detalle: "Falta WhatsApp destino" });
       toast("Falta WhatsApp destino en confi.");
+      releaseCurrentSendUiD9(false);
       return;
     }
 
     logAppEventD9("WHATSAPP_ABIERTO", { payload, resultado: "ok", detalle: waPhone ? `destino:${waPhone}` : "sin destino" });
-    closeOrderVisualAfterWhatsAppD9(payload);
+    // La edición de A termina acá y se limpia una sola vez. Desde este punto el
+    // vendedor puede armar/enviar B o C sin esperar al backend de A.
+    releaseCurrentSendUiD9(true);
 
-    try {
-      // v1.5.10: esperamos la confirmación. Antes el envío seguía en segundo plano,
-      // el finally liberaba el botón/candado, y al volver de WhatsApp Android podía
-      // disparar otra confirmación del mismo pedido, creando pendiente falso.
-      const res = await trySendToWebhook(payload);
-      if (!res || !res.ok) {
-        // Última defensa antes de crear pendiente: si ya está en PC con este mismo
-        // contenido, NO guardar pendiente falso.
-        const pendingResult = await savePendingOnlyAfterGraceD9(payload, res?.error || "No pude confirmar el envío");
-        if (pendingResult?.ok) toast(pendingResult.message || "Pedido confirmado en PC.");
-        else console.warn("Pedido pendiente:", pendingResult?.error);
-      } else {
-        if (res?.data?.duplicated) {
-          const msg = res?.data?.message || "Pedido cargado correctamente en PC.";
-          logAppEventD9("PEDIDO_DUPLICADO_CONTROLADO", { payload, resultado: "ok", detalle: msg });
-          markOrderCompletedD9(payload);
-          saveHistory(payload, "ok", msg);
-          removePendingRelatedToPayloadD9(payload, "duplicado controlado");
-          toast(msg);
-        } else {
-          logAppEventD9("PEDIDO_ENVIADO_SHEETS_OK", { payload, resultado: "ok", detalle: res?.data?.message || "Enviado correctamente" });
-          markOrderCompletedD9(payload);
-          saveHistory(payload, "ok", "Enviado correctamente");
-          removePendingRelatedToPayloadD9(payload, "envío confirmado OK");
-        }
-        refreshPendingUiD9();
-        schedulePendingHomeRefreshD9();
-      }
-    } catch (err) {
-      const pendingResult = await savePendingOnlyAfterGraceD9(payload, String(err));
-      if (pendingResult?.ok) toast(pendingResult.message || "Pedido confirmado en PC.");
-      else console.error("Error total, guardado local:", pendingResult?.error || err);
-    }
-
-    pulseSuccess(sendBtn, "Enviado");
+    // No se espera esta promesa desde la UI. Toda actualización posterior queda
+    // asociada exclusivamente al pedido_id del snapshot enviado.
+    void completeOrderDeliveryInBackgroundD9(payload);
   } finally {
-    if (state.seller?.rol === "cliente") {
-      applyUserContext();
-    } else if (!state.seller) {
-      state.selectedClient = state.guestClientDraft || state.selectedClient;
+    // Este finally sólo recupera controles ante un error síncrono previo al
+    // cierre. Nunca limpia cliente/carrito: eso destruiría un pedido posterior.
+    if (!sendUiReleased) releaseCurrentSendUiD9(false);
+  }
+}
+
+async function completeOrderDeliveryInBackgroundD9(payload) {
+  try {
+    const res = await trySendToWebhook(payload);
+    if (!res || !res.ok) {
+      // Última defensa antes de crear pendiente: si ya está en PC con este mismo
+      // contenido, NO guardar pendiente falso.
+      const pendingResult = await savePendingOnlyAfterGraceD9(payload, res?.error || "No pude confirmar el envío");
+      if (pendingResult?.ok) toast(pendingResult.message || "Pedido confirmado en PC.");
+      else console.warn("Pedido pendiente:", pendingResult?.error);
+      return;
+    }
+
+    if (res?.data?.duplicated) {
+      const msg = res?.data?.message || "Pedido cargado correctamente en PC.";
+      logAppEventD9("PEDIDO_DUPLICADO_CONTROLADO", { payload, resultado: "ok", detalle: msg });
+      markOrderCompletedD9(payload);
+      saveHistory(payload, "ok", msg);
+      removePendingRelatedToPayloadD9(payload, "duplicado controlado");
+      toast(msg);
     } else {
-      state.selectedClient = null;
+      logAppEventD9("PEDIDO_ENVIADO_SHEETS_OK", { payload, resultado: "ok", detalle: res?.data?.message || "Enviado correctamente" });
+      markOrderCompletedD9(payload);
+      saveHistory(payload, "ok", "Enviado correctamente");
+      removePendingRelatedToPayloadD9(payload, "envío confirmado OK");
     }
-
-    clearCart();
-    renderSelectedClient();
-    renderClients();
-
-    setButtonBusy(sendBtn, false, "Enviando...", "Enviar pedido");
-
-    if (confirmBtn) {
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = "Confirmar y enviar";
-    }
-
-    releaseOrderSendLock(5000);
+    refreshPendingUiD9();
+    schedulePendingHomeRefreshD9();
+  } catch (err) {
+    const pendingResult = await savePendingOnlyAfterGraceD9(payload, String(err));
+    if (pendingResult?.ok) toast(pendingResult.message || "Pedido confirmado en PC.");
+    else console.error("Error total, guardado local:", pendingResult?.error || err);
   }
 }
 
