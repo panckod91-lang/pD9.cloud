@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.32-prod (fix pedidos consecutivos)";
+const APP_VERSION = "v1.5.33-prod (Venta mostrador integrada con Gestión)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -2656,7 +2656,7 @@ function selectClient(id) {
     renderClients();
     renderMostradorD9();
     closeModal("client");
-    toast("Cliente cargado en Venta Zonal.");
+    toast("Cliente cargado en Venta.");
     return;
   }
 
@@ -7346,7 +7346,7 @@ function setupMostradorHomeD9() {
   btn.innerHTML = `
     <span class="cta-icon-vnext">🏪</span>
     <span class="cta-copy-vnext">
-      <strong>VENTA ZONAL</strong>
+      <strong>VENTA</strong>
       <small>Clientes, productos y venta</small>
     </span>
     <span class="cta-arrow-vnext">›</span>
@@ -7472,7 +7472,7 @@ function setupMostradorViewD9() {
   sec.innerHTML = `
     <div class="view-head history-head-d9">
       <button class="back-btn history-home-d9 home-red-d9" data-back="home" type="button">🏠</button>
-      <div class="history-title-d9"><h2>Venta Zonal</h2><p class="subhead">Clientes, productos y venta.</p></div>
+      <div class="history-title-d9"><h2>Venta</h2><p class="subhead">Clientes, productos y venta.</p></div>
     </div>
 
     <div class="card quick-grid-card mostrador-picker-card-d9">
