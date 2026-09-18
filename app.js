@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.34-prod (Búsqueda de productos corregida)";
+const APP_VERSION = "v1.5.35-prod (Venta y Cuenta Corriente)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -534,6 +534,8 @@ async function registerAppVersionD9() {
 function hydrateCacheState() {
   state.config = readJSON(CACHE_KEYS.config, state.config || {});
   state.users = readJSON(CACHE_KEYS.users, state.users || []);
+  state.users = state.users.map(stripUserSecretsD9);
+  saveJSON(CACHE_KEYS.users,state.users);
   state.clients = readJSON(CACHE_KEYS.clients, state.clients || []);
   state.products = readJSON(CACHE_KEYS.products, state.products || []);
   state.offers = readJSON(CACHE_KEYS.offers, state.offers || []);
@@ -542,7 +544,7 @@ function hydrateCacheState() {
 }
 function persistCacheState() {
   saveJSON(CACHE_KEYS.config, state.config || {});
-  saveJSON(CACHE_KEYS.users, state.users || []);
+  saveJSON(CACHE_KEYS.users, (state.users || []).map(stripUserSecretsD9));
   saveJSON(CACHE_KEYS.clients, state.clients || []);
   saveJSON(CACHE_KEYS.products, state.products || []);
   saveJSON(CACHE_KEYS.offers, state.offers || []);
@@ -1496,7 +1498,6 @@ async function loadAllData() {
     id: String(r.id || "").trim(),
     usuario: String(r.usuario || "").trim().toLowerCase(),
     nombre: String(r.nombre || "").trim(),
-    clave: String(r.clave || "").trim(),
     rol: String(r.rol || "cliente").trim().toLowerCase(),
     lista_precio: normalizePriceListKeyD9(r.lista_precio || r.lista || r.lista_1 || "lista_1"),
     lista_1: normalizePriceListKeyD9(r.lista_precio || r.lista || r.lista_1 || "lista_1"),
@@ -2411,6 +2412,7 @@ function logoutSeller() {
   clearMostradorWorkspaceD9();
   state.seller = null;
   localStorage.removeItem(STORAGE_KEYS.seller);
+  localStorage.removeItem("d9_auth_session");
   state.activePriceList = "lista_1";
   state.selectedClient = null;
   state.selectedCategory = "";
@@ -2427,12 +2429,15 @@ function logoutSeller() {
   toast("Sesión cerrada.");
 }
 
-function loginSeller() {
+function stripUserSecretsD9(user){const clean={};Object.keys(user||{}).forEach(key=>{if(!/clave|password|secret|token/i.test(key))clean[key]=user[key]});return clean;}
+async function loginSeller() {
   const userValue = $("#sellerUser").value.trim().toLowerCase();
   const pass = $("#sellerPass").value.trim();
-  const seller = state.users.find(s => s.usuario === userValue);
-  if (!seller) return toast("Usuario no encontrado.");
-  if (!pass || pass !== String(seller.clave || "").trim()) return toast("Clave incorrecta.");
+  if(!navigator.onLine)return toast("Necesitás conexión para ingresar. La sesión existente y los pedidos offline se conservan.");
+  const loginButton=$("#btnLogin");if(loginButton.disabled)return;loginButton.disabled=true;
+  let result;try{result=await postPedidosAuthD9("login",{usuario:userValue,clave:pass});}catch(error){return toast(error.message);}finally{loginButton.disabled=false;$("#sellerPass").value="";}
+  const rawSeller=stripUserSecretsD9(result.user),seller={...rawSeller,id:String(rawSeller.id||"").trim(),rol:String(rawSeller.rol||"cliente").trim().toLowerCase(),lista_precio:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),lista_1:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),interfaz:String(rawSeller.interfaz||rawSeller.modo_interfaz||rawSeller.modo||"normal").trim().toLowerCase(),modo_simple:isTrue(rawSeller.modo_simple)};
+  localStorage.setItem("d9_auth_session",JSON.stringify({token:result.token,uid:String(seller.id)}));
   if (String(state.seller?.id || "") !== String(seller.id || "")) clearMostradorWorkspaceD9();
   state.seller = seller;
   saveJSON(STORAGE_KEYS.seller, { id: seller.id, nombre: seller.nombre, usuario: seller.usuario });
@@ -6541,7 +6546,7 @@ function hydrateSeller() {
 
 
 function mostradorTotalD9() {
-  return state.mostradorCart.reduce((sum, item) => sum + (Number(item.cantidad) || 0) * (Number(item.precio) || 0), 0);
+  return Math.round(state.mostradorCart.reduce((sum, item) => sum + Math.round((Number(item.cantidad)||0)*(Number(item.precio)||0)*100)/100, 0)*100)/100;
 }
 function renderMostradorQuickLabelsD9() {
   const client = document.getElementById("mostradorClientLabel");
@@ -6703,10 +6708,10 @@ function buildMostradorPayloadD9() {
       precio_oferta: Number(item.precio_oferta || 0),
       usa_oferta: Boolean(item.usa_oferta),
       oferta_id: item.oferta_id || "",
-      subtotal: cantidad * precio
+      subtotal: Math.round(cantidad * precio * 100)/100
     };
   });
-  const total = items.reduce((sum, x) => sum + Number(x.subtotal || 0), 0);
+  const total = Math.round(items.reduce((sum, x) => sum + Number(x.subtotal || 0), 0)*100)/100;
   return {
     action: "guardar_venta_mostrador",
     tipo: "mostrador",
@@ -6728,13 +6733,15 @@ function buildMostradorPayloadD9() {
 }
 
 function mostradorLogDataD9(payload, resultado = "ok", extra = "") {
-  const ventaId = String(payload?.venta_id || "").trim();
+  const ventaId = String(payload?.venta_id || payload?.intencion_id || "").trim();
   const cliente = String(payload?.cliente || "Consumidor final").trim();
   const total = Number(payload?.total_venta ?? payload?.total ?? 0);
   const productos = Array.isArray(payload?.items) ? payload.items.length : 0;
   const resumen = `${ventaId} | ${cliente} | ${money(total)} | ${productos} ${productos === 1 ? "producto" : "productos"}`;
   return {
     payload,
+    vendedor_id: payload?.usuario_id || "",
+    vendedor: payload?.usuario || "",
     pedido_id: ventaId,
     cliente,
     total,
@@ -6764,6 +6771,8 @@ function saveMostradorHistoryD9(payload, status = "local", error = "", options =
     status,
     error,
     saved_sheet: Boolean(options.saved_sheet || prev.saved_sheet || false),
+    medio_pago: payload.medio_pago || prev.medio_pago || "",
+    finanzas_id: payload.finanzas_id || prev.finanzas_id || "",
     fingerprint: payload.fingerprint || prev.fingerprint || "",
     items: (payload.items || prev.items || []).map(x => ({
       id: x.id || x.id_producto || "",
@@ -6799,34 +6808,7 @@ function ventaMostradorYaGuardadaEnSheetD9(ventaId) {
 
 async function persistMostradorVentaD9(motivo = "local") {
   if (!state.mostradorCart.length) return null;
-  const payload = buildMostradorPayloadD9();
-  const statusBase = motivo === "whatsapp" ? "enviado" : motivo === "impresion" ? "impreso" : "local";
-  saveMostradorHistoryD9(payload, statusBase, motivo === "whatsapp" ? "WhatsApp abierto" : "", { saved_sheet: false });
-
-  if (ventaMostradorYaGuardadaEnSheetD9(payload.venta_id)) {
-    return { ok: true, already_saved: true, payload };
-  }
-
-  if (!navigator.onLine) {
-    saveMostradorHistoryD9(payload, "pendiente", "Sin conexión", { saved_sheet: false });
-    return { ok: false, pending: true, payload };
-  }
-
-  try {
-    const res = await sendMostradorVentaToSheetD9(payload);
-    if (res?.ok) {
-      saveMostradorHistoryD9(payload, statusBase, "", { saved_sheet: true });
-      logAppEventD9("VENTA_MOSTRADOR_OK", mostradorLogDataD9(payload, "ok"));
-      return { ok: true, payload, res };
-    }
-    saveMostradorHistoryD9(payload, "pendiente", res?.error || "No se confirmó en Sheet", { saved_sheet: false });
-    console.warn("Venta mostrador pendiente:", res?.error || res);
-    return { ok: false, payload, res };
-  } catch (err) {
-    saveMostradorHistoryD9(payload, "pendiente", String(err), { saved_sheet: false });
-    console.warn("Venta mostrador pendiente:", err);
-    return { ok: false, payload, error: err };
-  }
+  return financeSaveCurrentSaleD9(motivo);
 }
 
 
@@ -6888,7 +6870,7 @@ function renderSalesHistoryD9() {
           <div class="history-copy">
             <strong>${esc(item.cliente || "Consumidor final")}</strong>
             <div class="mini-text">${esc(new Date(item.fecha || Date.now()).toLocaleString("es-AR"))} · ${esc(item.usuario || "Mostrador")}</div>
-            <div class="mini-text history-meta-line">${esc(item.status || "local")}${item.error ? ' · ' + esc(item.error) : ''}</div>
+            <div class="mini-text history-meta-line">${esc(item.status || "local")}${item.error ? ' · ' + esc(item.error) : ''} · ${esc(financeMethodLabelD9(item.medio_pago))}</div>
             <div class="history-actions" data-no-toggle>
               <button class="history-reuse-btn" data-reuse-sales-history="${esc(id)}" type="button" aria-label="Reutilizar venta">↻ Reutilizar</button>
               <button class="history-delete-btn" data-delete-sales-history="${esc(id)}" type="button" aria-label="Borrar venta del historial">🗑️ Borrar</button>
@@ -6995,6 +6977,7 @@ function buildMostradorTextD9(payload = null) {
   });
   lines.push("────────────────────");
   lines.push(`TOTAL: ${money(totalVenta)}`);
+  if(payload?.medio_pago)lines.push(`Condición / medio: ${financeMethodLabelD9(payload.medio_pago)}`);
   lines.push("Comprobante no oficial");
   return lines.join("\n");
 }
@@ -7016,7 +6999,7 @@ function whatsappDestinationLabelD9(value) {
 async function postMostradorApiD9(action, payload, fallbackError) {
   if (!navigator.onLine) throw new Error("Necesitás conexión para guardar cambios de clientes.");
   const apiBase = getApiBaseD9();
-  const body = JSON.stringify({action,...payload});
+  const body = JSON.stringify({action,...payload,token:financeSessionD9()});
 
   async function tryPost(options) {
     const response = await fetch(`${apiBase}?action=${encodeURIComponent(action)}`, {
@@ -7061,18 +7044,20 @@ async function postMostradorClientPhoneD9(client, phone) {
 }
 
 async function saveMostradorClientPhoneD9(client, phone) {
+  const actingUserId=String(state.seller?.id||"");
   const cleanPhone = String(phone || "").trim();
   const destination = whatsappDestinationDigitsD9(cleanPhone);
   if (destination.length < 10) throw new Error("Ingresá un teléfono completo con código de área.");
 
   await postMostradorClientPhoneD9(client, cleanPhone);
+  if(actingUserId!==String(state.seller?.id||""))return {...client,telefono:cleanPhone};
 
   const clientId = String(client?.id || "").trim();
   state.clients = state.clients.map(item =>
     String(item?.id || "").trim() === clientId ? { ...item, telefono: cleanPhone } : item
   );
   const updated = state.clients.find(item => String(item?.id || "").trim() === clientId) || { ...client, telefono: cleanPhone };
-  state.mostradorClient = updated;
+  if(String(state.mostradorClient?.id||"")===clientId)state.mostradorClient = updated;
   persistCacheState();
   renderMostradorQuickLabelsD9();
   renderClients();
@@ -7083,7 +7068,7 @@ function closeMostradorOverlayD9(id) {
   document.getElementById(id)?.remove();
 }
 
-function showMostradorPhonePromptD9(client) {
+function showMostradorPhonePromptD9(client, options = {}) {
   closeMostradorOverlayD9("mostradorPhoneOverlayD9");
   const overlay = document.createElement("div");
   overlay.id = "mostradorPhoneOverlayD9";
@@ -7109,11 +7094,12 @@ function showMostradorPhonePromptD9(client) {
   const saveBtn = overlay.querySelector("#btnMostradorSavePhoneD9");
   const skipBtn = overlay.querySelector("#btnMostradorSkipPhoneD9");
   const errorBox = overlay.querySelector("#mostradorPhoneErrorD9");
+  const phoneUserId=String(state.seller?.id||"");
 
   const continueWithoutClient = () => {
     if (saveBtn?.disabled) return;
     closeMostradorOverlayD9("mostradorPhoneOverlayD9");
-    finalizeMostradorWhatsAppD9(false);
+    if(options.onContinue)options.onContinue(false);else finalizeMostradorWhatsAppD9(false);
   };
 
   const saveAndContinue = async () => {
@@ -7129,9 +7115,10 @@ function showMostradorPhonePromptD9(client) {
     }
     try {
       await saveMostradorClientPhoneD9(client, input?.value || "");
+      if(phoneUserId!==String(state.seller?.id||"")||document.getElementById(overlay.id)!==overlay)return;
       closeMostradorOverlayD9("mostradorPhoneOverlayD9");
       toast("Teléfono guardado en la ficha del cliente.");
-      finalizeMostradorWhatsAppD9(true);
+      if(options.onContinue)options.onContinue(true);else finalizeMostradorWhatsAppD9(true);
     } catch (error) {
       if (errorBox) {
         errorBox.textContent = String(error?.message || error || "No se pudo guardar el teléfono.");
@@ -7156,19 +7143,20 @@ function showMostradorPhonePromptD9(client) {
   window.setTimeout(() => input?.focus(), 80);
 }
 
-function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowClient }) {
+function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowClient, optional = false, onFinish = null, title = "Venta lista para enviar", status = "" }) {
   closeMostradorOverlayD9("mostradorWhatsAppOverlayD9");
-  const internalRaw = state.seller?.wasap_report || getDefaultWhatsAppD9();
+  const internalRaw = payload?.internal_whatsapp || state.seller?.wasap_report || getDefaultWhatsAppD9();
   const internalPhoneCandidate = whatsappDestinationDigitsD9(internalRaw);
   const internalPhone = internalPhoneCandidate.length >= 10 ? internalPhoneCandidate : "";
-  const clientRaw = allowClient ? (state.mostradorClient?.telefono || payload?.telefono || "") : "";
+  const clientRaw = allowClient ? (payload?.telefono || "") : "";
   const clientPhoneCandidate = whatsappDestinationDigitsD9(clientRaw);
   const clientPhone = clientPhoneCandidate.length >= 10 ? clientPhoneCandidate : "";
   const clientName = payload?.cliente || "Cliente";
   const savedInPc = Boolean(saveResult?.ok);
-  const saleStatus = savedInPc
+  const saleStatus = status || (savedInPc
     ? "Venta registrada correctamente."
-    : "Venta guardada en el celular y pendiente de confirmación en la PC.";
+    : "Venta guardada en el celular y pendiente de confirmación en la PC.");
+  const finish=()=>{if(onFinish)return onFinish();if(financeSaleIsCurrentD9(payload))finalizeMostradorSaleD9();else closeMostradorOverlayD9("mostradorWhatsAppOverlayD9");};
   let internalDone = false;
   let clientDone = false;
 
@@ -7177,7 +7165,7 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
   overlay.className = "d9-confirm-overlay mostrador-flow-overlay-d9";
   overlay.innerHTML = `
     <div class="d9-confirm-box mostrador-flow-box-d9 mostrador-share-box-d9" role="dialog" aria-modal="true" aria-labelledby="mostradorShareTitleD9">
-      <h3 id="mostradorShareTitleD9">Venta lista para enviar</h3>
+      <h3 id="mostradorShareTitleD9">${esc(title)}</h3>
       <p class="mostrador-sale-status-d9">✓ ${esc(saleStatus)}</p>
       <small>Cada botón abre una conversación diferente. Revisá el destinatario antes de enviar.</small>
       <div class="mostrador-destinations-d9">
@@ -7199,7 +7187,7 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
           </div>`}
       </div>
       ${internalPhone ? "" : '<div class="mostrador-flow-error-d9">Falta configurar el WhatsApp interno del usuario o de confi.</div>'}
-      <button id="btnMostradorShareDoneD9" class="mostrador-flow-done-d9" type="button">Finalizar venta</button>
+      <button id="btnMostradorShareDoneD9" class="mostrador-flow-done-d9" type="button">${optional ? "Finalizar" : "Finalizar venta"}</button>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -7216,7 +7204,7 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
         logAppEventD9("WHATSAPP_INTERNO_ABIERTO", mostradorLogDataD9(payload, "ok", `destino:${internalPhone}`));
       }
       internalDone = true;
-      markOpened(event.currentTarget, "1 · Copia interna enviada");
+      markOpened(event.currentTarget, "1 · WhatsApp interno abierto");
     }
   });
   overlay.querySelector("#btnMostradorSendClientD9")?.addEventListener("click", event => {
@@ -7225,14 +7213,14 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
         logAppEventD9("WHATSAPP_CLIENTE_ABIERTO", mostradorLogDataD9(payload, "ok", `destino:${clientPhone}`));
       }
       clientDone = true;
-      markOpened(event.currentTarget, "2 · Copia al cliente enviada");
+      markOpened(event.currentTarget, "2 · WhatsApp del cliente abierto");
     }
   });
   overlay.querySelector("#btnMostradorShareDoneD9")?.addEventListener("click", () => {
     const missingInternal = Boolean(internalPhone && !internalDone);
     const missingClient = Boolean(clientPhone && !clientDone);
-    if (!missingInternal && !missingClient) {
-      finalizeMostradorSaleD9();
+    if (optional || (!missingInternal && !missingClient)) {
+      finish();
       return;
     }
     const detail = missingInternal && missingClient
@@ -7245,7 +7233,7 @@ function showMostradorWhatsAppDestinationsD9({ payload, text, saveResult, allowC
       detail,
       okText: "Finalizar igualmente",
       cancelText: "Volver",
-      onOk: finalizeMostradorSaleD9
+      onOk: finish
     });
     document.getElementById("d9ConfirmOverlay")?.classList.add("mostrador-finalize-confirm-d9");
   });
@@ -7279,7 +7267,9 @@ async function finalizeMostradorWhatsAppD9(allowClient) {
 
   try {
     const saveResult = await persistMostradorVentaD9("whatsapp");
+    if(!saveResult)return;
     if (!saveResult?.payload) throw new Error("No se pudo preparar la venta.");
+    if(!financeSaleIsCurrentD9(saveResult.payload)||state.currentView!=="mostrador")return toast(`Venta ${saveResult.payload.venta_id} registrada. Tu trabajo actual no se modificó.`);
     const text = buildMostradorTextD9(saveResult.payload);
     showMostradorWhatsAppDestinationsD9({
       payload: saveResult.payload,
@@ -7289,7 +7279,7 @@ async function finalizeMostradorWhatsAppD9(allowClient) {
     });
   } catch (error) {
     console.warn("No se pudo preparar WhatsApp mostrador:", error);
-    toast("No se pudo registrar la venta. Reintentá.");
+    toast(error.message || "No se pudo registrar la venta. Verificá el resultado antes de reintentar.");
   } finally {
     state.mostradorFinalizingWhatsApp = false;
     if (button) {
@@ -7316,22 +7306,24 @@ function whatsappMostradorD9() {
   finalizeMostradorWhatsAppD9(hasClientPhone);
 }
 
-function printMostradorD9() {
+async function printMostradorD9() {
   if (!state.mostradorClient || !isMostradorClientOwnedD9(state.mostradorClient)) return toast("Primero elegí un cliente de tu cartera.");
   if (!state.mostradorCart.length) return toast("Agregá productos.");
-  persistMostradorVentaD9("impresion");
-  const rows = state.mostradorCart.map(item => {
+  const win = window.open("", "_blank");
+  if (!win) return toast("El navegador bloqueó la impresión.");
+  let saved;try{saved=await persistMostradorVentaD9("impresion");}catch(error){win.close();return toast(error.message);}
+  if(!saved){win.close();return;}
+  const payload=saved.payload;
+  const rows = payload.items.map(item => {
     const total = (Number(item.cantidad)||0) * (Number(item.precio)||0);
     return `<tr><td>${esc(item.nombre)}</td><td>${esc(fmtQtyD9(item.cantidad))}</td><td>${esc(money(item.precio))}</td><td>${esc(money(total))}</td></tr>`;
   }).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Mostrador</title><style>
     @page{size:A4;margin:12mm} body{font-family:Arial,sans-serif;color:#111;font-size:13px} h1{font-size:20px;margin:0 0 4px} .muted{color:#555;margin-bottom:12px} table{width:100%;border-collapse:collapse} th,td{border-bottom:1px solid #ddd;padding:6px 4px;text-align:left} th{font-size:11px;text-transform:uppercase} td:nth-child(2),td:nth-child(3),td:nth-child(4),th:nth-child(2),th:nth-child(3),th:nth-child(4){text-align:right;white-space:nowrap}.total{font-size:18px;font-weight:800;text-align:right;margin-top:12px}.foot{font-size:11px;color:#666;margin-top:14px}</style></head><body>
-    <h1>Remito interno / mostrador</h1><div class="muted">Fecha: ${esc(new Date().toLocaleString("es-AR"))} · Operador: ${esc(state.seller?.nombre || "Mostrador")} · Cliente: ${esc(state.mostradorClient?.nombre_real || state.mostradorClient?.nombre || "Consumidor final")}</div>
+    <h1>Remito interno / mostrador</h1><div class="muted">Fecha: ${esc(payload.fecha_txt)} · Operador: ${esc(payload.usuario)} · Cliente: ${esc(payload.cliente)}</div>
     <table><thead><tr><th>Producto</th><th>Cant/Peso</th><th>Unit.</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="total">TOTAL: ${esc(money(mostradorTotalD9()))}</div><div class="foot">Comprobante no oficial</div>
+    <div class="total">TOTAL: ${esc(money(payload.total))}</div><div class="foot">Comprobante no oficial</div>
     <script>window.print();<\/script></body></html>`;
-  const win = window.open("", "_blank");
-  if (!win) return toast("El navegador bloqueó la impresión.");
   win.document.open(); win.document.write(html); win.document.close();
 }
 function setupMostradorHomeD9() {
@@ -7503,6 +7495,7 @@ function renderMostradorRoleD9() {
   setupMostradorViewD9();
   setupMostradorClientsViewD9();
   setupSalesHistoryViewD9();
+  if(typeof renderFinanceHomeD9==="function")renderFinanceHomeD9();
   const on = isMostradorD9();
   document.getElementById("btnGoOrder")?.classList.toggle("hidden", on);
   document.getElementById("btnGoHistory")?.classList.toggle("hidden", on);

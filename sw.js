@@ -1,10 +1,11 @@
-const CACHE_NAME = "d9-pedidos-v1534-prod-product-search";
+const CACHE_NAME = "d9-pedidos-v1535-prod-finance-auth";
 const URLS = [
   "./",
   "./index.html",
-  "./styles.css?v=1534-prod",
-  "./app.js?v=1534-prod",
-  "./manifest.json?v=d9-prod-v1534",
+  "./styles.css?v=1535-prod",
+  "./finance.js?v=1535-prod",
+  "./app.js?v=1535-prod",
+  "./manifest.json?v=d9-prod-v1535",
   "./icons/d9-icon-192-v2.png",
   "./icons/d9-icon-512-v2.png",
   "./icons/d9-maskable-512-v2.png",
@@ -40,6 +41,7 @@ function isAppShellRequest(request) {
     url.pathname.endsWith("/") ||
     url.pathname.endsWith("/index.html") ||
     url.pathname.endsWith("/app.js") ||
+    url.pathname.endsWith("/finance.js") ||
     url.pathname.endsWith("/styles.css") ||
     url.pathname.endsWith("/manifest.json")
   );

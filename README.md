@@ -1,212 +1,141 @@
-# D9 Pedidos PWA
+# D9 Pedidos v1.5.35 PROD
 
-PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, cola local de pendientes y sincronización automática.
+Etapa coordinada con D9 Gestión v0.19.0. Base: Pedidos v1.5.34 real. Este ZIP contiene solamente Pedidos y su propio Apps Script. No se publicó ni se modificó producción.
 
-## v1.5.34-prod - búsqueda textual de productos corregida
+## Qué incorpora
 
-- Generar pedido, Venta y Lista de precios buscan texto solamente por código/ID y nombre/descripción.
-- Categoría y Marca continúan funcionando como filtros explícitos e independientes.
-- No modifica Apps Script, Worker, productos, precios, pedidos, ventas ni sincronización.
+Para cualquier usuario con rol `mostrador`, sin nombres ni IDs hardcodeados:
 
-## v1.5.32-prod - pedidos consecutivos sin pérdida de edición
+- Venta Zonal conserva clientes, productos, pesos, ofertas, historial y doble WhatsApp existentes.
+- Antes de registrar, exige elegir Efectivo, Transferencia, Cheque o Cuenta corriente. No hay medio elegido por defecto.
+- La Venta registra su efecto económico en la Cuenta Corriente real de Gestión. Su comprobante posterior no vuelve a generar deuda ni cobra otra vez.
+- Home incorpora `CUENTA CORRIENTE` debajo de `VENTA ZONAL`: clientes propios, saldo real, movimientos recientes, `COBRAR` y `ENVIAR POR WHATSAPP` independientes.
+- Cobro parcial/total por Efectivo, Transferencia o Cheque, usando recibos, pagos, movimientos y cheques existentes de Gestión.
+- Tras confirmar un Cobro se reutiliza el modal de doble WhatsApp de Venta, pero compartir es opcional: interno, cliente, ambos o ninguno.
+- Login validado en backend, sesión firmada y claves fuera del bootstrap/caché de usuarios.
+- Bloqueo backend del editor antiguo de Usuarios de Admin: Gestión → Usuarios queda como único administrador efectivo.
 
-- Corrige el segundo reset tardío que podía borrar el pedido nuevo cuando llegaba la confirmación del pedido anterior.
-- El pedido enviado conserva un snapshot propio de cliente, productos, cantidades, notas, precios/ofertas e ID.
-- La pantalla se limpia una sola vez al cerrar el pedido enviado y queda inmediatamente disponible para el siguiente.
-- Las confirmaciones, errores y reintentos posteriores actualizan únicamente historial/pendientes del `pedido_id` correspondiente.
-- Permite A y B simultáneamente en vuelo mientras C continúa en edición, incluso si las respuestas llegan fuera de orden.
-- No modifica Worker, Apps Script, Venta Zonal ni el resto de los módulos.
+## Instalación coordinada — ambos Scripts y ambos frontends
 
-## Stack actual
+No habilitar operaciones financieras mientras uno de los dos componentes siga en la versión anterior.
 
-- Frontend: HTML, CSS y JS puro.
-- Hosting: Cloudflare Pages.
-- Lectura de datos: Apps Script API (`?action=bootstrap`).
-- Envío de pedidos: Cloudflare Worker.
-- Base de datos: Google Sheets.
+1. Conservar los ZIP anteriores y hacer copias versionadas de las dos Sheets y proyectos Apps Script. No borrar pendientes de vendedores.
+2. En **D9 Script PROD de Pedidos**, instalar `apps-script/Code.txt` de ESTE ZIP, idéntico a `Code.gs`. Actualizar el despliegue existente con una nueva versión, conservando URL `/exec`. No pegar aquí el Script de Gestión.
+3. En **D9 Gestión**, instalar el Script de SU ZIP v0.19.0 y actualizar su despliegue conservando URL, IDs, secretos, permisos y contadores. **No ejecutar `setupD9Gestion()`**.
+4. Gestión ahora valida sesiones contra Pedidos con `UrlFetchApp`; autorizar ese permiso si se solicita. Si su URL de Pedidos es distinta de la incluida, configurar la propiedad `PEDIDOS_API_URL` en el Script de Gestión. No crear claves maestras ni compartir secretos.
+5. Verificar que `D9_FINANCE_URL` en `finance.js` apunta al Script real de Gestión. Gestión conserva su endpoint en `config.js`. Las URLs incluidas son las del baseline, no despliegues nuevos.
+6. Reemplazar ambos frontends completos en sus alojamientos separados, incluyendo `finance.js` en Pedidos. Subir sólo archivos web: no publicar Apps Script, README ni copias de datos como recursos web.
+7. Abrir con conexión, comprobar v1.5.35 / v0.19.0 e ingresar online en Pedidos para obtener la sesión nueva. No borrar datos del navegador para actualizar: podría borrar pedidos e intenciones inciertas.
+8. **Antes de operar dinero real, rotar desde Gestión → Usuarios las claves antes distribuidas públicamente**, por claves nuevas y robustas. La corrección no vuelve secretas las claves que ya quedaron expuestas. Cambiarlas invalida los tokens Pedidos de la clave anterior.
+9. Realizar el piloto descrito abajo. Revisar bajo autorización si hay despliegues anteriores públicos con claves/rutas inseguras: los cambios locales no retiran esos despliegues.
 
-## Archivos principales
+`PEDIDOS_SESSION_SECRET` se crea automáticamente al primer login en el proyecto Pedidos. No se envía al navegador ni debe cambiarse en cada actualización. Las columnas nuevas y el diario técnico se incorporan al primer uso; no hay que ejecutar setup financiero ni reiniciar numeraciones.
 
-- `index.html`: estructura de la UI y modales.
-- `styles.css`: diseño visual.
-- `app.js`: lógica de datos, pedidos, historial, pendientes y sincronización.
-- `sw.js`: service worker para cache offline de archivos propios.
-- `manifest.json`: configuración PWA.
-- `MODO_SIMPLE_Y_LISTAS.md`: activación en la Sheet y prueba segura en desarrollo.
+## Autenticación y compatibilidad deliberada
 
-## v1.5.31-prod - hotfix alta de cliente
+`login` comprueba usuario activo y clave en el maestro central. Devuelve el usuario sin secretos y token HMAC-SHA256 de alcance `pedidos`, ID y vencimiento de 30 días. La comprobación backend relee usuario activo y huella de credencial: cambiar clave o desactivar usuario revoca las nuevas operaciones autenticadas.
 
-- Corrige `cliente is not defined` al preparar el POST de alta/edición desde Venta Zonal.
-- No cambia cartera, Script, ventas, ofertas, WhatsApp ni pedidos normales.
+El bootstrap público no entrega `clave`, `password`, tokens ni campos de secretos del maestro usuarios. El frontend sanea `d9_cache_users`, no vuelve a guardar esas claves y vacía la contraseña del formulario tras login. El token se conserva separado de la identidad de trabajo, no contiene la contraseña original y no habilita una sesión administrativa de Gestión.
 
-## v1.5.30-prod - Venta Zonal y cartera propia
+`update_usuarios` y `upsert_usuarios` están rechazados en el dispatcher backend; el helper también está deshabilitado. Se revisaron exclusivamente las rutas de usuarios/autenticación: no se encontró otra equivalente habilitada para cambiar credenciales, roles o permisos. También se rechazan peticiones con un token Pedidos de un usuario admin. No hay excepción Admin, parámetro oculto ni clave maestra.
 
-- Renombra la experiencia visible de `mostrador` a `VENTA ZONAL` sin cambiar IDs ni estructuras internas.
-- Oculta Generar pedido e Historial de pedidos sólo para mostrador.
-- Agrega Nuevo cliente y Mis clientes al Home.
-- Los clientes creados son registros reales del maestro y quedan asignados automáticamente al mostrador logueado.
-- Venta Zonal y Mis clientes trabajan únicamente con la cartera asignada por vendedor.
-- Conserva sin cambios venta_id, ofertas, doble WhatsApp, finalización, impresión, logs, ventas y pedidos de otros roles.
-- Incluye el Script PROD complementario dentro de `apps-script/`; no requiere cambios de Worker ni de Gestión.
+**D9 Admin → Usuarios conserva su frontend antiguo pero su guardado quedó obsoleto.** No se modificó Admin. Para administrar claves/roles/permisos usar **Gestión → Usuarios**, con su sesión, autorización admin y controles existentes. Las contraseñas tampoco se entregan a un editor antiguo mediante bootstrap.
 
-## v1.5.29-prod - logs y selector simplificado en Venta mostrador
+Alta/edición de clientes mostrador ahora exige token: el backend obtiene el creador autenticado y conserva la cartera propia. Gestión valida sesión, rol mostrador y cliente autorizado para las nuevas funciones financieras, sin permisos administrativos.
 
-- Registra `VENTA_MOSTRADOR_OK` cuando la Sheet confirma el guardado de una venta nueva.
-- El detalle identifica `venta_id`, cliente, total y cantidad de productos usando el sistema común `log_evento`.
-- Registra una sola vez por destino y por modal `WHATSAPP_INTERNO_ABIERTO` y `WHATSAPP_CLIENTE_ABIERTO`.
-- La semántica indica apertura de WhatsApp, no un envío que la PWA no puede comprobar.
-- Elimina únicamente el selector superior redundante de Categoría en Venta mostrador.
-- Categorías, marcas y Ofertas continúan disponibles dentro del selector de Productos.
-- `SYNC_ERROR · interval` sigue correspondiendo al refresco general de datos, no al guardado de ventas.
-- No modifica Apps Script, Worker, impresión, Generar pedido, otros roles ni Gestión.
+Esto NO es una migración general de seguridad. Las demás rutas legacy y Worker del Pedido convencional se conservaron; no se afirma una auditoría/protección general del ecosistema.
 
-## v1.5.28-prod - cierre y ofertas en Venta mostrador
+## Offline
 
-- Los dos destinos de WhatsApp comienzan pendientes y cambian a verde después de abrir cada conversación.
-- `Finalizar venta` advierte solamente por los destinos disponibles que todavía no se utilizaron.
-- Al finalizar limpia el trabajo actual de Venta mostrador sin borrar ni registrar nuevamente la venta guardada.
-- Venta mostrador reutiliza la misma lógica de ofertas de Generar pedido: precio normal inicial, aplicación manual y regreso al precio normal.
-- El precio elegido y los datos de la oferta se conservan en el registro e historial local; total y WhatsApp utilizan ese precio.
-- No modifica Apps Script, Worker, impresión, pedidos normales, otros roles ni módulos financieros.
+Se conservan identidad/sesión de trabajo existente, productos/clientes cacheados, armado de Pedidos, cola de pendientes y sincronización posterior. Un nuevo login requiere conexión: ya no compara claves distribuidas al navegador.
 
-## v1.5.27-prod - WhatsApp interno y cliente en Venta mostrador
+Registrar Venta financiera, consultar CC, Cobrar o registrar Cheque requieren conexión. Sin conexión no se registra ni se encola dinero; el carrito se conserva para recuperar señal. La identidad anterior permite seguir con Pedidos offline; finanzas y edición segura de clientes requieren ingresar online una vez.
 
-- Conserva el circuito existente de Venta mostrador, su `venta_id`, guardado, historial e impresión.
-- Registra la venta una sola vez y luego presenta dos destinos separados: copia interna y cliente.
-- El destino interno continúa usando `wasap_report` del usuario y, como respaldo, el WhatsApp general de `confi`.
-- El teléfono del cliente registrado se toma de su ficha.
-- Si falta, permite guardarlo en la ficha mediante el `update_clientes` ya existente o continuar sin enviar al cliente.
-- Los clientes ocasionales usan el teléfono ingresado en su carga, sin convertirse en clientes permanentes.
-- Normaliza números argentinos habituales para WhatsApp y muestra cada destinatario antes de abrir la conversación.
-- No modifica Apps Script, Worker, ventas, pedidos normales, otros roles ni módulos financieros.
+## Venta Zonal
 
-## v1.5.26-prod - eliminación individual de pendientes
+Cliente/productos como antes → registrar/WhatsApp o impresión existente → elegir medio obligatorio → confirmar registro financiero → WhatsApp interno/cliente o impresión → finalizar.
 
-- Cada pedido de `Pendientes de envío` incorpora la acción discreta `Eliminar pendiente`.
-- Antes de eliminar se confirma que el pedido todavía no está confirmado en la PC y dejará de reintentarse.
-- Se elimina únicamente el registro seleccionado de la cola local `d9_pendientes`.
-- La interfaz y el contador se actualizan inmediatamente.
-- No cambia historial, IDs, envío, reintentos, sincronización automática, Worker ni Apps Script.
+- Cuenta corriente: una deuda por el total, sin recibo.
+- Efectivo/Transferencia/Cheque: débito y recibo/pago compensatorio por el mismo total, saldo neto cero de ESA Venta. No borra otra deuda previa del cliente.
+- Transferencia: referencia opcional, como Gestión.
+- Cheque: banco/número/vencimiento obligatorios, librador opcional. Se guarda un cheque real EN_CARTERA con su recibo/pago; no supone cobro bancario definitivo.
+- Precios elegidos y ofertas se conservan; no se recotiza con el maestro. Subtotales y total se redondean a centavos como Gestión, conservando cantidades/pesos y precio unitario.
+- Imprimir/compartir una Venta confirmada reutiliza su registro: no genera otra Venta ni otro efecto económico.
+- Finalizar limpia sólo ese trabajo, no el registro. Una respuesta tardía no limpia otra Venta o Pedido.
 
-## v1.5.25-prod - buscador en Historial
+WhatsApp muestra la condición real cuando existe. Verde significa que D9 **abrió WhatsApp**, no envío comprobado. No cambió el formato A4 ni se agregó térmica/Bluetooth.
 
-- Agrega búsqueda instantánea por nombre de cliente.
-- También encuentra por ID o número de pedido cuando está disponible en el historial local.
-- Filtra solamente los movimientos ya mostrados por Historial y no cambia datos, envío, sincronización ni almacenamiento.
-- No requiere cambios en D9 Script PROD ni en el Worker.
+## Cuenta corriente y Cobrar
 
-## v1.5.24-prod - vínculo seguro de clientes
+Clientes propios, autorizados nuevamente en backend. La consulta trae saldo global y últimos 20 movimientos reales de Gestión con saldo acumulado; saldo negativo se muestra a favor.
 
-- Los pedidos nuevos envían el `cliente_id` además del texto comercial visible.
-- Gestión puede precargar el cliente por ID aunque el pedido incluya teléfono o dirección.
-- Los pedidos anteriores siguen siendo compatibles mediante búsqueda segura por nombre.
+Cobrar permite importe parcial, medio e imputación. Se conserva la regla vigente:
 
-## v1.5.23-prod - promoción aprobada de desarrollo
+- Una sola operación con saldo se propone automáticamente.
+- Con varias, elegir una o `A cuenta, sin operación específica`.
+- Un cobro imputado no supera su saldo; para crédito adicional elegir A cuenta.
+- **A cuenta baja el saldo global pero no cancela automáticamente saldos individuales de comprobantes.** No hay FIFO/reparto nuevo; saldo global y suma documental pueden diferir como antes en Gestión.
 
-- Publica en producción la lógica validada durante dos días en `v1.5.22-dev`.
-- Incorpora modo simple opcional, listas asignadas por cliente y cambio manual por pedido.
-- Lista 2 y Lista 3 usan Lista 1 como respaldo visible cuando no tienen precio.
-- Oculta productos que no poseen un precio válido en Lista 1.
-- Incorpora ofertas con aplicación manual: cada producto entra inicialmente con su precio normal.
-- Compacta Generar pedido y combina filtros de Categoría y Marca dentro del selector de productos.
-- Mantiene los fixes productivos de IDs, pendientes, verificación en Sheet y retorno desde WhatsApp.
-- No requiere cambios en D9 Script PROD, Cloudflare Worker ni estructura de pedidos.
+El recibo confirmado muestra número real, fecha, cobrador, saldo anterior, importe, medio y saldo posterior; con cheque, sus datos. WhatsApp/finalizar no registran dinero. Los destinos usan snapshot de la operación y configuración interna del usuario, no otro cliente que se seleccione después.
 
-## v1.5.22-dev - ofertas manuales y respaldo visible
+`ENVIAR POR WHATSAPP` refresca la cuenta y prepara saldo/movimientos para el cliente, sin crear recibos ni movimientos. Sin teléfono, se reutiliza el editor existente para guardarlo realmente en su ficha o puede omitirse. No bloquea ni revierte un cobro ya confirmado.
 
-- Los productos con oferta se agregan inicialmente con su precio normal.
-- La oferta se aplica únicamente al pulsar el botón de la línea del pedido.
-- Si Lista 2 o 3 hereda un precio, la línea identifica `respaldo Lista 1`.
-- Al cambiar de lista, el aviso indica cuántos productos están usando el respaldo.
+## Timeout, doble toque y recuperación
 
-## v1.5.21-dev - Lista 1 como precio base
+La Venta usa el `venta_id` existente; cada Cobro usa un `intencion_id` estable. Snapshot, usuario, cliente, importe y medio quedan congelados antes de enviar.
 
-- Un producto sin precio válido en Lista 1 no aparece aunque figure activo.
-- Lista 2 y Lista 3 usan automáticamente Lista 1 cuando su precio está vacío o en cero.
-- Impide que cambiar de lista lleve un producto válido a precio cero.
+`d9_finance_intentions` guarda localmente snapshots/IDs antes del POST. **No es cola offline ni se envía automáticamente al reconectar.** Conserva todas las inciertas y hasta 100 confirmadas; muestra hasta 10 recibos recientes de este dispositivo.
 
-## v1.5.20-dev - ofertas más visibles
+Ante pérdida de respuesta no hay éxito/recibo inventado. Usar **Verificar resultado**:
 
-- El botón de una oferta disponible muestra el fuego aun antes de aplicarla.
-- Al aplicar la oferta, la línea del producto conserva visible el precio normal de lista.
-- El selector de lista queda reducido a un control secundario alineado a la derecha.
+1. Confirmada: recuperar resultado sin volver a escribir.
+2. Preparada parcialmente: confirmación explícita para completar el mismo plan, IDs y número.
+3. No existe: confirmación explícita para reintentar el mismo snapshot/ID.
 
-## v1.5.19-dev - pantalla de pedido compacta
+No crear otro ID para reemplazar una incierta. No borrar datos locales mientras haya intenciones inciertas. Una operación parcial bloquea nuevas mutaciones financieras de ese cliente hasta reconciliarla, no Pedidos convencionales ni otra edición. Confirmación A no cierra modal B, no cambia cliente ni carrito; logs conservan el autor original tras cambio de usuario.
 
-- Elimina el selector de categoría repetido de la pantalla principal.
-- Dentro de Productos incorpora filtros compactos y combinables de Categoría y Marca.
-- Mantiene `🔥 Productos en oferta` como categoría especial y permite combinarla con una marca.
-- Reduce el selector de lista a una franja discreta; si se cambia manualmente queda resaltada suavemente.
+## Gestión e históricos
 
-## v1.5.18-dev - productos en oferta
+Campos agregados en `ventas`: `medio_pago`, `finanzas_id`, `finanzas_item`; éste permite recuperar filas parciales sin duplicar ítems. Una operación sigue agrupada por `venta_id`.
 
-- Incorpora la categoría virtual `🔥 Productos en oferta`.
-- El precio normal de `lista_1/2/3` permanece intacto.
-- Al agregar desde esa categoría aplica la oferta; desde otra categoría puede activarse en la línea del pedido.
-- La oferta puede quitarse y volver al precio de la lista asignada al cliente.
-- Guarda en el payload el precio de lista, `oferta_id` y si se usó la oferta; el Worker actual tolera esos campos sin cambios.
+Gestión usa movimientos `VTA-<venta_id>` y `finanzas_venta_id` en el documento posterior. Exige mismo cliente y total; NO nueva deuda ni segundo cobro inicial. Anular ese documento no revierte dinero que no creó. NC/pagos vinculados resuelven el mismo origen, preservando permisos/cierres.
 
-## v1.5.17-dev - selector de lista visible desde el primer ingreso
+Ventas antiguas sin intención/condición siguen consultándose/imprimiéndose; no se adivina medio ni se genera deuda/recibo retroactivo. Su comprobante mantiene el circuito anterior. El nuevo endpoint no agrega finanzas a un ID histórico existente.
 
-- Corrige la inicialización del selector `Lista para este pedido`.
-- Ahora aparece al entrar por primera vez a `Generar pedido`, sin tener que visitar antes `Lista de precios`.
-- También se actualiza cada vez que se vuelve a abrir la pantalla del pedido.
-- Conserva el modo simple y las listas por cliente incorporadas en v1.5.16-dev.
+## Archivos modificados
 
-## v1.5.16-dev - selector de modo y listas por cliente
+- `app.js`: login/caché saneada, integración financiera con cierres existentes, condición en historial/texto, snapshots seguros para WhatsApp/teléfono y logs.
+- Nuevo `finance.js`: CC, Venta/Cobro, medios, verificación/intenciones, protección ante respuestas tardías.
+- `styles.css`: estilos localizados y responsive de controles/cuenta/modales.
+- `index.html`: carga del módulo y versión de recursos.
+- `manifest.json`, `sw.js`: versión/caché, incluyendo finance.js; sin cola de dinero.
+- `apps-script/Code.gs` y `Code.txt`: login/sesión, bootstrap sin claves, clientes autenticados, rutas Usuarios bloqueadas, rechazo de ventas financieras por ruta legacy.
+- `README.md`: instalación e informe.
 
-- Agrega un botón `Modo normal / Modo simple` dentro de Ingreso de usuario.
-- La elección queda guardada por usuario en ese celular o PC; no requiere columnas nuevas ni cambios en Apps Script.
-- El modo simple muestra un inicio reducido, botones grandes y un recorrido guiado: cliente → productos → pedido.
-- Prioriza clientes y productos usados recientemente en el dispositivo.
-- Conserva historial y pendientes de forma secundaria, sin eliminarlos.
-- Recupera la asignación de precios desde `clientes.lista_precio` (`lista_1`, `lista_2` o `lista_3`).
-- El modo normal permite cambiar la lista para un pedido y modificar el precio unitario de una línea sin alterar la Sheet.
-- Los pedidos guardan la lista utilizada y qué precios fueron modificados manualmente; el backend actual puede ignorar esos campos sin romper compatibilidad.
-- El parámetro `?modoSimple=1` queda disponible únicamente como prueba técnica opcional.
+Pedidos NO lleva otra contabilidad: escribe financieramente Gestión. No cambian Worker/Admin/Fiscal, generación de IDs, envío/pendientes convencionales, PDFs, listas 1/2/3 ni ofertas.
 
-## Limpieza aplicada
+## Pruebas y límites
 
-- Eliminada la carpeta `netlify/`.
-- Eliminado `netlify.toml`.
-- Eliminadas referencias internas a Netlify.
-- Eliminada lectura vieja vía OpenSheet.
-- La app queda leyendo datos desde Apps Script mediante `BOOTSTRAP_URL`.
-- Service Worker conserva estrategia network-first para archivos propios y no intercepta requests externos.
+Pasaron **23 pruebas backend** con Scripts reales y Sheets simuladas, y **14 frontend/estado** con código real y respuestas controladas:
 
-## v1.5.7-prod (fix ID congelado)
-- Fix crítico: el pedido_id se congela para el pedido actual y se libera inmediatamente para que el próximo pedido no arrastre el mismo ID mientras el envío/verificación sigue en segundo plano.
-- La verificación contra PC ya no valida sólo por ID: si el ID existe pero pertenece a otro cliente/productos/total, no lo toma como cargado.
-- Se elimina el reintento automático con ID nuevo ante colisión, para no mezclar WhatsApp/PC ni esconder el error.
-- Los duplicados controlados ahora se marcan como cargados en PC con mensaje claro: "Ya estaba cargado en PC. No se duplicó.".
+- Login/firma, token alterado, cambio de clave/desactivación, rol/cartera, escrituras antiguas rechazadas incluso con token Pedidos admin. Gestión admin conserva Usuarios y rechaza vendedor/sin token.
+- CC $50.000 + comprobante = $50.000; efectivo + comprobante = $0; CC $50.000 + cobro imputado $20.000 + comprobante = $30.000; cheque único sin doble deuda.
+- Referencias/transferencia, cobros parciales, crédito a favor, cheque/rechazo, IDs/cliente/importe inmutables, históricos y precios de oferta/decimales.
+- Fallos después de escritura parcial en ventas/recibos/pagos/cheques/movimientos/diario y reconciliación sin duplicaciones.
+- Comprobante sin segundo efecto, anulación documental y NC sobre origen financiero, sin doble devolución por documentos repetidos.
+- Cancelar = cero cambios; offline conserva carrito sin cola de dinero; doble gesto = un selector/registro; modal doble reutilizado, recibo/saldos reales y estado de cuenta sólo lectura.
+- Consultas/cobros tardíos no sustituyen otro cliente/modal ni Venta nueva; log conserva autor original.
+- **Pedido A → B → C; confirmar B antes de A: C conservó cliente, productos, cantidades, observaciones y oferta/precio.** Código de envío/callback/pendientes protegido comparado con la base.
+- Tests existentes de búsqueda (32 combinaciones y control Generar comprobante) e histórico/filtros/acciones/navegación responsive de Ventas ejecutados contra las carpetas nuevas.
 
+No hubo pruebas con Sheets/dinero reales. Checks responsive estructurales; **no se pudo ejecutar prueba visual automatizada porque no hay Chromium instalado**. Quedan revisión física PC/móvil, Android/WhatsApp y piloto financiero. No se afirma regresión general.
 
-## v1.5.8-prod (fix retorno WhatsApp)
+### Piloto antes de uso general
 
-- Corrige comparación numérica entre valores de Sheets (`$4.222,90`) y valores JS (`4222.900000000001`).
-- Si el backend respondió `ok:true`, no se convierte el pedido en pendiente por una verificación posterior demasiado estricta.
-- Apunta a eliminar warnings falsos al volver desde WhatsApp cuando el pedido ya está cargado en `pedidos`.
-- Mantiene el fix de ID congelado/liberado de v1.5.7.
+Cliente de prueba de cartera mostrador: cuatro escenarios anteriores, misma CC en ambas apps, Recibos/Pagos/Cheques visibles, crear/anular documento sin variar saldo indebidamente. Cobros por tres medios, cancelar medio antes de guardar, perder conexión después de confirmar y verificar mismo ID. Teléfono ausente, WhatsApp opcional de cobro, doble WhatsApp/limpieza de Venta, impresión y precios/oferta. PC/móvil: Home/cuenta/modales. Vendedor normal: Pedido offline y A → B → C fuera de orden.
 
+## Volver atrás
 
-## v1.5.10 - retorno sin reintento
-- Limpia pendientes falsos al volver de WhatsApp.
-- Verificación más fiel contra hoja pedidos (`id_prod`, cantidad en `total`, total en `total_pedido`).
-- Evita liberar el flujo antes de que termine la confirmación con Sheets.
+**Con Ventas financieras reales, no volver sin coordinación al backend anterior.** Puede reexponer claves/escritura Usuarios o duplicar/revertir deuda al documentar/anular ventas nuevas. Copias para recuperación controlada, no restauración automática de datos financieros. Una reversión visual debe conservar backends seguros y procedencia financiera o acordarse antes.
 
-
-## v1.5.12 - verifica antes de pendiente
-- Re-verifica contra PC antes de mostrar un pendiente visible por pérdida de confirmación al volver de WhatsApp.
-
-
-### v1.5.14 - mensaje OK cordial
-
-- Base v1.5.13.
-- Cambia los avisos visibles de duplicado controlado / ya estaba en PC por: "Pedido cargado correctamente en PC."
-- Sin cambios de backend, Admin, marcas ni lista.
-
-### v1.5.13 - logs depurados post-WhatsApp
-- Mantiene el fix de v1.5.12: verifica antes de dejar pendiente visible.
-- Evita reintentos/logs repetidos al volver desde WhatsApp si el pedido ya quedó OK recientemente.
-- Reduce logs técnicos: `PEDIDO_ID_CONGELADO`, bloqueos internos y WhatsApp duplicado no se guardan salvo `?debugLogs=1`.
-- No modifica backend/script, Admin, marcas ni modo de envío.
+Informe técnico completo de 26 puntos también en el README del ZIP Gestión v0.19.0. Cada app conserva su Script/endpoint propio. Sólo README informativo; Code.txt es fuente.

@@ -4773,3 +4773,22 @@ body.simple-mode-d9 #btnSend{
 .order-price-info-d9{display:none!important}
 .order-price-strip-d9.is-overridden{border-color:#f0b44c;background:#fff9ea}
 @media(max-width:520px){.order-price-strip-d9{max-width:calc(100% - 28px);margin:3px 14px 9px auto}.product-filter-btn-d9{min-height:55px;padding:7px 10px}.product-filter-btn-d9 strong{font-size:.9rem}}
+/* Mostrador: consulta real de cuenta y cobros online. */
+.finance-home-d9{margin-top:12px;background:linear-gradient(120deg,#1288ba,#0869a1)}
+.finance-box-d9{max-height:90dvh;overflow-y:auto;text-align:left}
+.finance-box-d9 form{display:grid;gap:12px}
+.finance-box-d9 label{display:grid;gap:6px;font-size:14px;font-weight:600}
+.finance-box-d9 input,.finance-box-d9 select{width:100%;min-height:46px;padding:10px 12px;border:1px solid #cbdfe9;border-radius:12px;background:#fff;color:#15314d;font:inherit}
+.finance-check-d9{display:grid;gap:10px}
+.finance-error-d9{color:#b43146;font-size:14px;overflow-wrap:anywhere}
+.finance-balance-d9{display:grid;gap:5px;margin:14px 0}
+.finance-balance-d9 strong{font-size:28px}
+.finance-account-actions-d9{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+.finance-account-actions-d9 button{flex:1;min-width:150px}
+.finance-movements-d9 article,.finance-verification-row-d9{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #deebf1}
+.finance-movements-d9 article>div,.finance-verification-row-d9>div{display:grid;gap:4px;min-width:0}
+.finance-movements-d9 article>div:last-child{text-align:right;flex-shrink:0}
+.finance-movements-d9 small,.finance-verification-row-d9 small{font-size:12px;color:#6e7e90;overflow-wrap:anywhere}
+.finance-credit-d9 b{color:#187b5a}.finance-debit-d9 b{color:#b34747}
+#financeClientsD9 .option-item{display:grid;text-align:left;gap:4px;width:100%;padding:12px}
+@media(max-width:600px){.finance-verification-row-d9{align-items:stretch;flex-direction:column}.finance-verification-row-d9 button{width:100%}.finance-movements-d9 article{align-items:flex-start}.finance-movements-d9 article strong{font-size:13px}}
