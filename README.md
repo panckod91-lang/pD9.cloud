@@ -2,6 +2,12 @@
 
 PWA liviana para toma de pedidos comerciales con funcionamiento online/offline, cola local de pendientes y sincronización automática.
 
+## v1.5.34-prod - búsqueda textual de productos corregida
+
+- Generar pedido, Venta y Lista de precios buscan texto solamente por código/ID y nombre/descripción.
+- Categoría y Marca continúan funcionando como filtros explícitos e independientes.
+- No modifica Apps Script, Worker, productos, precios, pedidos, ventas ni sincronización.
+
 ## v1.5.32-prod - pedidos consecutivos sin pérdida de edición
 
 - Corrige el segundo reset tardío que podía borrar el pedido nuevo cuando llegaba la confirmación del pedido anterior.
