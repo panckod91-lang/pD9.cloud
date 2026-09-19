@@ -4781,6 +4781,9 @@ body.simple-mode-d9 #btnSend{
 .finance-box-d9 input,.finance-box-d9 select{width:100%;min-height:46px;padding:10px 12px;border:1px solid #cbdfe9;border-radius:12px;background:#fff;color:#15314d;font:inherit}
 .finance-check-d9{display:grid;gap:10px}
 .finance-error-d9{color:#b43146;font-size:14px;overflow-wrap:anywhere}
+.finance-selected-client-d9{border-color:#31a6d4!important;background:#edf9fe!important;box-shadow:0 0 0 2px rgba(49,166,212,.12)}
+.finance-account-head-actions-d9{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:520px){.finance-account-head-actions-d9{width:100%;justify-content:flex-start}.finance-account-head-actions-d9 .link-btn{flex:1;min-width:120px}}
 .finance-balance-d9{display:grid;gap:5px;margin:14px 0}
 .finance-balance-d9 strong{font-size:28px}
 .finance-account-actions-d9{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}

@@ -1,6 +1,14 @@
-# D9 Pedidos v1.5.35 PROD
+# D9 Pedidos v1.5.36 PROD
 
-Etapa coordinada con D9 Gestión v0.19.0. Base: Pedidos v1.5.34 real. Este ZIP contiene solamente Pedidos y su propio Apps Script. No se publicó ni se modificó producción.
+Afinamiento UX localizado sobre Pedidos v1.5.35, coordinado con Gestión v0.19.1. Este ZIP contiene solamente Pedidos y una copia sin cambios de su propio Apps Script. No se publicó ni se modificó producción.
+
+## Actualización desde v1.5.35
+
+- Reemplazar únicamente el frontend completo de Pedidos, incluyendo `finance.js`.
+- **No hace falta actualizar Apps Script**: `Code.gs` y `Code.txt` son idénticos a v1.5.35.
+- Al elegir un cliente en Cuenta corriente, la búsqueda queda enfocada en ese cliente para que la cuenta no aparezca debajo de una lista larga en celular.
+- La cuenta muestra `Cambiar cliente`, que vuelve limpiamente al selector sin registrar ni alterar operaciones.
+- No cambiaron Venta, condición de pago, cobros, WhatsApp, idempotencia, offline, pendientes ni Pedido A → B → C.
 
 ## Qué incorpora
 
@@ -138,4 +146,4 @@ Cliente de prueba de cartera mostrador: cuatro escenarios anteriores, misma CC e
 
 **Con Ventas financieras reales, no volver sin coordinación al backend anterior.** Puede reexponer claves/escritura Usuarios o duplicar/revertir deuda al documentar/anular ventas nuevas. Copias para recuperación controlada, no restauración automática de datos financieros. Una reversión visual debe conservar backends seguros y procedencia financiera o acordarse antes.
 
-Informe técnico completo de 26 puntos también en el README del ZIP Gestión v0.19.0. Cada app conserva su Script/endpoint propio. Sólo README informativo; Code.txt es fuente.
+Informe técnico completo de 26 puntos y del cierre también en el README del ZIP Gestión v0.19.1. Cada app conserva su Script/endpoint propio. Sólo README informativo; Code.txt es fuente.
