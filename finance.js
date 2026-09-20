@@ -173,7 +173,7 @@ function openFinanceAccountD9() {
   let view=document.getElementById("view-finance");
   if (!view) {
     view=document.createElement("section");view.id="view-finance";view.className="view";
-    view.innerHTML='<div class="card section-block"><div class="section-title-row between"><h2>Cuenta corriente</h2><button type="button" data-finance-home class="link-btn">Inicio</button></div><p class="mini-text">Saldo real de D9 Gestión · requiere conexión</p><input id="financeClientSearchD9" class="input" type="search" placeholder="Buscar uno de mis clientes…"><div id="financeClientsD9" class="option-list"></div></div><div id="financeAccountD9"></div><div id="financeVerificationD9" class="card section-block"></div>';
+    view.innerHTML='<div class="card section-block"><div class="section-title-row between"><h2>Cuenta corriente</h2><button type="button" data-finance-home class="link-btn">Inicio</button></div><p class="mini-text">Saldo real de D9 Gestión · requiere conexión</p><input id="financeClientSearchD9" class="input" type="search" placeholder="Buscar clientes autorizados…"><div id="financeClientsD9" class="option-list"></div></div><div id="financeAccountD9"></div><div id="financeVerificationD9" class="card section-block"></div>';
     document.querySelector("main").appendChild(view);
     view.querySelector("[data-finance-home]").onclick=()=>{financeUiD9.revision++;financeUiD9.collect=null;document.getElementById("financeCobroD9")?.remove();showView("home");};
     view.querySelector("#financeClientSearchD9").oninput=renderFinanceClientsD9;

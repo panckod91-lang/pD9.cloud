@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.36-prod (Afinamiento Venta y Cuenta Corriente)";
+const APP_VERSION = "v1.5.37-prod (Alcance de clientes por usuario)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -172,6 +172,17 @@ const money = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currenc
 const money2 = (v) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 }).format(Number(v) || 0);
 function isMostradorD9() {
   return String(state.seller?.rol || "").trim().toLowerCase() === "mostrador";
+}
+function defaultClientScopeD9(role){return ["mostrador","cliente"].includes(String(role||"").trim().toLowerCase())?"PROPIOS":"TODOS";}
+function clientScopeD9(user=state.seller){const value=String(user?.alcance_clientes||"").trim().toUpperCase();return ["PROPIOS","TODOS"].includes(value)?value:defaultClientScopeD9(user?.rol);}
+function isClientOwnedBySellerD9(client,user=state.seller){
+  if(!user||!client)return false;const uid=String(user.id||"").trim(),ownerId=String(client.vendedor_id||"").trim();if(uid&&ownerId)return uid===ownerId;
+  const userName=normalizeSearchTextD9(user.nombre||""),ownerName=normalizeSearchTextD9(client.vendedor||"");return Boolean(!ownerId&&userName&&ownerName&&userName===ownerName);
+}
+function authorizedClientsD9(user=state.seller){
+  if(!user)return [];
+  if(String(user.rol||"").toLowerCase()==="cliente")return state.clients.filter(client=>String(client.id)===String(user.cliente_id||""));
+  return clientScopeD9(user)==="TODOS"?state.clients:state.clients.filter(client=>isClientOwnedBySellerD9(client,user));
 }
 function parseDecimalD9(value) {
   if (value === null || value === undefined) return 0;
@@ -1479,10 +1490,10 @@ function openWhatsApp(phone, message) {
 
 
 async function loadAllData() {
-  const r = await fetch(BOOTSTRAP_URL, { cache: "no-store" });
-  if (!r.ok) throw new Error(`Bootstrap falló: ${r.status}`);
-
-  const data = await r.json();
+  const session=readJSON("d9_auth_session",null),authenticated=Boolean(state.seller&&session?.token&&String(session.uid)===String(state.seller.id));
+  let data;
+  if(authenticated)data=await financePostD9(getApiBaseD9(),"bootstrap_session",{});
+  else {const r=await fetch(BOOTSTRAP_URL,{cache:"no-store"});if(!r.ok)throw new Error(`Bootstrap falló: ${r.status}`);data=await r.json();}
   if (!data.ok) throw new Error("Bootstrap retornó ok:false");
 
   const sellers  = Array.isArray(data.usuarios)   ? data.usuarios   : [];
@@ -1504,7 +1515,8 @@ async function loadAllData() {
     cliente_id: String(r.cliente_id || "").trim(),
     wasap_report: String(r.wasap_report || "").trim(),
     interfaz: String(r.interfaz || r.modo_interfaz || r.modo || "normal").trim().toLowerCase(),
-    modo_simple: isTrue(r.modo_simple)
+    modo_simple: isTrue(r.modo_simple),
+    alcance_clientes: String(r.alcance_clientes || defaultClientScopeD9(r.rol)).trim().toUpperCase()
   }));
 
   state.clients = clients.filter(r => isTrue(r.activo)).map(r => ({
@@ -2436,11 +2448,12 @@ async function loginSeller() {
   if(!navigator.onLine)return toast("Necesitás conexión para ingresar. La sesión existente y los pedidos offline se conservan.");
   const loginButton=$("#btnLogin");if(loginButton.disabled)return;loginButton.disabled=true;
   let result;try{result=await postPedidosAuthD9("login",{usuario:userValue,clave:pass});}catch(error){return toast(error.message);}finally{loginButton.disabled=false;$("#sellerPass").value="";}
-  const rawSeller=stripUserSecretsD9(result.user),seller={...rawSeller,id:String(rawSeller.id||"").trim(),rol:String(rawSeller.rol||"cliente").trim().toLowerCase(),lista_precio:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),lista_1:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),interfaz:String(rawSeller.interfaz||rawSeller.modo_interfaz||rawSeller.modo||"normal").trim().toLowerCase(),modo_simple:isTrue(rawSeller.modo_simple)};
+  const rawSeller=stripUserSecretsD9(result.user),seller={...rawSeller,id:String(rawSeller.id||"").trim(),rol:String(rawSeller.rol||"cliente").trim().toLowerCase(),alcance_clientes:String(rawSeller.alcance_clientes||defaultClientScopeD9(rawSeller.rol)).trim().toUpperCase(),lista_precio:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),lista_1:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),interfaz:String(rawSeller.interfaz||rawSeller.modo_interfaz||rawSeller.modo||"normal").trim().toLowerCase(),modo_simple:isTrue(rawSeller.modo_simple)};
   localStorage.setItem("d9_auth_session",JSON.stringify({token:result.token,uid:String(seller.id)}));
   if (String(state.seller?.id || "") !== String(seller.id || "")) clearMostradorWorkspaceD9();
   state.seller = seller;
   saveJSON(STORAGE_KEYS.seller, { id: seller.id, nombre: seller.nombre, usuario: seller.usuario });
+  try{await loadAllData();hydrateSeller();}catch(error){console.warn("No se pudo actualizar la cartera autorizada después del ingreso:",error);}
   applyUserContext();
   applyExperienceModeD9();
   syncSessionUI();
@@ -2577,16 +2590,9 @@ function renderQuickLabels() {
   }
 }
 
-function isMostradorClientOwnedD9(client) {
-  if (!isMostradorD9() || !client) return false;
-  const sellerId = String(state.seller?.id || "").trim();
-  const ownerId = String(client.vendedor_id || "").trim();
-  if (sellerId && ownerId) return sellerId === ownerId;
-  const sellerName = normalizeSearchTextD9(state.seller?.nombre || "");
-  const ownerName = normalizeSearchTextD9(client.vendedor || "");
-  return Boolean(!ownerId && sellerName && ownerName && sellerName === ownerName);
-}
-function mostradorClientsD9() { return state.clients.filter(isMostradorClientOwnedD9); }
+function isMostradorClientOwnedD9(client) { return isMostradorD9()&&isClientOwnedBySellerD9(client); }
+function isMostradorClientAllowedD9(client){return isMostradorD9()&&Boolean(client)&&authorizedClientsD9().some(item=>String(item.id)===String(client.id));}
+function mostradorClientsD9() { return isMostradorD9()?authorizedClientsD9():[]; }
 
 function renderClients() {
   const term = normalizeSearchTextD9($("#clientSearch").value);
@@ -2604,7 +2610,7 @@ function renderClients() {
   }
   const recentRank = new Map(recentOrder.map((id, index) => [id, index]));
 
-  const availableClients = isMostradorD9() ? mostradorClientsD9() : state.clients;
+  const availableClients = authorizedClientsD9();
   const base = canBrowseClients
     ? availableClients
         .filter(c => !term || [c.nombre, c.direccion, c.ciudad, c.telefono]
@@ -2649,7 +2655,7 @@ function selectClient(id) {
   if (!c) return;
 
   if (state.clientPickerMode === "mostrador") {
-    if (!isMostradorClientOwnedD9(c)) return toast("Ese cliente no pertenece a tu cartera.");
+    if (!isMostradorClientAllowedD9(c)) return toast("Ese cliente no está dentro de tu alcance autorizado.");
     const previousId = String(state.mostradorClient?.id || "");
     const nextList = normalizePriceListKeyD9(c.lista_precio || c.lista_1 || "lista_1");
     const listChanged = nextList !== state.activePriceList;
@@ -2745,7 +2751,7 @@ function renderOrderPriceListControls() {
 function openMostradorClientFormD9(origin = "home", clientId = "") {
   if (!isMostradorD9()) return;
   const current = clientId ? state.clients.find(client => String(client.id) === String(clientId)) : null;
-  if (current && !isMostradorClientOwnedD9(current)) return toast("Ese cliente no pertenece a tu cartera.");
+  if (current && !isClientOwnedBySellerD9(current)) return toast("Podés utilizar este cliente, pero sólo su vendedor asignado puede editar la ficha.");
   state.mostradorClientFormOrigin = origin;
   state.mostradorEditingClientId = current?.id || "";
   state.mostradorClientRequestId = current ? "" : `CLREQ-${String(state.seller?.id||"0").replace(/[^A-Za-z0-9_-]/g,"")}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
@@ -2791,13 +2797,26 @@ async function saveMostradorRealClientD9() {
   const origin = state.mostradorClientFormOrigin || "home", editingId = state.mostradorEditingClientId, button = $("#btnSaveOccasionalClient");
   button.disabled = true;button.textContent = "Guardando…";
   try {
-    const result = await postMostradorClientD9({id:editingId,request_id:state.mostradorClientRequestId,nombre,telefono,direccion,ciudad});
+    const request={id:editingId,request_id:state.mostradorClientRequestId,nombre,telefono,direccion,ciudad};
+    let result = await postMostradorClientD9(request);
+    if(result.requiere_confirmacion&&result.coincidencia){
+      const match=result.coincidencia,existing=match.cliente||{},details=[existing.nombre,existing.telefono,existing.direccion,existing.ciudad].filter(Boolean).join(" · ");
+      if(match.puede_usar){
+        if(window.confirm(`Este cliente ya existe (${match.motivo}).\n\n${details}\n\n¿Querés usar la ficha existente?`))result={ok:true,reutilizado:true,cliente:existing};
+        else if(match.nivel==="POSIBLE"&&window.confirm("La coincidencia puede corresponder a otro comercio. ¿Crear igualmente una ficha distinta?"))result=await postMostradorClientD9({...request,confirmar_distinto:true});
+        else return;
+      }else{
+        if(match.nivel==="FUERTE")return toast(`Este cliente ya existe y pertenece a otra cartera. Administración debe reasignarlo o cambiar tu alcance. ${details}`);
+        if(!window.confirm(`Existe un cliente parecido fuera de tu cartera (${match.motivo}).\n\n${details}\n\n¿Confirmás que es otro comercio distinto?`))return;
+        result=await postMostradorClientD9({...request,confirmar_distinto:true});
+      }
+    }
     const raw = result.cliente || {}, client = {id:String(raw.id||"").trim(),nombre:String(raw.nombre||nombre).trim(),telefono:String(raw.telefono||telefono).trim(),direccion:String(raw.direccion||direccion).trim(),ciudad:String(raw.ciudad||ciudad).trim(),vendedor_id:String(raw.vendedor_id||state.seller?.id||"").trim(),vendedor:String(raw.vendedor||state.seller?.nombre||"").trim(),lista_precio:normalizePriceListKeyD9(raw.lista_precio||"lista_1"),lista_1:normalizePriceListKeyD9(raw.lista_precio||"lista_1")};
     const index = state.clients.findIndex(item => String(item.id) === client.id);if(index>=0)state.clients[index]={...state.clients[index],...client};else state.clients.push(client);
     if (String(state.mostradorClient?.id || "") === client.id) state.mostradorClient = client;
     persistCacheState();closeModal("occasionalClient");state.mostradorClientFormOrigin="";state.mostradorEditingClientId="";
-    if (origin === "sale") {state.activePriceList=client.lista_precio||"lista_1";state.mostradorClient=client;renderMostradorD9();showView("mostrador");toast("Cliente creado y seleccionado.");}
-    else {renderMostradorClientsD9();showView("mostrador-clients-d9");toast(result.actualizado?"Cliente actualizado.":"Cliente creado en tu cartera.");}
+    if (origin === "sale") {state.activePriceList=client.lista_precio||"lista_1";state.mostradorClient=client;renderMostradorD9();showView("mostrador");toast(result.reutilizado?"Cliente existente seleccionado.":"Cliente creado y seleccionado.");}
+    else {renderMostradorClientsD9();showView("mostrador-clients-d9");toast(result.reutilizado?"Cliente existente disponible.":result.actualizado?"Cliente actualizado.":"Cliente creado en tu cartera.");}
     renderClients();renderMostradorRoleD9();
   } catch (error) {toast(error.message || "No se pudo guardar el cliente.");}
   finally {button.disabled=false;button.textContent=editingId?"Guardar cambios":"Crear cliente";}
@@ -4238,6 +4257,7 @@ function validateOrder() {
 
 function buildWebhookPayload(payload) {
   const cliente = payload?.cliente || {};
+  const authSession=readJSON("d9_auth_session",null),authToken=String(authSession?.uid)===String(payload?.vendedor?.id||"")?String(authSession?.token||""):"";
   const clienteTexto = [
     cliente.nombre_real || cliente.nombre || "",
     cliente.telefono || "",
@@ -4268,7 +4288,8 @@ function buildWebhookPayload(payload) {
     // Se manda para futuras versiones del script. El script actual puede ignorarlo.
     fecha: payload?.fecha || new Date().toISOString(),
     fecha_original: payload?.fecha || "",
-    resync_pc: payload?.resync_pc === true
+    resync_pc: payload?.resync_pc === true,
+    token: authToken
   };
 }
 
@@ -6265,8 +6286,8 @@ function bind() {
       return;
     }
     if (ev.target.closest("#btnMostradorOpenProducts")) {
-      if (!state.mostradorClient || !isMostradorClientOwnedD9(state.mostradorClient)) {
-        toast("Primero elegí un cliente de tu cartera.");
+      if (!state.mostradorClient || !isMostradorClientAllowedD9(state.mostradorClient)) {
+        toast("Primero elegí un cliente autorizado.");
         state.clientPickerMode = "mostrador";
         renderClients();
         openModal("client");
@@ -6906,8 +6927,8 @@ function reuseSalesHistoryD9(id) {
     (clienteNombre && String(c.nombre || "").trim().toLowerCase() === clienteNombre.toLowerCase())
   );
 
-  if (isMostradorD9() && (!found || !isMostradorClientOwnedD9(found))) {
-    return toast("Ese cliente no está asignado a tu cartera. Pedile a Ale que lo asigne antes de reutilizar.");
+  if (isMostradorD9() && (!found || !isMostradorClientAllowedD9(found))) {
+    return toast("Ese cliente no está dentro de tu alcance. Administración puede asignarlo o cambiar tu alcance.");
   }
 
   state.mostradorClient = found || {
@@ -7089,11 +7110,14 @@ function showMostradorPhonePromptD9(client, options = {}) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  const canEditMaster=isClientOwnedBySellerD9(client);
+  const help=overlay.querySelector("#mostradorPhoneHelpD9");if(!canEditMaster&&help)help.textContent="Se usará solamente para este comprobante. La ficha pertenece a otro vendedor y no será modificada.";
 
   const input = overlay.querySelector("#mostradorPhoneInputD9");
   const saveBtn = overlay.querySelector("#btnMostradorSavePhoneD9");
   const skipBtn = overlay.querySelector("#btnMostradorSkipPhoneD9");
   const errorBox = overlay.querySelector("#mostradorPhoneErrorD9");
+  if(!canEditMaster&&saveBtn)saveBtn.textContent="Usar teléfono y continuar";
   const phoneUserId=String(state.seller?.id||"");
 
   const continueWithoutClient = () => {
@@ -7114,10 +7138,11 @@ function showMostradorPhonePromptD9(client, options = {}) {
       errorBox.textContent = "";
     }
     try {
-      await saveMostradorClientPhoneD9(client, input?.value || "");
+      if(canEditMaster)await saveMostradorClientPhoneD9(client,input?.value||"");
+      else {const clean=String(input?.value||"").trim();if(whatsappDestinationDigitsD9(clean).length<10)throw new Error("Ingresá un teléfono completo con código de área.");client.telefono=clean;if(String(state.mostradorClient?.id||"")===String(client?.id||""))state.mostradorClient={...state.mostradorClient,telefono:clean};}
       if(phoneUserId!==String(state.seller?.id||"")||document.getElementById(overlay.id)!==overlay)return;
       closeMostradorOverlayD9("mostradorPhoneOverlayD9");
-      toast("Teléfono guardado en la ficha del cliente.");
+      toast(canEditMaster?"Teléfono guardado en la ficha del cliente.":"Teléfono utilizado sin modificar la ficha comercial.");
       if(options.onContinue)options.onContinue(true);else finalizeMostradorWhatsAppD9(true);
     } catch (error) {
       if (errorBox) {
@@ -7126,7 +7151,7 @@ function showMostradorPhonePromptD9(client, options = {}) {
       }
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = "Guardar teléfono y continuar";
+        saveBtn.textContent = canEditMaster?"Guardar teléfono y continuar":"Usar teléfono y continuar";
       }
       if (skipBtn) skipBtn.disabled = false;
     }
@@ -7290,7 +7315,7 @@ async function finalizeMostradorWhatsAppD9(allowClient) {
 }
 
 function whatsappMostradorD9() {
-  if (!state.mostradorClient || !isMostradorClientOwnedD9(state.mostradorClient)) return toast("Primero elegí un cliente de tu cartera.");
+  if (!state.mostradorClient || !isMostradorClientAllowedD9(state.mostradorClient)) return toast("Primero elegí un cliente autorizado.");
   if (!state.mostradorCart.length) return toast("Agregá productos.");
   if (state.mostradorFinalizingWhatsApp) return;
 
@@ -7307,7 +7332,7 @@ function whatsappMostradorD9() {
 }
 
 async function printMostradorD9() {
-  if (!state.mostradorClient || !isMostradorClientOwnedD9(state.mostradorClient)) return toast("Primero elegí un cliente de tu cartera.");
+  if (!state.mostradorClient || !isMostradorClientAllowedD9(state.mostradorClient)) return toast("Primero elegí un cliente autorizado.");
   if (!state.mostradorCart.length) return toast("Agregá productos.");
   const win = window.open("", "_blank");
   if (!win) return toast("El navegador bloqueó la impresión.");
@@ -7395,6 +7420,8 @@ function renderMostradorClientsD9() {
   const list = document.getElementById("mostradorClientsListD9");
   if (!list) return;
   const query = normalizeSearchTextD9(state.mostradorClientsSearch || "");
+  const allScope=clientScopeD9()==="TODOS",title=document.querySelector("#view-mostrador-clients-d9 .history-title-d9 h2"),subtitle=document.querySelector("#view-mostrador-clients-d9 .history-title-d9 .subhead");
+  if(title)title.textContent=allScope?"Clientes disponibles":"Mis clientes";if(subtitle)subtitle.textContent=allScope?"Podés utilizar todos; sólo editás los asignados a vos.":"Comercios asignados a tu cartera.";
   const clients = mostradorClientsD9()
     .filter(client => !query || normalizeSearchTextD9([client.nombre, client.telefono, client.direccion, client.ciudad].join(" ")).includes(query))
     .sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base" }));
@@ -7408,7 +7435,7 @@ function renderMostradorClientsD9() {
     const location = [client.direccion, client.ciudad].filter(Boolean).join(" · ") || "Sin dirección";
     return `<article class="card mostrador-client-card-d9">
       <div class="mostrador-client-copy-d9"><strong>${esc(client.nombre)}</strong><small>${esc(client.telefono || "Sin teléfono")}</small><small>${esc(location)}</small></div>
-      <button class="secondary-btn mostrador-client-edit-d9" data-edit-mostrador-client-d9="${esc(client.id)}" type="button">Editar</button>
+      ${isClientOwnedBySellerD9(client)?`<button class="secondary-btn mostrador-client-edit-d9" data-edit-mostrador-client-d9="${esc(client.id)}" type="button">Editar</button>`:`<span class="mini-text">Asignado a ${esc(client.vendedor||"otro vendedor")}</span>`}
     </article>`;
   }).join("");
 }
@@ -7505,7 +7532,7 @@ function renderMostradorRoleD9() {
   document.getElementById("btnGoSalesHistoryD9")?.classList.toggle("hidden", !on);
   document.getElementById("bannerWrap")?.classList.toggle("hidden", on);
   if (on) {
-    if (state.mostradorClient && !isMostradorClientOwnedD9(state.mostradorClient)) state.mostradorClient = null;
+    if (state.mostradorClient && !isMostradorClientAllowedD9(state.mostradorClient)) state.mostradorClient = null;
     renderSalesHistoryD9();
     renderMostradorClientsD9();
   }
