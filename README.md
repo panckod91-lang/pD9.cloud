@@ -1,43 +1,16 @@
-# D9 Pedidos v1.5.38 PROD
+# D9 Pedidos v1.5.39 PROD
 
-## A.1 · Clientes compartidos para PROPIOS
+## Clientes existentes en Mostrador
 
-`PROPIOS` incluye ahora los clientes asignados comercialmente al usuario y los clientes existentes agregados voluntariamente a su cartera de uso. La relación se guarda en `clientes_accesos`; nunca modifica `clientes.vendedor_id`, comisiones ni permisos de edición.
+Al dar de alta un cliente, si hay coincidencias fuertes o posibles, se muestran **todas las fichas candidatas** con teléfono, ciudad, dirección y vendedor. Se puede usar cualquiera de ellas o crear expresamente una ficha nueva. Una coincidencia sólo por nombre no selecciona ni fusiona clientes automáticamente. Los criterios de coincidencia de v1.5.38 permanecen iguales: nombre y teléfono, nombre y domicilio, teléfono solo o nombre solo.
 
-Ante una coincidencia fuerte fuera de cartera, D9 ofrece agregar el cliente existente y reutiliza el mismo `cliente_id`. `TODOS` conserva su comportamiento anterior.
-
-El Apps Script comienza con una identificación visible de D9 Pedidos. No ejecutar funciones de setup.
-
-Esta versión incorpora el alcance de clientes por usuario y conserva los circuitos productivos de Pedidos, Venta Zonal, Cuenta Corriente, ofertas, WhatsApp, pendientes y sincronización.
-
-## Alcance de clientes
-
-El campo central `alcance_clientes` admite:
-
-- `PROPIOS`: el usuario sólo consulta y utiliza clientes asignados mediante `vendedor_id`; se conserva el respaldo legacy por nombre cuando el ID no existe.
-- `TODOS`: el usuario puede consultar y utilizar todos los clientes activos, sin modificar vendedor, cartera ni comisiones.
-
-Defaults compatibles para registros todavía sin valor:
-
-- Mostrador y Cliente: `PROPIOS`.
-- Vendedor y Admin: `TODOS`.
-
-La edición del maestro sigue separada del permiso de uso. Un Mostrador con `TODOS` puede operar con un cliente ajeno, pero no editar su ficha. Si falta teléfono, puede usarlo sólo en el comprobante actual sin escribirlo en la ficha ajena.
-
-## Clientes existentes
-
-Antes del alta real de Mostrador se revisa el maestro completo:
-
-- Coincidencia fuerte: mismo nombre + teléfono, o mismo nombre + domicilio (y misma ciudad cuando fue informada). No crea otra ficha.
-- Coincidencia posible: mismo teléfono solo o mismo nombre solo. Informa el caso y exige confirmar expresamente que es otro comercio para crear una ficha distinta.
-
-Con alcance `TODOS` se puede elegir la ficha existente sin reasignarla. Con `PROPIOS`, una coincidencia fuerte de otra cartera requiere intervención desde Gestión.
+Al usar una ficha existente se conserva su `cliente_id` y se selecciona de inmediato. Si un usuario `PROPIOS` necesita incorporarla, se usa el mismo acceso idempotente de `clientes_accesos`; no cambia el vendedor comercial, los datos de la ficha, la comisión, la cuenta ni el permiso de edición. `TODOS` reutiliza la ficha sin crear acceso adicional. Si el usuario elige crear una nueva y había coincidencia fuerte, debe confirmarlo expresamente una segunda vez.
 
 ## Instalación
 
-1. Reemplazar el código del Apps Script de D9 Pedidos por `apps-script/Code.gs`.
-2. Crear una versión nueva del despliegue web conservando la misma URL y permisos actuales.
-3. Reemplazar los archivos del frontend en el hosting.
-4. Confirmar que la PWA muestre `v1.5.37-prod` y, si hiciera falta, cerrar y abrir o actualizar la aplicación.
+1. Sustituir **sólo** el código del proyecto Apps Script de **D9 Pedidos** con `apps-script/Code.gs` (o el `Code.txt` idéntico).
+2. Guardar y actualizar el despliegue web existente a una versión nueva, manteniendo su URL y configuración.
+3. Sustituir los archivos del frontend de **D9 Pedidos** en el hosting. Conservar la configuración propia del sitio.
+4. Recargar la PWA y verificar `v1.5.39-prod`.
 
-No ejecutar funciones de inicialización. No cambia Worker. El frontend envía el token vigente en los pedidos modernos para que el backend pueda validar usuarios configurados como `PROPIOS`.
+No ejecutar funciones `setup`. No hay columnas, hojas ni migraciones nuevas. D9 Gestión v0.19.3 y su Apps Script no requieren actualización. No cambia Worker.

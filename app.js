@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.38-prod (Clientes compartidos A.1)";
+const APP_VERSION = "v1.5.39-prod (Elegir cliente existente)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -2792,6 +2792,34 @@ function openOccasionalClientModal() {
   openModal("occasionalClient");
 }
 
+function chooseExistingMostradorClientD9(matches) {
+  return new Promise(resolve=>{
+    document.getElementById("mostradorClientMatchesD9")?.remove();
+    const overlay=document.createElement("div");
+    overlay.id="mostradorClientMatchesD9";
+    overlay.className="d9-confirm-overlay mostrador-client-matches-d9";
+    overlay.innerHTML=`<div class="d9-confirm-box mostrador-client-matches-box-d9" role="dialog" aria-modal="true" aria-label="Clientes encontrados">
+      <h3>Clientes encontrados</h3><p>Revisá las fichas y elegí si querés usar una existente o crear un cliente nuevo.</p>
+      <div class="mostrador-client-matches-list-d9">${matches.map((match,index)=>{
+        const client=match.cliente||{};
+        return `<article class="mostrador-client-match-d9"><div><strong>${esc(client.nombre||"Sin nombre")}</strong><small>${esc(match.nivel==="FUERTE"?"Coincidencia fuerte":"Posible coincidencia")} · ${esc(match.motivo||"")}</small><small>${esc([client.telefono&&`Tel. ${client.telefono}`,client.ciudad,client.direccion,client.vendedor&&`Vendedor: ${client.vendedor}`].filter(Boolean).join(" · ")||"Sin más datos")}</small></div><button type="button" data-client-candidate="${index}">Usar este cliente</button></article>`;
+      }).join("")}</div>
+      <div class="mostrador-client-matches-actions-d9"><button type="button" data-client-cancel>Volver</button><button type="button" data-client-create>Crear cliente nuevo</button></div>
+    </div>`;
+    const finish=choice=>{document.removeEventListener("keydown",onKey);overlay.remove();resolve(choice);};
+    const onKey=event=>{if(event.key==="Escape")finish(null);};
+    overlay.addEventListener("click",event=>{
+      const use=event.target.closest("[data-client-candidate]");
+      if(use)return finish({type:"existing",match:matches[Number(use.dataset.clientCandidate)]});
+      if(event.target.closest("[data-client-create]"))return finish({type:"new"});
+      if(event.target===overlay||event.target.closest("[data-client-cancel]"))finish(null);
+    });
+    document.body.appendChild(overlay);
+    document.addEventListener("keydown",onKey);
+    overlay.querySelector("[data-client-candidate]")?.focus();
+  });
+}
+
 async function saveMostradorRealClientD9() {
   const nombre = $("#occasionalName").value.trim(), telefono = $("#occasionalPhone").value.trim(), direccion = $("#occasionalAddress").value.trim(), ciudad = $("#occasionalCity").value.trim();
   if (!nombre) return toast("Cargá al menos el nombre del cliente.");
@@ -2801,21 +2829,19 @@ async function saveMostradorRealClientD9() {
   try {
     const request={id:editingId,request_id:state.mostradorClientRequestId,nombre,telefono,direccion,ciudad};
     let result = await postMostradorClientD9(request);
-    if(result.requiere_confirmacion&&result.coincidencia){
-      const match=result.coincidencia,existing=match.cliente||{},details=[existing.nombre,existing.telefono,existing.direccion,existing.ciudad].filter(Boolean).join(" · ");
-      if(match.puede_usar){
-        if(window.confirm(`Este cliente ya existe (${match.motivo}).\n\n${details}\n\n¿Querés usar la ficha existente?`))result={ok:true,reutilizado:true,cliente:existing};
-        else if(match.nivel==="POSIBLE"&&window.confirm("La coincidencia puede corresponder a otro comercio. ¿Crear igualmente una ficha distinta?"))result=await postMostradorClientD9({...request,confirmar_distinto:true});
-        else return;
+    if(result.requiere_confirmacion&&(result.coincidencias?.length||result.coincidencia)){
+      const matches=result.coincidencias?.length?result.coincidencias:[result.coincidencia];
+      const choice=await chooseExistingMostradorClientD9(matches);
+      if(!choice)return;
+      if(choice.type==="new"){
+        if(matches.some(match=>match.nivel==="FUERTE")&&!window.confirm("Hay una ficha con datos muy similares. ¿Confirmás que es otro comercio y querés crear un cliente nuevo?"))return;
+        result=await postMostradorClientD9({...request,confirmar_distinto:true});
       }else{
-        if(match.nivel==="FUERTE"){
-          if(!window.confirm(`Este cliente ya existe y pertenece a otra cartera (${match.motivo}).\n\n${details}\n\n¿Agregar a mis clientes para poder utilizarlo sin cambiar su vendedor asignado?`))return;
+        const match=choice.match,existing=match.cliente;
+        if(match.puede_usar)result={ok:true,reutilizado:true,cliente:match.propio?existing:{...existing,acceso_adicional:"si"}};
+        else{
           const access=await postMostradorApiD9("agregar_cliente_acceso",{cliente_id:String(existing.id||"")},"No se pudo agregar el cliente a tu cartera de uso.");
           result={ok:true,reutilizado:true,acceso_agregado:true,cliente:access.cliente||{...existing,acceso_adicional:"si"}};
-        }
-        else {
-        if(!window.confirm(`Existe un cliente parecido fuera de tu cartera (${match.motivo}).\n\n${details}\n\n¿Confirmás que es otro comercio distinto?`))return;
-        result=await postMostradorClientD9({...request,confirmar_distinto:true});
         }
       }
     }

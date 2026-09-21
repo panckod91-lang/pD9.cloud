@@ -1,4 +1,4 @@
-const CACHE_NAME = "d9-pedidos-v1538-prod-shared-clients";
+const CACHE_NAME = "d9-pedidos-v1539-prod-client-candidates";
 const URLS = [
   "./",
   "./index.html",
