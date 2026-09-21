@@ -1,4 +1,12 @@
-# D9 Pedidos v1.5.37 PROD
+# D9 Pedidos v1.5.38 PROD
+
+## A.1 · Clientes compartidos para PROPIOS
+
+`PROPIOS` incluye ahora los clientes asignados comercialmente al usuario y los clientes existentes agregados voluntariamente a su cartera de uso. La relación se guarda en `clientes_accesos`; nunca modifica `clientes.vendedor_id`, comisiones ni permisos de edición.
+
+Ante una coincidencia fuerte fuera de cartera, D9 ofrece agregar el cliente existente y reutiliza el mismo `cliente_id`. `TODOS` conserva su comportamiento anterior.
+
+El Apps Script comienza con una identificación visible de D9 Pedidos. No ejecutar funciones de setup.
 
 Esta versión incorpora el alcance de clientes por usuario y conserva los circuitos productivos de Pedidos, Venta Zonal, Cuenta Corriente, ofertas, WhatsApp, pendientes y sincronización.
 
