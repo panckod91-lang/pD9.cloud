@@ -1,4 +1,10 @@
-# D9 Pedidos v1.5.39 PROD
+# D9 Pedidos v1.5.40 PROD
+
+## Cambios puntuales
+
+- Venta Mostrador permite cargar productos antes del cliente. El selector de productos muestra hasta 16 artículos globalmente frecuentes cuando no hay búsqueda ni filtros; el ranking se calcula al cargar datos sobre un tramo acotado del histórico de Pedidos y Ventas. Si aún no existe histórico utilizable, muestra productos disponibles.
+- El cliente ocasional de Mostrador conserva nombre y datos descriptivos sin crear ficha; sólo admite Venta cobrada por completo en **efectivo**. Para transferencia, cheque o Cuenta Corriente se debe crear o seleccionar un cliente real. El backend de Gestión valida la restricción.
+- Si falla la recarga de clientes después del login, se informa el error y se ofrece reintento al abrir el selector. El acceso TODOS sigue incluyendo todos los clientes activos; PROPIOS conserva su cartera y accesos adicionales.
 
 ## Clientes existentes en Mostrador
 
@@ -8,9 +14,9 @@ Al usar una ficha existente se conserva su `cliente_id` y se selecciona de inmed
 
 ## Instalación
 
-1. Sustituir **sólo** el código del proyecto Apps Script de **D9 Pedidos** con `apps-script/Code.gs` (o el `Code.txt` idéntico).
+1. Sustituir el código del proyecto Apps Script de **D9 Pedidos** con `apps-script/Code.gs`.
 2. Guardar y actualizar el despliegue web existente a una versión nueva, manteniendo su URL y configuración.
 3. Sustituir los archivos del frontend de **D9 Pedidos** en el hosting. Conservar la configuración propia del sitio.
-4. Recargar la PWA y verificar `v1.5.39-prod`.
+4. Recargar la PWA y verificar `v1.5.40-prod`.
 
-No ejecutar funciones `setup`. No hay columnas, hojas ni migraciones nuevas. D9 Gestión v0.19.3 y su Apps Script no requieren actualización. No cambia Worker.
+Actualizar también D9 Gestión v0.19.5 y su Apps Script antes de probar Ventas ocasionales. No ejecutar funciones `setup`. Pedidos no agrega columnas, hojas ni migraciones; la lectura de frecuencia utiliza histórico existente. No cambia Worker.

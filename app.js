@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.39-prod (Elegir cliente existente)";
+const APP_VERSION = "v1.5.40-prod (Venta Mostrador)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -29,6 +29,7 @@ const CACHE_KEYS = {
   users: "d9_cache_users",
   clients: "d9_cache_clients",
   products: "d9_cache_products",
+  mostUsedProducts: "d9_cache_most_used_products",
   offers: "d9_cache_offers",
   ads: "d9_cache_ads",
   support: "d9_cache_support",
@@ -39,7 +40,9 @@ const state = {
   config: {},
   users: [],
   clients: [],
+  clientsRefreshNeeded: false,
   products: [],
+  mostUsedProducts: [],
   offers: [],
   ads: [],
   support: {},
@@ -550,6 +553,7 @@ function hydrateCacheState() {
   saveJSON(CACHE_KEYS.users,state.users);
   state.clients = readJSON(CACHE_KEYS.clients, state.clients || []);
   state.products = readJSON(CACHE_KEYS.products, state.products || []);
+  state.mostUsedProducts = readJSON(CACHE_KEYS.mostUsedProducts, state.mostUsedProducts || []);
   state.offers = readJSON(CACHE_KEYS.offers, state.offers || []);
   state.ads = readJSON(CACHE_KEYS.ads, state.ads || []);
   state.support = readJSON(CACHE_KEYS.support, state.support || {});
@@ -559,6 +563,7 @@ function persistCacheState() {
   saveJSON(CACHE_KEYS.users, (state.users || []).map(stripUserSecretsD9));
   saveJSON(CACHE_KEYS.clients, state.clients || []);
   saveJSON(CACHE_KEYS.products, state.products || []);
+  saveJSON(CACHE_KEYS.mostUsedProducts, state.mostUsedProducts || []);
   saveJSON(CACHE_KEYS.offers, state.offers || []);
   saveJSON(CACHE_KEYS.ads, state.ads || []);
   saveJSON(CACHE_KEYS.support, state.support || {});
@@ -1500,6 +1505,7 @@ async function loadAllData() {
   const sellers  = Array.isArray(data.usuarios)   ? data.usuarios   : [];
   const clients  = Array.isArray(data.clientes)   ? data.clientes   : [];
   const products = Array.isArray(data.productos)  ? data.productos  : [];
+  state.mostUsedProducts = Array.isArray(data.productos_mas_usados) ? data.productos_mas_usados.map(String) : [];
   const offers   = Array.isArray(data.ofertas)    ? data.ofertas    : [];
   const ads      = Array.isArray(data.publicidad) ? data.publicidad : [];
 
@@ -1557,6 +1563,7 @@ async function loadAllData() {
 
   state.ads = ads.filter(isActiveAd);
   state.hasLoadedData = true;
+  state.clientsRefreshNeeded = false;
 
 
 }
@@ -2455,14 +2462,16 @@ async function loginSeller() {
   if (String(state.seller?.id || "") !== String(seller.id || "")) clearMostradorWorkspaceD9();
   state.seller = seller;
   saveJSON(STORAGE_KEYS.seller, { id: seller.id, nombre: seller.nombre, usuario: seller.usuario });
-  try{await loadAllData();hydrateSeller();}catch(error){console.warn("No se pudo actualizar la cartera autorizada después del ingreso:",error);}
+  let clientsLoadError=null;
+  try{await loadAllData();hydrateSeller();persistCacheState();}
+  catch(error){console.warn("No se pudo actualizar la cartera autorizada después del ingreso:",error);clientsLoadError=error;state.clientsRefreshNeeded=true;}
   applyUserContext();
   applyExperienceModeD9();
   syncSessionUI();
   renderAll();
   closeLogin();
   showView("home");
-  toast(`Hola, ${seller.nombre}`);
+  toast(clientsLoadError?"Ingresaste, pero no se pudieron cargar los clientes: "+clientsLoadError.message+". Abrí el selector con conexión para reintentar.":`Hola, ${seller.nombre}`);
 }
 
 function clearMostradorWorkspaceD9() {
@@ -2593,7 +2602,7 @@ function renderQuickLabels() {
 }
 
 function isMostradorClientOwnedD9(client) { return isMostradorD9()&&isClientOwnedBySellerD9(client); }
-function isMostradorClientAllowedD9(client){return isMostradorD9()&&Boolean(client)&&authorizedClientsD9().some(item=>String(item.id)===String(client.id));}
+function isMostradorClientAllowedD9(client){return isMostradorD9()&&Boolean(client)&&(client.ocasional===true?String(client.id)===String(state.mostradorClient?.id):authorizedClientsD9().some(item=>String(item.id)===String(client.id)));}
 function mostradorClientsD9() { return isMostradorD9()?authorizedClientsD9():[]; }
 
 function renderClients() {
@@ -2633,7 +2642,7 @@ function renderClients() {
     <button class="option-item option-button special-option" id="btnOccasionalClient" type="button">
       <strong>${isMostradorD9()?"+ Nuevo cliente":"+ Cliente nuevo / ocasional"}</strong>
       <div class="option-meta">${isMostradorD9()?"Crear un comercio real en tu cartera":"Cargar nombre, dirección, ciudad y teléfono para este pedido"}</div>
-    </button>`;
+    </button>${isMostradorD9()&&state.clientPickerMode==="mostrador"?'<button class="option-item option-button special-option" id="btnMostradorOccasionalD9" type="button"><strong>+ Cliente ocasional</strong><div class="option-meta">Sólo venta totalmente cobrada en efectivo. No crea una ficha ni admite cuenta corriente.</div></button>':""}`;
 
   if (!canBrowseClients) {
     list.innerHTML = occasionalBtn;
@@ -2752,23 +2761,30 @@ function renderOrderPriceListControls() {
 
 function openMostradorClientFormD9(origin = "home", clientId = "") {
   if (!isMostradorD9()) return;
-  const current = clientId ? state.clients.find(client => String(client.id) === String(clientId)) : null;
-  if (current && !isClientOwnedBySellerD9(current)) return toast("Podés utilizar este cliente, pero sólo su vendedor asignado puede editar la ficha.");
+  const current = clientId ? state.clients.find(client => String(client.id) === String(clientId)) : origin==="sale"&&state.mostradorClient?.ocasional?state.mostradorClient:null;
+  if (current && !current.ocasional && !isClientOwnedBySellerD9(current)) return toast("Podés utilizar este cliente, pero sólo su vendedor asignado puede editar la ficha.");
   state.mostradorClientFormOrigin = origin;
-  state.mostradorEditingClientId = current?.id || "";
-  state.mostradorClientRequestId = current ? "" : `CLREQ-${String(state.seller?.id||"0").replace(/[^A-Za-z0-9_-]/g,"")}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+  state.mostradorEditingClientId = current?.ocasional?"":current?.id || "";
+  state.mostradorClientRequestId = current&&!current.ocasional ? "" : `CLREQ-${String(state.seller?.id||"0").replace(/[^A-Za-z0-9_-]/g,"")}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
   const title = document.querySelector("#occasionalClientModal .modal-head-row h3");
-  if (title) title.textContent = current ? "Editar cliente" : "Nuevo cliente";
+  if (title) title.textContent = current&&!current.ocasional ? "Editar cliente" : "Nuevo cliente";
   $("#occasionalName").value = current?.nombre || "";
   $("#occasionalPhone").value = current?.telefono || "";
   $("#occasionalAddress").value = current?.direccion || "";
   $("#occasionalCity").value = current?.ciudad || "";
   $("#occasionalPriceWrap")?.classList.add("hidden");
   const saveButton = $("#btnSaveOccasionalClient");
-  if (saveButton) saveButton.textContent = current ? "Guardar cambios" : "Crear cliente";
+  if (saveButton) saveButton.textContent = current&&!current.ocasional ? "Guardar cambios" : "Crear cliente";
   closeModal("client");
   openModal("occasionalClient");
   window.setTimeout(() => $("#occasionalName")?.focus(), 100);
+}
+
+function openMostradorOccasionalClientD9(){
+  openMostradorClientFormD9("occasional-sale");
+  state.mostradorClientFormOrigin="occasional-sale";
+  document.querySelector("#occasionalClientModal .modal-head-row h3").textContent="Cliente ocasional";
+  $("#btnSaveOccasionalClient").textContent="Usar en Venta en efectivo";
 }
 
 function openOccasionalClientModal() {
@@ -2857,6 +2873,14 @@ async function saveMostradorRealClientD9() {
 }
 
 async function saveOccasionalClient() {
+  if(isMostradorD9()&&state.mostradorClientFormOrigin==="occasional-sale"){
+    const nombre=$("#occasionalName").value.trim(),telefono=$("#occasionalPhone").value.trim(),direccion=$("#occasionalAddress").value.trim(),ciudad=$("#occasionalCity").value.trim();
+    if(!nombre)return toast("Cargá al menos el nombre del cliente ocasional.");
+    state.mostradorClient={id:`ocasional_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,nombre,nombre_real:nombre,telefono,direccion:[direccion,ciudad].filter(Boolean).join(" · "),ciudad,ocasional:true,lista_precio:"lista_1"};
+    state.activePriceList="lista_1";state.mostradorCart.forEach(item=>setItemOfferPriceD9(item,Boolean(item.usa_oferta)));
+    state.mostradorClientFormOrigin="";state.mostradorEditingClientId="";
+    closeModal("occasionalClient");renderMostradorD9();toast("Cliente ocasional cargado. Esta Venta sólo puede cobrarse completa en efectivo.");return;
+  }
   if (isMostradorD9() && state.mostradorClientFormOrigin) return saveMostradorRealClientD9();
   const nombre = $("#occasionalName").value.trim();
   const telefono = $("#occasionalPhone").value.trim();
@@ -3633,6 +3657,7 @@ function renderProducts() {
   const brand = pickerMode === "mostrador" ? state.mostradorBrand : state.selectedBrand;
   const list = $("#productList");
   const activeCart = pickerMode === "mostrador" ? state.mostradorCart : state.cart;
+  const showMostUsed = pickerMode === "mostrador" && !term && !cat && !brand;
 
   let filtered = [];
 
@@ -3649,6 +3674,11 @@ function renderProducts() {
       .filter(p => (!cat||(cat===OFFERS_CATEGORY_D9?!!activeOfferD9(p.id):p.categoria===cat))&&(!brand||productBrandD9(p)===brand))
       .sort(sortByName)
       .slice(0, 500);
+  } else if (showMostUsed) {
+    const ranking=new Map(state.mostUsedProducts.map((id,index)=>[String(id),index]));
+    filtered=state.products.filter(productHasValidPrice).filter(p=>ranking.has(String(p.id)))
+      .sort((a,b)=>ranking.get(String(a.id))-ranking.get(String(b.id))).slice(0,16);
+    if(!filtered.length)filtered=state.products.filter(productHasValidPrice).sort(sortByName).slice(0,16);
   } else if (isSimpleSellerD9() && pickerMode === "order") {
     const recentIds = [];
     const historyRows = readJSON(STORAGE_KEYS.history, []);
@@ -3685,7 +3715,7 @@ function renderProducts() {
   }
 
   list.innerHTML = filtered.length
-    ? filtered.map(p => {
+    ? (showMostUsed?`<div class="mostrador-most-used-title-d9">${state.mostUsedProducts.length?"Más usados · selección global":"Productos disponibles"}</div>`:"") + filtered.map(p => {
       const cartItem = activeCart.find(x => String(x.id) === String(p.id));
       const selected = !!cartItem;
       const cantidad = Number(cartItem?.cantidad || 1);
@@ -6306,9 +6336,16 @@ function bind() {
     openModal("product");
   });
 
-  document.addEventListener("click", (ev) => {
+  document.addEventListener("click", async (ev) => {
     if (ev.target.closest("#btnMostradorOpenClients")) {
       state.clientPickerMode = "mostrador";
+      $("#clientSearch").value = "";
+      if (clientScopeD9()==="TODOS" && (state.clientsRefreshNeeded || !state.clients.length) && navigator.onLine) {
+        $("#clientList").innerHTML='<div class="empty-state">Cargando clientes…</div>';
+        openModal("client");
+        try { await loadAllData();hydrateSeller();persistCacheState(); }
+        catch(error){state.clientsRefreshNeeded=true;$("#clientList").innerHTML=`<div class="empty-state">No pude cargar clientes: ${esc(error.message)}. Cerrá y abrí el selector para reintentar.</div>`;return;}
+      }
       renderClients();
       openModal("client");
       return;
@@ -6320,13 +6357,6 @@ function bind() {
       return;
     }
     if (ev.target.closest("#btnMostradorOpenProducts")) {
-      if (!state.mostradorClient || !isMostradorClientAllowedD9(state.mostradorClient)) {
-        toast("Primero elegí un cliente autorizado.");
-        state.clientPickerMode = "mostrador";
-        renderClients();
-        openModal("client");
-        return;
-      }
       state.productPickerMode = "mostrador";
       state.categoryPickerMode = "mostrador";
       renderQuickLabels();
@@ -6364,6 +6394,7 @@ function bind() {
 
     const occasional = ev.target.closest("#btnOccasionalClient");
     if (occasional) openOccasionalClientModal();
+    if (ev.target.closest("#btnMostradorOccasionalD9")) openMostradorOccasionalClientD9();
 
     const client = ev.target.closest("[data-client-id]");
     if (client) selectClient(client.dataset.clientId);
@@ -6776,7 +6807,8 @@ function buildMostradorPayloadD9() {
     usuario_id: state.seller?.id || "",
     usuario: state.seller?.nombre || "Mostrador",
     rol: state.seller?.rol || "mostrador",
-    cliente_id: clienteObj.id || "",
+    cliente_id: clienteObj.ocasional ? "" : clienteObj.id || "",
+    cliente_ocasional: clienteObj.ocasional===true,
     cliente: clienteNombre,
     telefono: clienteObj.telefono || "",
     direccion: clienteObj.direccion || "",

@@ -122,10 +122,13 @@ function financeBindMethodD9(form) {
 }
 function financeChooseSaleMethodD9(payload) {
   return new Promise(resolve=>{
-    const overlay=financeOverlayD9("financeSaleMethodD9","Registrar Venta",`<form><p>${esc(payload.cliente)}</p>${financePaymentFieldsD9(true,payload.total,null)}<p class="mini-text">Se registrará online en la Cuenta Corriente real de D9. La copia de WhatsApp se ofrece después de confirmar.</p><div class="finance-error-d9" role="alert"></div><div class="mostrador-flow-actions-d9"><button type="submit" class="mostrador-flow-primary-d9">Confirmar Venta</button><button type="button" data-cancel class="mostrador-flow-link-d9">Volver a la Venta</button></div></form>`),form=overlay.querySelector("form");
-    financeBindMethodD9(form);
+    const occasional=payload.cliente_ocasional===true;
+    const payment=occasional?`<p class="mini-text">Cliente ocasional: sólo Venta cobrada totalmente en efectivo. Para Cuenta Corriente, transferencia o cheque, creá primero su ficha real.</p><label>Medio de pago<select name="medio_pago" required><option value="EFECTIVO">Efectivo · total cobrado</option></select></label><button type="button" data-save-client class="mostrador-flow-link-d9">Crear cliente real para otros medios</button>`:financePaymentFieldsD9(true,payload.total,null);
+    const overlay=financeOverlayD9("financeSaleMethodD9","Registrar Venta",`<form><p>${esc(payload.cliente)}</p>${payment}<p class="mini-text">La Venta se registra online antes de ofrecer WhatsApp.</p><div class="finance-error-d9" role="alert"></div><div class="mostrador-flow-actions-d9"><button type="submit" class="mostrador-flow-primary-d9">Confirmar Venta</button><button type="button" data-cancel class="mostrador-flow-link-d9">Volver a la Venta</button></div></form>`),form=overlay.querySelector("form");
+    if(!occasional)financeBindMethodD9(form);
+    if(occasional)form.querySelector("[data-save-client]").onclick=()=>{overlay.remove();resolve(null);openMostradorClientFormD9("sale");};
     form.querySelector("[data-cancel]").onclick=()=>{overlay.remove();resolve(null);};
-    form.onsubmit=event=>{event.preventDefault();try{const payment=financeReadPaymentD9(form,true);overlay.remove();resolve(payment);}catch(error){form.querySelector("[role=alert]").textContent=error.message;}};
+    form.onsubmit=event=>{event.preventDefault();try{const result=financeReadPaymentD9(form,true);if(occasional&&result.medio_pago!=="EFECTIVO")throw new Error("El cliente ocasional sólo admite efectivo total. Creá una ficha real para otros medios.");overlay.remove();resolve(result);}catch(error){form.querySelector("[role=alert]").textContent=error.message;}};
   });
 }
 function financeSaleIsCurrentD9(payload) {

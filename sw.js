@@ -1,11 +1,11 @@
-const CACHE_NAME = "d9-pedidos-v1539-prod-client-candidates";
+const CACHE_NAME = "d9-pedidos-v1540-prod-mostrador-ux";
 const URLS = [
   "./",
   "./index.html",
-  "./styles.css?v=1536-prod",
-  "./finance.js?v=1536-prod",
-  "./app.js?v=1536-prod",
-  "./manifest.json?v=d9-prod-v1536",
+  "./styles.css?v=1540-prod",
+  "./finance.js?v=1540-prod",
+  "./app.js?v=1540-prod",
+  "./manifest.json?v=d9-prod-v1540",
   "./icons/d9-icon-192-v2.png",
   "./icons/d9-icon-512-v2.png",
   "./icons/d9-maskable-512-v2.png",

@@ -3705,6 +3705,7 @@ button:active,
 .mostrador-clients-tools-d9 .input{width:100%;min-width:0;}
 .mostrador-clients-tools-d9 .primary-btn{width:auto;white-space:nowrap;}
 .mostrador-clients-list-d9{display:grid;gap:10px;}
+.mostrador-most-used-title-d9{padding:10px 12px;color:#245775;font-size:13px;font-weight:800;letter-spacing:.02em;}
 .mostrador-client-card-d9{
   display:grid;
   grid-template-columns:minmax(0,1fr) auto;
