@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.40-prod (Venta Mostrador)";
+const APP_VERSION = "v1.5.41-prod (Integridad de Pedidos)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -4108,18 +4108,29 @@ function cleanupRecentOrderSendsD9(ttlMs = 120000) {
 
 function isRecentOrderFingerprintBlockedD9(payload, ttlMs = 120000) {
   if (!payload) return false;
+  const pedidoId = String(payload?.pedido_id || payload?.pedidoId || "").trim();
   const fp = buildOrderFingerprint(payload);
   const now = Date.now();
   const recent = cleanupRecentOrderSendsD9(ttlMs);
-  return recent.some(x => x.fp === fp && Number(x.until || 0) > now);
+  return recent.some(x => {
+    const recentId = String(x?.pedido_id || "").trim();
+    // Un pedido moderno se identifica sólo por pedido_id. La huella queda
+    // exclusivamente como compatibilidad para registros donde ambos carecen de ID.
+    if (pedidoId || recentId) return !!(pedidoId && recentId && pedidoId === recentId);
+    return x.fp === fp && Number(x.until || 0) > now;
+  });
 }
 
 function markRecentOrderFingerprintD9(payload, ttlMs = 120000) {
   if (!payload) return;
+  const pedidoId = String(payload?.pedido_id || payload?.pedidoId || "").trim();
   const fp = buildOrderFingerprint(payload);
   const now = Date.now();
-  const recent = cleanupRecentOrderSendsD9(ttlMs).filter(x => x.fp !== fp);
-  recent.push({ fp, at: now, until: now + ttlMs });
+  const recent = cleanupRecentOrderSendsD9(ttlMs).filter(x => {
+    const recentId = String(x?.pedido_id || "").trim();
+    return pedidoId ? recentId !== pedidoId : !!recentId || x.fp !== fp;
+  });
+  recent.push({ pedido_id: pedidoId, fp, at: now, until: now + ttlMs });
   saveJSON("d9_recent_order_sends", recent.slice(-20));
 }
 
@@ -4141,7 +4152,10 @@ function markOrderCompletedD9(payload, ttlMs = 300000) {
   const fp = buildOrderFingerprint(payload);
   if (!pedidoId && !fp) return;
   const now = Date.now();
-  const recent = cleanupRecentCompletedOrdersD9(ttlMs).filter(x => x.pedido_id !== pedidoId && x.fp !== fp);
+  const recent = cleanupRecentCompletedOrdersD9(ttlMs).filter(x => {
+    const recentId = String(x?.pedido_id || "").trim();
+    return pedidoId ? recentId !== pedidoId : !!recentId || x.fp !== fp;
+  });
   recent.push({ pedido_id: pedidoId, fp, at: now, until: now + ttlMs });
   saveJSON("d9_recent_completed_orders", recent.slice(-30));
 }
@@ -4151,7 +4165,11 @@ function isRecentlyCompletedOrderD9(payload, ttlMs = 300000) {
   const pedidoId = String(payload?.pedido_id || payload?.pedidoId || "").trim();
   const fp = buildOrderFingerprint(payload);
   const recent = cleanupRecentCompletedOrdersD9(ttlMs);
-  return recent.some(x => (pedidoId && x.pedido_id === pedidoId) || (fp && x.fp === fp));
+  return recent.some(x => {
+    const recentId = String(x?.pedido_id || "").trim();
+    if (pedidoId || recentId) return !!(pedidoId && recentId && pedidoId === recentId);
+    return !!(fp && x.fp === fp);
+  });
 }
 
 function isOrderSendLocked(payload = null) {
@@ -4796,14 +4814,38 @@ function updateHistoryStatusByPedidoIdD9(pedidoId, status, error = "") {
 function pendingPayloadMatchesD9(a, b) {
   const idA = String(a?.pedido_id || a?.pedidoId || "").trim();
   const idB = String(b?.pedido_id || b?.pedidoId || "").trim();
-  if (idA && idB && idA === idB) return true;
+  // Si cualquiera de los dos registros ya posee identidad, no se permite que
+  // una huella de contenido sustituya al pedido_id. Dos IDs distintos siempre
+  // representan pedidos comerciales distintos aunque el contenido sea idéntico.
+  if (idA || idB) return !!(idA && idB && idA === idB);
 
   const fpA = safePedidoFingerprintD9(a);
   const fpB = safePedidoFingerprintD9(b);
   return !!(fpA && fpB && fpA === fpB);
 }
 
+function buildLegacyComparableFromHistoryD9(item) {
+  return {
+    vendedor: { id: item?.vendedor_id || "", nombre: item?.vendedor || "" },
+    cliente: item?.cliente_data || {
+      id: item?.cliente_id || "",
+      nombre: item?.cliente || "",
+      nombre_real: item?.cliente || ""
+    },
+    carrito: (item?.items || []).map(x => ({
+      id: x.id || x.id_producto || "",
+      nombre: x.nombre || "",
+      cantidad: Number(x.cantidad || 0),
+      precio: Number(x.precio || 0),
+      nota_item: getItemNoteD9(x)
+    })),
+    total: Number(item?.total || 0),
+    nota_pedido: String(item?.nota_pedido || item?.notaPedido || "").trim()
+  };
+}
+
 function isHistoryResolvedForPendingD9(payload) {
+  const pendingId = String(payload?.pedido_id || payload?.pedidoId || "").trim();
   const history = readJSON(STORAGE_KEYS.history, []);
   return history.some(item => {
     const status = String(item?.status || "").trim().toLowerCase();
@@ -4811,13 +4853,29 @@ function isHistoryResolvedForPendingD9(payload) {
     const isOk = status === "ok" || pcStatus === "cargado";
     if (!isOk || isHistoryItemDuplicadoAdvertenciaD9(item) || isHistoryItemAnuladoD9(item)) return false;
 
-    const itemPayload = buildPayloadFromHistoryItemD9(item);
-    if (itemPayload?.ok && pendingPayloadMatchesD9(payload, itemPayload)) return true;
+    const historyId = getHistoryPedidoIdD9(item);
+    if (pendingId || historyId) return !!(pendingId && historyId && pendingId === historyId);
 
-    const idA = String(payload?.pedido_id || payload?.pedidoId || "").trim();
-    const idB = String(item?.pedido_id || item?.pedidoId || item?.id || "").trim();
-    return !!(idA && idB && idA === idB);
+    // Fallback deliberadamente estrecho para historial/pendientes legacy:
+    // sólo se compara contenido cuando ninguno de los dos posee pedido_id.
+    return pendingPayloadMatchesD9(payload, buildLegacyComparableFromHistoryD9(item));
   });
+}
+
+const D9_PENDING_SYNC_LEASE_KEY = "d9_pending_sync_lease";
+function acquirePendingSyncLeaseD9(ttlMs = 180000) {
+  const now = Date.now();
+  const current = readJSON(D9_PENDING_SYNC_LEASE_KEY, null);
+  if (current?.owner && current.owner !== D9_SESSION_ID && Number(current.until || 0) > now) return false;
+  const lease = { owner: D9_SESSION_ID, at: now, until: now + ttlMs };
+  saveJSON(D9_PENDING_SYNC_LEASE_KEY, lease);
+  const confirmed = readJSON(D9_PENDING_SYNC_LEASE_KEY, null);
+  return confirmed?.owner === D9_SESSION_ID;
+}
+
+function releasePendingSyncLeaseD9() {
+  const current = readJSON(D9_PENDING_SYNC_LEASE_KEY, null);
+  if (current?.owner === D9_SESSION_ID) localStorage.removeItem(D9_PENDING_SYNC_LEASE_KEY);
 }
 
 function removePendingRelatedToPayloadD9(payload, reason = "resuelto") {
@@ -5330,10 +5388,6 @@ async function sendOrder() {
     return;
   }
 
-  // v1.5.7: el ID ya quedó copiado dentro de este payload.
-  // Se libera inmediatamente el ID global del borrador para que el próximo pedido
-  // no arrastre el mismo pedido_id mientras este envío sigue verificando en segundo plano.
-  clearDraftPedidoIdD9();
   logAppEventD9("CONFIRMAR_ENVIO_TOCADO", { payload, resultado: "tap" });
 
   lockOrderSend(payload, 300000);
@@ -5385,9 +5439,46 @@ async function sendOrder() {
       return;
     }
 
-    // v1.5.9: marcamos el fingerprint ANTES de abrir WhatsApp.
-    // En Android el cambio de app puede cortar el hilo JS antes de dejar registrada la marca;
-    // entonces al volver se podía disparar un segundo envío del mismo pedido.
+    // La validación del destino ocurre antes de comprometer el pedido. Una vez
+    // persistido, abrir WhatsApp o cambiar de aplicación ya no puede dejar el
+    // snapshot únicamente en memoria.
+    if (!onlyDigits(waPhone)) {
+      logAppEventD9("WHATSAPP_ERROR", { payload, resultado: "error", detalle: "Falta WhatsApp destino" });
+      toast("Falta WhatsApp destino en confi.");
+      releaseCurrentSendUiD9(false);
+      return;
+    }
+
+    // v1.5.41: WAL local del Pedido. localStorage se escribe de forma síncrona;
+    // al abrir WhatsApp ya existe una copia completa, recuperable y con el ID
+    // definitivo. El callback posterior sólo resolverá este mismo pedido_id.
+    try {
+      savePendingPayload(payload);
+      const persisted = readJSON(STORAGE_KEYS.pending, []).some(item =>
+        String(item?.pedido_id || item?.pedidoId || "").trim() === String(payload.pedido_id || "").trim()
+      );
+      if (!persisted) throw new Error("No se pudo verificar la copia local del pedido.");
+    } catch (storageError) {
+      logAppEventD9("PEDIDO_PERSISTENCIA_LOCAL_ERROR", { payload, resultado: "error", error: String(storageError) });
+      toast("No pude guardar el pedido en este dispositivo. No se abrió WhatsApp: probá nuevamente.");
+      releaseCurrentSendUiD9(false);
+      return;
+    }
+    try {
+      saveHistory(payload, "pendiente", "Esperando confirmación de PC");
+    } catch (historyError) {
+      // La cola contiene el snapshot completo y es la copia recuperable. Un
+      // historial local lleno no debe invalidar esa persistencia ya confirmada.
+      console.warn("Pedido protegido en Pendientes; no pude actualizar Historial:", historyError);
+    }
+
+    // Sólo después de verificar el snapshot local liberamos el ID del editor.
+    // El próximo pedido obtiene uno nuevo; cualquier reintento de este snapshot
+    // conserva el ID que ya quedó dentro de Pendientes.
+    clearDraftPedidoIdD9();
+
+    // Marcamos esta identidad ANTES de cambiar de aplicación para evitar un
+    // segundo gesto del mismo pedido al volver desde WhatsApp.
     markRecentOrderFingerprintD9(payload, 180000);
 
     if (!openWhatsApp(waPhone, waText)) {
@@ -5737,6 +5828,11 @@ async function syncPending() {
     return;
   }
 
+  if (!acquirePendingSyncLeaseD9()) {
+    if (state.currentView === "pending") toast("Los pendientes ya se están sincronizando en otra ventana.");
+    return;
+  }
+
   state.isSyncing = true;
   logAppEventD9("SYNC_PENDIENTES_INICIADA", { resultado: "inicio", detalle: `pendientes:${pending.length}` });
   const syncBtn = $("#btnSyncPending");
@@ -5752,13 +5848,13 @@ async function syncPending() {
   }
 
   try {
-    const remaining = [];
     let sentCount = 0;
 
     for (const item of pending) {
       try {
         if (isHistoryResolvedForPendingD9(item)) {
           logAppEventD9("PENDIENTE_DESCARTADO_YA_REENVIADO", { payload: item, resultado: "ok", detalle: "Ya figura cargado/reenvíado en historial" });
+          removePendingRelatedToPayloadD9(item, "historial confirmado por pedido_id");
           continue;
         }
 
@@ -5770,6 +5866,7 @@ async function syncPending() {
           const msg = "Pedido cargado correctamente en PC.";
           logAppEventD9("PENDIENTE_DESCARTADO_YA_EN_PC", { payload: item, resultado: "ok", detalle: msg });
           updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "ok", msg);
+          removePendingRelatedToPayloadD9(item, "verificado en PC por pedido_id");
           continue;
         }
 
@@ -5784,19 +5881,21 @@ async function syncPending() {
             logAppEventD9("PENDIENTE_SYNC_OK", { payload: item, resultado: "ok" });
             updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "ok", "Cargado en PC");
           }
+          removePendingRelatedToPayloadD9(item, "sincronización confirmada por pedido_id");
         } else {
           logAppEventD9("PENDIENTE_SYNC_ERROR", { payload: item, resultado: "error", error: result?.error || "No llegó a PC" });
           updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "pendiente", result?.error || "No llegó a PC");
-          remaining.push(item);
         }
       } catch (err) {
         logAppEventD9("PENDIENTE_SYNC_ERROR", { payload: item, resultado: "catch", error: String(err) });
         updateHistoryStatusByPedidoIdD9(item?.pedido_id || item?.pedidoId, "pendiente", String(err));
-        remaining.push(item);
       }
     }
 
-    saveJSON(STORAGE_KEYS.pending, remaining);
+    // Nunca sustituimos la cola por un array derivado del snapshot inicial.
+    // Las resoluciones anteriores quitaron exclusivamente su identidad; todo
+    // pedido agregado mientras esperábamos red permanece en el storage actual.
+    const remaining = readJSON(STORAGE_KEYS.pending, []);
     refreshPendingUiD9();
     schedulePendingHomeRefreshD9();
 
@@ -5816,6 +5915,7 @@ async function syncPending() {
     }
   } finally {
     state.isSyncing = false;
+    releasePendingSyncLeaseD9();
     if (syncBtnIsButton) {
       setButtonBusy(syncBtn, false, "Sincronizando...", syncBtn?.dataset?.idleLabel || "Pendientes y en espera");
     } else if (syncBtn) {
