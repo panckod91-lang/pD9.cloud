@@ -1,11 +1,11 @@
-const CACHE_NAME = "d9-pedidos-v1541-prod-integridad-pedidos";
+const CACHE_NAME = "d9-pedidos-v1542-block2-autorizacion";
 const URLS = [
   "./",
   "./index.html",
-  "./styles.css?v=1541-prod",
-  "./finance.js?v=1541-prod",
-  "./app.js?v=1541-prod",
-  "./manifest.json?v=d9-prod-v1541",
+  "./styles.css?v=1542-block2",
+  "./finance.js?v=1542-block2",
+  "./app.js?v=1542-block2",
+  "./manifest.json?v=d9-prod-v1542",
   "./icons/d9-icon-192-v2.png",
   "./icons/d9-icon-512-v2.png",
   "./icons/d9-maskable-512-v2.png",

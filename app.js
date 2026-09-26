@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.41-prod (Integridad de Pedidos)";
+const APP_VERSION = "v1.5.42 (Autorización de Pedidos)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -4339,7 +4339,9 @@ function validateOrder() {
 
 function buildWebhookPayload(payload) {
   const cliente = payload?.cliente || {};
-  const authSession=readJSON("d9_auth_session",null),authToken=String(authSession?.uid)===String(payload?.vendedor?.id||"")?String(authSession?.token||""):"";
+  const originalSellerId = String(payload?.vendedor?.id || payload?.vendedor_id || "").trim();
+  const originalSellerName = String(payload?.vendedor?.nombre || payload?.vendedor_nombre || (typeof payload?.vendedor === "string" ? payload.vendedor : "") || "").trim();
+  const authSession=readJSON("d9_auth_session",null),authToken=originalSellerId && String(authSession?.uid)===originalSellerId?String(authSession?.token||""):"";
   const clienteTexto = [
     cliente.nombre_real || cliente.nombre || "",
     cliente.telefono || "",
@@ -4348,8 +4350,8 @@ function buildWebhookPayload(payload) {
 
   return {
     pedido_id: payload?.pedido_id || payload?.pedidoId || "",
-    vendedor_id: payload?.vendedor?.id || "",
-    vendedor: payload?.vendedor?.nombre || "",
+    vendedor_id: originalSellerId,
+    vendedor: originalSellerName,
     cliente_id: String(cliente.id || "").trim(),
     cliente: clienteTexto,
     lista_precio: normalizePriceListKeyD9(payload?.lista_precio || cliente.lista_precio || cliente.lista_1 || "lista_1"),
@@ -4373,6 +4375,18 @@ function buildWebhookPayload(payload) {
     resync_pc: payload?.resync_pc === true,
     token: authToken
   };
+}
+
+function pedidosAuthErrorD9(message) {
+  return /sesi[oó]n|ingres[aá] nuevamente|no corresponde al vendedor|identidad del pedido|ya no est[aá] autorizada/i.test(String(message || ""));
+}
+
+function pedidosRequestLoginForPendingD9(message, payload) {
+  if (!pedidosAuthErrorD9(message)) return;
+  const original = String(payload?.vendedor?.nombre || payload?.vendedor_id || "el usuario original").trim();
+  toast(`El pedido permanece en Pendientes. Ingresá nuevamente como ${original} para sincronizarlo.`);
+  // Un pedido C en edición nunca debe perder foco por el error tardío de A/B.
+  if (!document.hidden && !(state.currentView === "order" && state.cart.length)) openLogin();
 }
 
 async function sendToEndpoint(url, sendPayload) {
@@ -4706,6 +4720,12 @@ async function trySendToWebhook(payload) {
 
         lastError = { ok: false, error: verify.error || "No confirmado en PC", endpoint, data: result.data };
       } else {
+        // La identidad vencida no se arregla cambiando el ID o el snapshot.
+        // Queda en Pendientes hasta que ingrese el mismo usuario y reintente.
+        if (pedidosAuthErrorD9(result?.error)) {
+          pedidosRequestLoginForPendingD9(result.error, payload);
+          return result;
+        }
         // v1.5.9: si el POST devuelve colisión de ID, igual verificamos por ID+contenido.
         // Caso real: el primer envío sí escribió en Sheets, pero al volver de WhatsApp
         // una segunda confirmación/reintento recibió "ID ya existe" y dejaba pendiente falso.
@@ -4968,7 +4988,9 @@ async function postD9Action(action, payload = {}) {
   let last = null;
   for (const endpoint of WEBHOOK_ENDPOINTS) {
     try {
-      const result = await sendToEndpoint(buildActionUrlD9(endpoint, action), { ...payload, action });
+      const session = readJSON("d9_auth_session", null);
+      const token = String(session?.uid) === String(state.seller?.id) ? String(session?.token || "") : "";
+      const result = await sendToEndpoint(buildActionUrlD9(endpoint, action), { ...payload, action, token });
       if (result?.ok) return result;
       last = result;
     } catch (err) {
@@ -5507,6 +5529,10 @@ async function completeOrderDeliveryInBackgroundD9(payload) {
   try {
     const res = await trySendToWebhook(payload);
     if (!res || !res.ok) {
+      if (pedidosAuthErrorD9(res?.error)) {
+        updateHistoryStatusByPedidoIdD9(payload?.pedido_id, "pendiente", res.error);
+        return; // El snapshot completo ya está persistido en Pendientes.
+      }
       // Última defensa antes de crear pendiente: si ya está en PC con este mismo
       // contenido, NO guardar pendiente falso.
       const pendingResult = await savePendingOnlyAfterGraceD9(payload, res?.error || "No pude confirmar el envío");

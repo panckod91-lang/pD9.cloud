@@ -1,29 +1,24 @@
-# D9 Pedidos v1.5.41 PROD
+# D9 Pedidos v1.5.42 — Bloque 2
 
-## Integridad del Pedido convencional
+Basado en frontend v1.5.41 y Apps Script v1.5.40. Cambian la autenticación de Pedido convencional, la autorización de anulación y el cierre de escrituras legacy de Admin/Venta Mostrador. El Worker y D9 Admin no cambian.
 
-- Antes de abrir WhatsApp o limpiar el editor, el snapshot completo queda en `d9_pendientes` con su `pedido_id` definitivo. También se intenta reflejar en Historial. Si la copia recuperable no puede verificarse, WhatsApp no se abre y el pedido visible no se limpia.
-- La confirmación del backend quita exclusivamente el pendiente con ese `pedido_id`. Un error o una respuesta incierta conserva el mismo snapshot para reintento, sin regenerar su ID.
-- `syncPending()` ya no reemplaza el almacenamiento con una cola calculada desde una fotografía vieja: reconcilia cada resolución contra el estado actual. Los pedidos agregados mientras espera la red permanecen intactos.
-- Existe exclusión contra sincronizaciones reentrantes y una lease local breve para evitar dos sincronizaciones simultáneas desde ventanas de la misma PWA. La idempotencia del backend sigue siendo la protección definitiva ante reintentos.
-- Para pedidos modernos, `pedido_id` es la identidad primaria. Dos pedidos con contenido idéntico e IDs diferentes nunca se confirman, eliminan ni bloquean entre sí. La comparación por contenido queda únicamente para registros legacy cuando ambos carecen de ID.
+## Pedido y pendientes
 
-## Cambios puntuales
+- Un Pedido atribuido a un usuario exige sesión firmada vigente del mismo usuario. El Script toma nombre e ID de esa sesión y conserva la comprobación de cartera para PROPIOS. Un pedido de invitado genuino sigue sin identidad de vendedor ni `cliente_id` de maestro.
+- La app almacena el snapshot y `pedido_id` antes de WhatsApp como en v1.5.41. El pendiente no almacena token: al reintentar usa la sesión vigente del usuario original. Si venció, conserva el pedido y pide ingresar nuevamente como el mismo usuario. No se cambia su ID ni se convierte en un pedido nuevo.
+- La anulación exige sesión; el dueño persistido puede anular su Pedido y admin/superadmin pueden anular cualquiera, incluso invitados. Un dueño histórico ambiguo requiere revisión.
+- Las rutas antiguas `guardar_venta_mostrador` / `save_venta_mostrador`, `update_clientes` / `upsert_clientes`, `update_productos` / `upsert_productos`, `update_publicidad` / `upsert_publicidad`, `update_config` y `update_usuarios` / `upsert_usuarios` rechazan escrituras. La Venta financiera y la administración vigente se realizan desde Gestión.
 
-- Venta Mostrador permite cargar productos antes del cliente. El selector de productos muestra hasta 16 artículos globalmente frecuentes cuando no hay búsqueda ni filtros; el ranking se calcula al cargar datos sobre un tramo acotado del histórico de Pedidos y Ventas. Si aún no existe histórico utilizable, muestra productos disponibles.
-- El cliente ocasional de Mostrador conserva nombre y datos descriptivos sin crear ficha; sólo admite Venta cobrada por completo en **efectivo**. Para transferencia, cheque o Cuenta Corriente se debe crear o seleccionar un cliente real. El backend de Gestión valida la restricción.
-- Si falla la recarga de clientes después del login, se informa el error y se ofrece reintento al abrir el selector. El acceso TODOS sigue incluyendo todos los clientes activos; PROPIOS conserva su cartera y accesos adicionales.
+## Compatibilidad deliberada de Admin
 
-## Clientes existentes en Mostrador
+El ZIP vigente de D9 Admin llama a `update_config`, `update_clientes`, `update_productos` y `update_publicidad` sin sesión. Admin ya fue declarado legacy y sus escrituras quedan deliberadamente deshabilitadas. La app y el repositorio de Admin no cambian. Usuarios se administra desde Gestión.
 
-Al dar de alta un cliente, si hay coincidencias fuertes o posibles, se muestran **todas las fichas candidatas** con teléfono, ciudad, dirección y vendedor. Se puede usar cualquiera de ellas o crear expresamente una ficha nueva. Una coincidencia sólo por nombre no selecciona ni fusiona clientes automáticamente. Los criterios de coincidencia de v1.5.38 permanecen iguales: nombre y teléfono, nombre y domicilio, teléfono solo o nombre solo.
+## Instalación propuesta
 
-Al usar una ficha existente se conserva su `cliente_id` y se selecciona de inmediato. Si un usuario `PROPIOS` necesita incorporarla, se usa el mismo acceso idempotente de `clientes_accesos`; no cambia el vendedor comercial, los datos de la ficha, la comisión, la cuenta ni el permiso de edición. `TODOS` reutiliza la ficha sin crear acceso adicional. Si el usuario elige crear una nueva y había coincidencia fuerte, debe confirmarlo expresamente una segunda vez.
+1. Reemplazar el frontend completo de **D9 Pedidos** con el contenido de este ZIP. Su código ya envía token al anular y mantiene el envío convencional de pedidos de v1.5.41. Dejar que los usuarios recarguen hasta ver `v1.5.42 (Autorización de Pedidos)`.
+2. Reemplazar `Code.gs` únicamente en el proyecto Apps Script de **D9 Pedidos**, guardar y actualizar el despliegue existente con una nueva versión (misma URL). No ejecutar setup.
+3. No modificar Worker, Admin ni Gestión. No crear hojas, columnas, propiedades ni contadores manualmente.
 
-## Instalación
+Durante el intervalo entre pasos, frontend v1.5.42 con backend anterior conserva la operatividad previa, pero la protección backend nueva todavía no rige. Si quedara una PWA v1.5.41 frente a backend v1.5.42, sus pedidos de usuario siguen incluyendo token al enviarse; la anulación desde esa PWA antigua carece de token y será rechazada hasta actualizarse. Las escrituras del Admin legacy dejarán de funcionar al actualizar el Script.
 
-1. Sustituir únicamente el frontend de **D9 Pedidos** en el hosting con este paquete.
-2. Conservar la configuración y las URLs actuales.
-3. Recargar/cerrar y abrir la PWA hasta verificar `v1.5.41-prod (Integridad de Pedidos)`.
-
-El Apps Script de Pedidos no cambió respecto de v1.5.40 y **no requiere reemplazo ni nuevo despliegue**. D9 Gestión permanece en v0.19.5. No ejecutar funciones `setup`: no hay columnas, hojas, propiedades ni migraciones nuevas. No cambia Worker.
+Un pendiente anterior atribuido a un usuario puede reintentarse al iniciar sesión como ese mismo usuario; si carece de ID de vendedor y declara nombre de vendedor, queda visible para revisión en lugar de atribuirlo automáticamente a invitado. La app no descarta pendientes por un error de autenticación.
