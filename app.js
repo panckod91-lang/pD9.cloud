@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.42 (Autorización de Pedidos)";
+const APP_VERSION = "v1.5.43 (Invitado y pendientes)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -4342,6 +4342,10 @@ function buildWebhookPayload(payload) {
   const originalSellerId = String(payload?.vendedor?.id || payload?.vendedor_id || "").trim();
   const originalSellerName = String(payload?.vendedor?.nombre || payload?.vendedor_nombre || (typeof payload?.vendedor === "string" ? payload.vendedor : "") || "").trim();
   const authSession=readJSON("d9_auth_session",null),authToken=originalSellerId && String(authSession?.uid)===originalSellerId?String(authSession?.token||""):"";
+  // El ID ocasional sólo identifica la ficha local del invitado. No es un
+  // cliente_id del maestro y no debe viajar al Script como si lo fuera.
+  // El snapshot sigue intacto para Pendientes y conserva su pedido_id.
+  const guestOccasional = !originalSellerId && !originalSellerName && cliente.ocasional === true;
   const clienteTexto = [
     cliente.nombre_real || cliente.nombre || "",
     cliente.telefono || "",
@@ -4352,7 +4356,7 @@ function buildWebhookPayload(payload) {
     pedido_id: payload?.pedido_id || payload?.pedidoId || "",
     vendedor_id: originalSellerId,
     vendedor: originalSellerName,
-    cliente_id: String(cliente.id || "").trim(),
+    cliente_id: guestOccasional ? "" : String(cliente.id || "").trim(),
     cliente: clienteTexto,
     lista_precio: normalizePriceListKeyD9(payload?.lista_precio || cliente.lista_precio || cliente.lista_1 || "lista_1"),
     items: (payload?.carrito || []).map(item => ({

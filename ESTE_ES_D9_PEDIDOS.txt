@@ -1,3 +1,3 @@
 D9 PEDIDOS
-Versión 1.5.42 — Bloque 2
+Versión 1.5.43 — corrección Invitado
 No confundir con D9 Gestión.
