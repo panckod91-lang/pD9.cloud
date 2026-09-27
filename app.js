@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.43 (Invitado y pendientes)";
+const APP_VERSION = "v1.5.44 (Frecuentes y progreso de Venta)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -3657,7 +3657,7 @@ function renderProducts() {
   const brand = pickerMode === "mostrador" ? state.mostradorBrand : state.selectedBrand;
   const list = $("#productList");
   const activeCart = pickerMode === "mostrador" ? state.mostradorCart : state.cart;
-  const showMostUsed = pickerMode === "mostrador" && !term && !cat && !brand;
+  const showMostUsed = !term && !cat && !brand;
 
   let filtered = [];
 
@@ -3679,36 +3679,6 @@ function renderProducts() {
     filtered=state.products.filter(productHasValidPrice).filter(p=>ranking.has(String(p.id)))
       .sort((a,b)=>ranking.get(String(a.id))-ranking.get(String(b.id))).slice(0,16);
     if(!filtered.length)filtered=state.products.filter(productHasValidPrice).sort(sortByName).slice(0,16);
-  } else if (isSimpleSellerD9() && pickerMode === "order") {
-    const recentIds = [];
-    const historyRows = readJSON(STORAGE_KEYS.history, []);
-    const selectedClientId = String(state.selectedClient?.id || "").trim();
-    const orderedHistory = (Array.isArray(historyRows) ? historyRows : []).slice(0, 80).sort((a, b) => {
-      const aSame = selectedClientId && String(a?.cliente_id || a?.cliente_data?.id || "") === selectedClientId ? 0 : 1;
-      const bSame = selectedClientId && String(b?.cliente_id || b?.cliente_data?.id || "") === selectedClientId ? 0 : 1;
-      return aSame - bSame;
-    });
-    orderedHistory.forEach(row => {
-      (Array.isArray(row?.items) ? row.items : []).forEach(item => {
-        const id = String(item?.id || item?.id_producto || "").trim();
-        if (id && !recentIds.includes(id)) recentIds.push(id);
-      });
-    });
-    const rank = new Map(recentIds.map((id, index) => [id, index]));
-    filtered = state.products
-      .filter(productHasValidPrice)
-      .filter(p => rank.has(String(p.id)))
-      .sort((a, b) => rank.get(String(a.id)) - rank.get(String(b.id)))
-      .slice(0, 30);
-    if (!filtered.length) {
-      const availableCount = state.products.filter(productHasValidPrice).length;
-      if (!availableCount) {
-        list.innerHTML = `<div class="empty-state simple-help-d9">${esc(priceLabel(getActivePriceList()))} todavía no tiene productos con precio. Avisale al encargado antes de continuar.</div>`;
-        return;
-      }
-      list.innerHTML = '<div class="empty-state simple-help-d9">Escribí una parte del nombre del producto o tocá <strong>Cambiar categoría</strong>.</div>';
-      return;
-    }
   } else {
     list.innerHTML = '<div class="empty-state">Elegí una categoría o buscá un producto.</div>';
     return;
@@ -3730,7 +3700,6 @@ function renderProducts() {
             <div class="option-meta">${esc(productMetaLine(p))}</div>
             ${offer?`<div class="option-meta offer-meta-d9">🔥 Oferta disponible ${money(offer.precio_oferta)}</div>`:""}
             ${term && cat && p.categoria !== cat ? `<div class="option-meta product-cross-category-d9">Cat. ${esc(cleanCategory(p.categoria))}</div>` : ""}
-            ${!term && !cat && isSimpleSellerD9() ? '<div class="option-meta simple-recent-d9">Usado recientemente</div>' : ''}
           </div>
           <div class="product-side product-qty-zone-d9" ${selected ? 'data-no-toggle="true"' : ''}>
             ${selected ? (pickerMode === "mostrador" ? `
@@ -7486,11 +7455,16 @@ async function finalizeMostradorWhatsAppD9(allowClient) {
     button.textContent = "Registrando venta...";
   }
 
+  let saveResult;
   try {
-    const saveResult = await persistMostradorVentaD9("whatsapp");
+    saveResult = await persistMostradorVentaD9("whatsapp");
     if(!saveResult)return;
     if (!saveResult?.payload) throw new Error("No se pudo preparar la venta.");
-    if(!financeSaleIsCurrentD9(saveResult.payload)||state.currentView!=="mostrador")return toast(`Venta ${saveResult.payload.venta_id} registrada. Tu trabajo actual no se modificó.`);
+    financeSaleProgressD9("confirmed");
+    if(!financeSaleIsCurrentD9(saveResult.payload)||state.currentView!=="mostrador"){
+      closeMostradorOverlayD9("financeSaleMethodD9");
+      return toast(`Venta ${saveResult.payload.venta_id} registrada. Tu trabajo actual no se modificó.`);
+    }
     const text = buildMostradorTextD9(saveResult.payload);
     showMostradorWhatsAppDestinationsD9({
       payload: saveResult.payload,
@@ -7498,9 +7472,14 @@ async function finalizeMostradorWhatsAppD9(allowClient) {
       saveResult,
       allowClient
     });
+    closeMostradorOverlayD9("financeSaleMethodD9");
   } catch (error) {
     console.warn("No se pudo preparar WhatsApp mostrador:", error);
-    toast(error.message || "No se pudo registrar la venta. Verificá el resultado antes de reintentar.");
+    const message=saveResult?.payload
+      ? `La Venta fue confirmada, pero no se pudo preparar WhatsApp: ${error.message||"error desconocido"}. Conservá este carrito y verificá la operación antes de reintentar.`
+      : error.message || "No se pudo confirmar la Venta. Verificá el resultado antes de reintentar.";
+    financeSaleProgressD9(saveResult?.payload?"error-confirmed":"error",message);
+    toast(message);
   } finally {
     state.mostradorFinalizingWhatsApp = false;
     if (button) {

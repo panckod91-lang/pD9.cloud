@@ -99,6 +99,16 @@ function financeOverlayD9(id, title, body) {
   overlay.innerHTML=`<div class="d9-confirm-box mostrador-flow-box-d9 finance-box-d9" role="dialog" aria-modal="true" aria-label="${esc(title)}"><h3>${esc(title)}</h3>${body}</div>`;
   document.body.appendChild(overlay); return overlay;
 }
+function financeSaleProgressD9(phase, message="") {
+  const overlay=document.getElementById("financeSaleMethodD9"),box=overlay?.querySelector(".mostrador-flow-box-d9");
+  if(!box)return;
+  if(phase==="error"||phase==="error-confirmed"){
+    box.innerHTML=`<h3>${phase==="error-confirmed"?"Venta registrada · envío pendiente":"No se confirmó la Venta"}</h3><p class="mostrador-sale-progress-text-d9" role="alert">${esc(message||"No se pudo verificar el resultado.")}</p><p class="mini-text">${phase==="error-confirmed"?"El carrito conserva sus datos para preparar nuevamente el envío.":"Si la respuesta fue incierta, consultá Verificación en Cuenta corriente antes de registrar otra Venta. El carrito conserva sus datos."}</p><button type="button" class="mostrador-flow-primary-d9" data-return-sale>Volver a la Venta</button>`;
+    box.querySelector("[data-return-sale]").onclick=()=>overlay.remove();
+    return;
+  }
+  box.innerHTML=`<h3>${phase==="confirmed"?"Venta registrada":"Registrando Venta…"}</h3><div class="mostrador-sale-progress-d9" role="status" aria-live="polite"><span class="mostrador-sale-spinner-d9" aria-hidden="true"></span><strong>${phase==="confirmed"?"Venta registrada · preparando envío…":"Registrando Venta y confirmando el pago…"}</strong></div><p class="mini-text">${phase==="confirmed"?"La registración fue confirmada. Preparando las opciones de WhatsApp.":"Esperá la confirmación. No cierres ni vuelvas a registrar esta Venta."}</p>`;
+}
 function financePaymentFieldsD9(sale, total, account) {
   return `${account ? `<p>${esc(account.cliente.nombre)} · Saldo actual: <strong>${esc(money(account.saldo))}</strong></p><label>Importe cobrado<input name="importe" type="text" inputmode="decimal" required placeholder="0,00"></label><label>Aplicar a<select name="aplicacion"><option value="">A cuenta, sin operación específica</option>${account.aplicaciones.map(a=>`<option value="${esc(a.id)}" ${account.aplicaciones.length===1 ? "selected" : ""}>${esc(a.numero||a.id)} · ${esc(money(a.saldo))}</option>`).join("")}</select></label><small>A cuenta permite saldo a favor, como en Gestión.</small>` : `<p>Total de la Venta: <strong>${esc(money(total))}</strong></p>`}
     <label>${sale ? "Condición / medio de pago" : "Medio de pago"}<select name="medio_pago" required><option value="">Seleccionar…</option><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="CHEQUE">Cheque</option>${sale ? '<option value="CUENTA_CORRIENTE">Cuenta corriente</option>' : ""}</select></label>
@@ -128,7 +138,7 @@ function financeChooseSaleMethodD9(payload) {
     if(!occasional)financeBindMethodD9(form);
     if(occasional)form.querySelector("[data-save-client]").onclick=()=>{overlay.remove();resolve(null);openMostradorClientFormD9("sale");};
     form.querySelector("[data-cancel]").onclick=()=>{overlay.remove();resolve(null);};
-    form.onsubmit=event=>{event.preventDefault();try{const result=financeReadPaymentD9(form,true);if(occasional&&result.medio_pago!=="EFECTIVO")throw new Error("El cliente ocasional sólo admite efectivo total. Creá una ficha real para otros medios.");overlay.remove();resolve(result);}catch(error){form.querySelector("[role=alert]").textContent=error.message;}};
+    form.onsubmit=event=>{event.preventDefault();try{const result=financeReadPaymentD9(form,true);if(occasional&&result.medio_pago!=="EFECTIVO")throw new Error("El cliente ocasional sólo admite efectivo total. Creá una ficha real para otros medios.");financeSaleProgressD9("saving");resolve(result);}catch(error){form.querySelector("[role=alert]").textContent=error.message;}};
   });
 }
 function financeSaleIsCurrentD9(payload) {

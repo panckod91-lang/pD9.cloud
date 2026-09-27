@@ -3420,6 +3420,17 @@ button:active,
   color:#17315a;
   font-size:20px;
 }
+.mostrador-sale-progress-d9{
+  display:flex;align-items:center;gap:14px;margin:18px 0;padding:16px;
+  border-radius:14px;background:#edf7fc;color:#17315a;line-height:1.4;
+}
+.mostrador-sale-spinner-d9{
+  display:inline-block;flex:none;width:25px;height:25px;
+  border:3px solid #b8ddeb;border-top-color:#1387c5;border-radius:50%;
+  animation:mostrador-sale-spin-d9 .8s linear infinite;
+}
+.mostrador-sale-progress-text-d9{color:#9a1f1f;overflow-wrap:anywhere;}
+@keyframes mostrador-sale-spin-d9{to{transform:rotate(360deg)}}
 .mostrador-phone-field-d9{
   display:block;
   margin-top:16px;
