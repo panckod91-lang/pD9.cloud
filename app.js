@@ -2,7 +2,7 @@ const WEBHOOK_ENDPOINTS = [
   "https://d9-pedidos-prod-worker.pancko-d9.workers.dev/"
 ];
 const BOOTSTRAP_URL = "https://script.google.com/macros/s/AKfycbwg8YQ7lqtLFbxnmtHnM3TxHaCaVoHQ_7AJHKPhiQRyrX6OyqO004F2pSABjI5df3yI/exec?action=bootstrap";
-const APP_VERSION = "v1.5.44 (Frecuentes y progreso de Venta)";
+const APP_VERSION = "v1.5.45 (Estado de ingreso)";
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 const FOREGROUND_REFRESH_MIN_MS = 5 * 60 * 1000;
 let lastAutoRefreshAtD9 = 0;
@@ -2455,23 +2455,35 @@ async function loginSeller() {
   const userValue = $("#sellerUser").value.trim().toLowerCase();
   const pass = $("#sellerPass").value.trim();
   if(!navigator.onLine)return toast("Necesitás conexión para ingresar. La sesión existente y los pedidos offline se conservan.");
-  const loginButton=$("#btnLogin");if(loginButton.disabled)return;loginButton.disabled=true;
-  let result;try{result=await postPedidosAuthD9("login",{usuario:userValue,clave:pass});}catch(error){return toast(error.message);}finally{loginButton.disabled=false;$("#sellerPass").value="";}
-  const rawSeller=stripUserSecretsD9(result.user),seller={...rawSeller,id:String(rawSeller.id||"").trim(),rol:String(rawSeller.rol||"cliente").trim().toLowerCase(),alcance_clientes:String(rawSeller.alcance_clientes||defaultClientScopeD9(rawSeller.rol)).trim().toUpperCase(),lista_precio:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),lista_1:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),interfaz:String(rawSeller.interfaz||rawSeller.modo_interfaz||rawSeller.modo||"normal").trim().toLowerCase(),modo_simple:isTrue(rawSeller.modo_simple)};
-  localStorage.setItem("d9_auth_session",JSON.stringify({token:result.token,uid:String(seller.id)}));
-  if (String(state.seller?.id || "") !== String(seller.id || "")) clearMostradorWorkspaceD9();
-  state.seller = seller;
-  saveJSON(STORAGE_KEYS.seller, { id: seller.id, nombre: seller.nombre, usuario: seller.usuario });
-  let clientsLoadError=null;
-  try{await loadAllData();hydrateSeller();persistCacheState();}
-  catch(error){console.warn("No se pudo actualizar la cartera autorizada después del ingreso:",error);clientsLoadError=error;state.clientsRefreshNeeded=true;}
-  applyUserContext();
-  applyExperienceModeD9();
-  syncSessionUI();
-  renderAll();
-  closeLogin();
-  showView("home");
-  toast(clientsLoadError?"Ingresaste, pero no se pudieron cargar los clientes: "+clientsLoadError.message+". Abrí el selector con conexión para reintentar.":`Hola, ${seller.nombre}`);
+  const loginButton=$("#btnLogin"),userInput=$("#sellerUser"),passInput=$("#sellerPass");
+  if(loginButton.disabled)return;
+  const idleLabel=loginButton.innerHTML;
+  loginButton.disabled=true;userInput.disabled=true;passInput.disabled=true;
+  loginButton.innerHTML='<span class="mostrador-sale-spinner-d9 login-spinner-d9" aria-hidden="true"></span> Ingresando…';
+  let result,authenticated=false;
+  try {
+    try{result=await postPedidosAuthD9("login",{usuario:userValue,clave:pass});}
+    catch(error){toast(error.message);return;}
+    authenticated=true;
+    const rawSeller=stripUserSecretsD9(result.user),seller={...rawSeller,id:String(rawSeller.id||"").trim(),rol:String(rawSeller.rol||"cliente").trim().toLowerCase(),alcance_clientes:String(rawSeller.alcance_clientes||defaultClientScopeD9(rawSeller.rol)).trim().toUpperCase(),lista_precio:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),lista_1:normalizePriceListKeyD9(rawSeller.lista_precio||rawSeller.lista||rawSeller.lista_1||"lista_1"),interfaz:String(rawSeller.interfaz||rawSeller.modo_interfaz||rawSeller.modo||"normal").trim().toLowerCase(),modo_simple:isTrue(rawSeller.modo_simple)};
+    localStorage.setItem("d9_auth_session",JSON.stringify({token:result.token,uid:String(seller.id)}));
+    if (String(state.seller?.id || "") !== String(seller.id || "")) clearMostradorWorkspaceD9();
+    state.seller = seller;
+    saveJSON(STORAGE_KEYS.seller, { id: seller.id, nombre: seller.nombre, usuario: seller.usuario });
+    let clientsLoadError=null;
+    try{await loadAllData();hydrateSeller();persistCacheState();}
+    catch(error){console.warn("No se pudo actualizar la cartera autorizada después del ingreso:",error);clientsLoadError=error;state.clientsRefreshNeeded=true;}
+    applyUserContext();
+    applyExperienceModeD9();
+    syncSessionUI();
+    renderAll();
+    closeLogin();
+    showView("home");
+    toast(clientsLoadError?"Ingresaste, pero no se pudieron cargar los clientes: "+clientsLoadError.message+". Abrí el selector con conexión para reintentar.":`Hola, ${seller.nombre}`);
+  } finally {
+    loginButton.disabled=false;userInput.disabled=false;passInput.disabled=false;loginButton.innerHTML=idleLabel;
+    if(authenticated)passInput.value="";
+  }
 }
 
 function clearMostradorWorkspaceD9() {

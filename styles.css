@@ -400,6 +400,8 @@ main{width:100%}
 .primary-btn{background:linear-gradient(135deg,#3fb9ed 0%, #59c8f4 100%);color:#fff}
 .secondary-btn{background:#eef7fd;color:#2a5a84}
 .full-btn{width:100%}
+#btnLogin:disabled{cursor:wait;opacity:.86}
+#btnLogin .login-spinner-d9{width:17px;height:17px;border-color:rgba(255,255,255,.45);border-top-color:#fff;vertical-align:-4px;margin-right:6px}
 .empty-state{color:var(--muted);padding:8px 0}
 .price-products-list{display:grid;gap:10px;margin-top:12px}
 .price-row{
